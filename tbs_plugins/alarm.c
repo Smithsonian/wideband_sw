@@ -1,3 +1,4 @@
+#include <time.h>
 #include <stdio.h>
 #include <sys/time.h>
 #include <stdlib.h>
@@ -21,6 +22,8 @@ unsigned int set_alarm(long int sec, long int usec, long int repeat);
 
 /* KATCP command to start a repeating alarm */
 int start_alarm_cmd(struct katcp_dispatch *d, int argc) {
+  int wait; 
+
   /* Check if alarm has been set */
   if (period == 0) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "alarm has not been set");
@@ -32,6 +35,17 @@ int start_alarm_cmd(struct katcp_dispatch *d, int argc) {
   if (set_alarm(tv_sec, tv_usec, repeat) < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "problem setting itimer alarm");
     return KATCP_RESULT_FAIL;
+  }
+
+  /* Grab the first argument, the optional wait for alarm to expire */
+  wait = arg_unsigned_long_katcp(d, 1);
+  if (wait == 1){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "waiting for alarm to finish");
+    
+    /* Wait for timer to stop */
+    while (keep_going == 1) {
+      usleep(100);
+    }
   }
 
   return KATCP_RESULT_OK;
@@ -91,6 +105,8 @@ unsigned int set_alarm(long int sec, long int usec, long int repeat) {
 
 /* Here is the exception handler */
 void catch_alarm(int signal) {
+  struct timespec now;
+
   if (!keep_going) {
     /* Clear the itimer when done */
     setitimer(ITIMER_REAL, NULL, NULL);
@@ -100,6 +116,9 @@ void catch_alarm(int signal) {
   if (iteration == 0) {
     keep_going = 0;
   }
+
+  clock_gettime(CLOCK_REALTIME, &now);
+  printf("(%ld.%09ld) ", (long int)now.tv_sec, now.tv_nsec);
   if (iteration == 0) {
     printf("Done repeating\n");
   } else if (iteration > 0) {
@@ -107,6 +126,7 @@ void catch_alarm(int signal) {
   } else {
     printf("Repeating forever...\n");
   }
+
 }
 
 
@@ -125,7 +145,7 @@ struct PLUGIN KATCP_PLUGIN = {
     },
     {
       .name = "?alarm-start", 
-      .desc = "if alarm-set was called with M=0, start the repeat alarm (?alarm-start)",
+      .desc = "if alarm-set was called with M>0, start the repeat alarm, optionally wait for it to finish (?alarm-start [wait=0])",
       .cmd = start_alarm_cmd
     },
     {

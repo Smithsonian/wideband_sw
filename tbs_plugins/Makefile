@@ -9,7 +9,7 @@ example.o: example.c
 	$(CROSS_COMPILE)gcc -fPIC -Wall -o example.o -g -c example.c -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
 
 alarm: alarm.o
-	$(CROSS_COMPILE)gcc -o alarm.so alarm.o -shared
+	$(CROSS_COMPILE)gcc -o alarm.so alarm.o -shared -lrt
 
 alarm.o: alarm.c
 	$(CROSS_COMPILE)gcc -fPIC -Wall -o alarm.o -g -c alarm.c -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
