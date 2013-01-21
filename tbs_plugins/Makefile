@@ -1,18 +1,36 @@
-IDIR = ../../katcp_devel
+-include $(TARGET).make
 
-all: example alarm
+$(TARGET)/example.so: LDLIBS = 
+$(TARGET)/alarm.so: LDLIBS = -lrt
 
-example: example.o
-	$(CROSS_COMPILE)gcc -o example.so example.o -shared
+build: 
+	$(MAKE) TARGET=x86_64 all
+	$(MAKE) TARGET=powerpc all
 
-example.o: example.c
-	$(CROSS_COMPILE)gcc -fPIC -Wall -o example.o -g -c example.c -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
+clean: 
+	$(MAKE) TARGET=x86_64 clean-target
+	$(MAKE) TARGET=powerpc clean-target
 
-alarm: alarm.o
-	$(CROSS_COMPILE)gcc -o alarm.so alarm.o -shared -lrt
+install: 
+	$(MAKE) TARGET=x86_64 install-target
+	$(MAKE) TARGET=powerpc install-target
 
-alarm.o: alarm.c
-	$(CROSS_COMPILE)gcc -fPIC -Wall -o alarm.o -g -c alarm.c -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
+all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so
 
-clean:
-	rm *.o *.so
+$(TARGET):
+	mkdir -p $(TARGET)
+
+$(TARGET)/%.o: %.c
+	$(CROSS_COMPILE)gcc -fPIC -Wall -o $@ -g -c $< -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
+
+$(TARGET)/%.so: $(TARGET)/%.o
+	$(CROSS_COMPILE)gcc -o $@ $< -shared $(LDLIBS)
+
+clean-target:
+	rm -f $(TARGET)/*.o
+	rm -f $(TARGET)/*.so
+	rmdir -p $(TARGET)
+
+install-target:
+	mkdir -p $(INSTALL_DIR)/tbs_plugins
+	install -m 644 $(TARGET)/*.so $(INSTALL_DIR)/tbs_plugins
