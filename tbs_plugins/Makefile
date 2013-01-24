@@ -1,6 +1,7 @@
 -include $(TARGET).make
 
 $(TARGET)/example.so: LDLIBS = 
+$(TARGET)/sma_walsh.so: LDLIBS = -lrt
 $(TARGET)/alarm.so: LDLIBS = -lrt
 
 build: 
@@ -15,7 +16,7 @@ install:
 	$(MAKE) TARGET=x86_64 install-target
 	$(MAKE) TARGET=powerpc install-target
 
-all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so
+all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so
 
 $(TARGET):
 	mkdir -p $(TARGET)
