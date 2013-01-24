@@ -1,7 +1,7 @@
 RPC = /global/rpcFiles/
 wideCrate: wideCrate.c dDS.h integration.h  Makefile
-	gcc -o wideCrate -lpthread wideCrate.c dDS_clnt.o dDS_xdr.o \
-	integration_xdr.o
+	gcc -o wideCrate -pthread wideCrate.c dDS_clnt.o dDS_xdr.o \
+	integration_xdr.o -lkatcp -lrt
 
 dDS.h: $(RPC)dDS.x Makefile
 	cp $(RPC)dDS.x ./

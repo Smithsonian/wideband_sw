@@ -1,5 +1,8 @@
+#include <time.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <rpc/pmap_clnt.h>
 #include <rpc/rpc.h>
 #include <unistd.h>
@@ -11,12 +14,21 @@
 #include "dDS.h"
 #include "integration.h"
 
+/* KATCP libraries */
+#include "katcl.h"
+#include "katcp.h"
+
 #define OK     (0)
 #define ERROR (-1)
 
 #define SERVER_PRIORITY (10)
 
 pthread_t serverTId;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+volatile sig_atomic_t package_received = 0;
+
+/* Global package shared between threads */
+intgWalshPackage *dds_package;
 
 statusCheck(dDSStatus *status)
 {
@@ -78,33 +90,121 @@ void intgprog_1(struct svc_req *rqstp, register SVCXPRT *transp)
 intgWalshResponse *result;
 intgWalshResponse *intgsyncwalsh_1(intgWalshPackage *package, CLIENT *cl)
 {
-  static int firstCall = TRUE;
-  int i, nPatterns;
+  int i, j, pattern_len, step_len;
 
-  if (firstCall) {
-    result = malloc(sizeof(intgWalshResponse));
-    if (result == NULL) {
-      perror("malloc of result structure for intgsyncwalsh_1\n");
-      exit(ERROR);
-    }
-    firstCall = FALSE;
+  result = malloc(sizeof(intgWalshResponse));
+  if (result == NULL) {
+    perror("malloc of result structure for intgsyncwalsh_1\n");
+    exit(ERROR);
   }
+
+  if (!package_received) {
+    pthread_mutex_lock(&mutex);
+    dds_package = package;
+
+    dds_package->pattern = package->pattern;
+    pattern_len = dds_package->pattern.pattern_len;
+    dds_package->pattern.pattern_val = malloc(pattern_len * sizeof(intgWalshPattern));
+    for (i=0; i<pattern_len; i++) {
+      dds_package->pattern.pattern_val[i] = package->pattern.pattern_val[i];
+      dds_package->pattern.pattern_val[i].step = package->pattern.pattern_val[i].step;
+
+      step_len = dds_package->pattern.pattern_val[i].step.step_len;
+      if (step_len == 0) {
+	dds_package->pattern.pattern_val[i].step.step_val = NULL;
+      } else {
+	dds_package->pattern.pattern_val[i].step.step_val = malloc(step_len * sizeof(int));
+      }
+      for (j=0; j<step_len; j++) {
+	printf("%d:%d", i, j);
+	dds_package->pattern.pattern_val[i].step.step_val[j] = package->pattern.pattern_val[i].step.step_val[j];
+      }
+    }
+
+    pthread_mutex_unlock(&mutex);
+    package_received = 1;
+  }
+
+  result->status = OK;
+  return result;
+}
+
+int handle_package(intgWalshPackage *package, int hb_offset) {
+  struct katcl_line *l;
+  int i, nPatterns, step_len, total, katcp_result;
+  struct timespec sowf_ts, armed_at;
+  struct tm curr;
+  struct tm sowf;
+  time_t raw;
+
+  /* Process the Walsh table */
   printf("Received a package from the DDS Server - contents:\n");
   nPatterns = package->pattern.pattern_len;
-  printf("Number of Walsh Patterns %d, listed below\n", nPatterns);
-  for (i = 0; i < nPatterns; i++) {
-    int j;
+  /* printf("Number of Walsh Patterns %d, listed below\n", nPatterns); */
+  /* for (i = 1; i < nPatterns; i++) { */
+  /*   int j; */
 
-    printf("%2d:  ", i);
-    for (j = 0; j < package->pattern.pattern_val[i].step.step_len; j++)
-      printf("%d", package->pattern.pattern_val[i].step.step_val[j]);
-    printf("\n");
-  }
+  /*   step_len = package->pattern.pattern_val[i].step.step_len; */
+  /*   printf("%2d: %d ", i, step_len); */
+  /*   for (j = 0; j < step_len; j++) */
+  /*     printf("%d", package->pattern.pattern_val[i].step.step_val[j]); */
+  /*   printf("\n"); */
+  /* } */
+
+  /* Print a human-readable version of the agreed upon start of Walsh hearbeat */
   printf("Start at day %d of year %d\n", package->startDay, package->startYear);
   printf("at %02d:%02d:%02d.%06d\n", package->startHour, package->startMin,
 	 package->startSec, package->startuSec);
-  result->status = OK;
-  return(result);
+  
+  /* Get a struct tm of current time and replace with SOWF info */
+  time(&raw);
+  curr = *gmtime(&raw);
+  sowf = curr;
+  sowf.tm_year = package->startYear - 1900;
+  sowf.tm_yday = package->startDay;
+  sowf.tm_hour = package->startHour;
+  sowf.tm_min = package->startMin;
+  sowf.tm_sec = package->startSec;
+  printf("Current time: %d\n", (int)mktime(&curr));
+  printf("SOWF time:    %d\n", (int)mktime(&sowf));
+  
+  /* Convert it to a timespec */
+  sowf_ts.tv_sec = mktime(&sowf);
+  sowf_ts.tv_nsec = (package->startuSec) * 1e3;
+
+  /* connect to roach2-02 */
+  l = create_name_rpc_katcl("roach2-02");
+  if(l == NULL){
+    fprintf(stderr, "unable to create client connection to roach2-02: %s\n", strerror(errno));
+    result->status = ERROR;
+    return ERROR;
+  }
+
+  /* send the walsh arm request, with 20s timeout */
+  katcp_result = send_rpc_katcl(l, 20000,
+  				KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?sma-walsh-arm",
+  				KATCP_FLAG_ULONG, sowf_ts.tv_sec,
+  				KATCP_FLAG_ULONG, sowf_ts.tv_nsec,
+  				KATCP_FLAG_LAST  | KATCP_FLAG_SLONG, (long)hb_offset,
+  				NULL);
+
+  clock_gettime(CLOCK_REALTIME, &armed_at);
+  printf("Presumably armed at: %d.%06d\n", (int)armed_at.tv_sec, (int)armed_at.tv_nsec);
+
+  /* result is 0 if the reply returns "ok", 1 if it failed and -1 if things went wrong doing IO or otherwise */
+  printf("result of ?sma-walsh-arm is %d\n", katcp_result);
+
+  /* you can examine the content of the reply with the following functions */
+  total = arg_count_katcl(l);
+  printf("have %d arguments in reply\n", total);
+  for(i = 0; i < total; i++){
+    /* for binary data use the arg_buffer_katcl, string will stop at the first occurrence of a \0 */
+    printf("reply[%d] is <%s>\n", i, arg_string_katcl(l, i));
+  }
+
+  destroy_rpc_katcl(l);
+
+  return OK;
 }
 
 intgWalshResponse *intgsyncwalsh_1_svc(intgWalshPackage *package,
@@ -125,33 +225,34 @@ void *server(void *arg)
   
   transp = svcudp_create(RPC_ANYSOCK);
   if (transp == NULL) {
-    fprintf(stderr, "%s", "cannot create udp service.");
+    fprintf(stderr, "%s", "cannot create udp service.\n");
     exit(1);
   }
   if (!svc_register(transp, INTGPROG, INTGVERS, intgprog_1, IPPROTO_UDP)) {
-    fprintf(stderr, "%s", "unable to register (INTGPROG, INTGVERS, udp).");
+    fprintf(stderr, "%s", "unable to register (INTGPROG, INTGVERS, udp).\n");
     exit(1);
   }
   
   transp = svctcp_create(RPC_ANYSOCK, 0, 0);
   if (transp == NULL) {
-    fprintf(stderr, "%s", "cannot create tcp service.");
+    fprintf(stderr, "%s", "cannot create tcp service.\n");
     exit(1);
   }
   if (!svc_register(transp, INTGPROG, INTGVERS, intgprog_1, IPPROTO_TCP)) {
-    fprintf(stderr, "%s", "unable to register (INTGPROG, INTGVERS, tcp).");
+    fprintf(stderr, "%s", "unable to register (INTGPROG, INTGVERS, tcp).\n");
     exit(1);
   }
   
   svc_run();
-  fprintf(stderr, "%s", "svc_run returned");
+  fprintf(stderr, "%s", "svc_run returned\n");
   exit(1);
   /* NOTREACHED */
 }
 
-main()
+int main(int argc, char **argv)
 {
   int status;
+  int hb_offset = 0;
   char hostName[20];
   dDSCommand command;
   pthread_attr_t attr;
@@ -182,5 +283,15 @@ main()
   command.client[19] = (char)0;
   printf("This client's name is \"%s\".\n", command.client);
   statusCheck(ddsrequest_1(&command, cl));
-  pthread_join(serverTId, NULL);
+  //pthread_join(serverTId, NULL);
+
+  while (!package_received) {
+    usleep(1);
+  }
+
+  if (argc == 2) {
+    hb_offset = atoi(argv[1]);
+  }
+
+  handle_package(dds_package, hb_offset);
 }
