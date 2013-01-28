@@ -15,7 +15,7 @@ int example_error_cmd(struct katcp_dispatch *d, int argc){
 struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 2,
   .name = "example",
-  .version = "0.0.1",
+  .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     {
       .name = "?example_info", 

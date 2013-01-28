@@ -198,7 +198,7 @@ int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
 struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 2,
   .name = "sma-walsh",
-  .version = "0.0.5",
+  .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     {
       .name = "?sma-walsh-arm", 

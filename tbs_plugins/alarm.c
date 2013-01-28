@@ -136,7 +136,7 @@ void catch_alarm(int signal) {
 struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 3,
   .name = "alarm",
-  .version = "0.0.1",
+  .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     {
       .name = "?alarm-set", 

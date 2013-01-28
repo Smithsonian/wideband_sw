@@ -22,7 +22,8 @@ $(TARGET):
 	mkdir -p $(TARGET)
 
 $(TARGET)/%.o: %.c
-	$(CROSS_COMPILE)gcc -fPIC -Wall -o $@ -g -c $< -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3
+	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -o $@ -g -c $< -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 \
+		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
 $(TARGET)/%.so: $(TARGET)/%.o
 	$(CROSS_COMPILE)gcc -o $@ $< -shared $(LDLIBS)
