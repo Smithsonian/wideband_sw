@@ -30,7 +30,7 @@ $(TARGET)/%.so: $(TARGET)/%.o
 clean-target:
 	rm -f $(TARGET)/*.o
 	rm -f $(TARGET)/*.so
-	rmdir -p $(TARGET)
+	rmdir --ignore-fail-on-non-empty -p $(TARGET)
 
 install-target:
 	mkdir -p $(INSTALL_DIR)/tbs_plugins
