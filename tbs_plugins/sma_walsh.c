@@ -234,7 +234,7 @@ int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
 
-  /* ... and now we wait, timeout=10 seconds */
+  /* ... and now we wait, timeout=60 seconds */
   arm_at_db = timespec_to_double(arm_at);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "arm reqst=%.9f", arm_at_db);
   arm_at_db += ((double)hb_offset) * HB_PERIOD;
@@ -245,8 +245,8 @@ int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
   while (now_db < arm_at_db) {
     clock_gettime(CLOCK_REALTIME, &now);
     now_db = timespec_to_double(now);
-    if (now.tv_sec > start.tv_sec+10) {
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "arm timed out after 10 seconds");
+    if (now.tv_sec > start.tv_sec+60) {
+      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "arm timed out after 60 seconds");
       return KATCP_RESULT_FAIL;
     }
   }      
