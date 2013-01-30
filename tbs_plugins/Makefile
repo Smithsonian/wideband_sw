@@ -2,6 +2,7 @@
 
 $(TARGET)/example.so: LDLIBS = 
 $(TARGET)/sma_walsh.so: LDLIBS = -lrt
+$(TARGET)/sma_astro.so: LDLIBS = -lrt
 $(TARGET)/alarm.so: LDLIBS = -lrt
 
 build: 
@@ -16,13 +17,14 @@ install:
 	$(MAKE) TARGET=x86_64 install-target
 	$(MAKE) TARGET=powerpc install-target
 
-all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so
+all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so $(TARGET)/sma_astro.so
 
 $(TARGET):
 	mkdir -p $(TARGET)
 
 $(TARGET)/%.o: %.c
-	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -o $@ -g -c $< -I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 \
+	$(CROSS_COMPILE)gcc $(CFLAGS) -DKATCP_USE_FLOATS -fPIC -Wall -o $@ -g -c $< \
+		-I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
 $(TARGET)/%.so: $(TARGET)/%.o
