@@ -2,7 +2,7 @@
 
 $(TARGET)/example.so: LDLIBS = 
 $(TARGET)/sma_walsh.so: LDLIBS = -lrt
-$(TARGET)/sma_astro.so: LDLIBS = -lrt
+$(TARGET)/sma_astro.so: LDLIBS = -lrt -lm
 $(TARGET)/alarm.so: LDLIBS = -lrt
 
 build: 
@@ -23,12 +23,15 @@ $(TARGET):
 	mkdir -p $(TARGET)
 
 $(TARGET)/%.o: %.c
-	$(CROSS_COMPILE)gcc $(CFLAGS) -DKATCP_USE_FLOATS -fPIC -Wall -o $@ -g -c $< \
-		-I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 \
+	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -c $< -o $@ -g \
+		-I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
-$(TARGET)/%.so: $(TARGET)/%.o
-	$(CROSS_COMPILE)gcc -o $@ $< -shared $(LDLIBS)
+$(TARGET)/%.so: $(TARGET)/%.o 
+	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
+
+$(TARGET)/sma_astro.so: $(TARGET)/sma_astro.o $(TARGET)/lst.o
+	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
 
 clean-target:
 	rm -f $(TARGET)/*.o
