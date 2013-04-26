@@ -1,0 +1,33 @@
+# depslib dependency file v1.0
+1366861043 source:c:\users\rprimian\git\tartarus\glfwtest\main.cpp
+	<GL/glfw.h>
+	"shapes.h"
+
+1366832492 c:\glfw-2.7.8\include\gl\glfw.h
+	<OpenGL/gl3.h>
+	<OpenGL/gl.h>
+	<OpenGL/glu.h>
+	<GL3/gl3.h>
+	<GL/gl.h>
+	<GL/glu.h>
+
+1366860629 source:c:\users\rprimian\git\tartarus\glfwtest\shapes.c
+	<math.h>
+	<GL/glfw.h>
+	"shapes.h"
+
+1366858923 c:\users\rprimian\git\tartarus\glfwtest\shapes.h
+
+1366928516 source:c:\users\rprimian\projects\glfwtest\main.cpp
+	<math.h>
+	<stdio.h>
+	<GL/glfw.h>
+	"shapes.h"
+
+1366862523 c:\users\rprimian\projects\glfwtest\shapes.h
+
+1366907036 source:c:\users\rprimian\projects\glfwtest\shapes.c
+	<math.h>
+	<GL/glfw.h>
+	"shapes.h"
+
