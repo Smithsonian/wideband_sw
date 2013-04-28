@@ -11,3 +11,9 @@
 *.lai
 *.la
 *.a
+
+# Code::Blocks non-essential files
+*.layout
+
+# Code::Blocks binary directory
+bin/
