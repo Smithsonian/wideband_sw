@@ -13,6 +13,7 @@
 *.a
 
 # Code::Blocks non-essential files
+*.layout
 *.layout.*
 
 # Code::Blocks binary directory
