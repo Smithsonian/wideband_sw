@@ -31,3 +31,22 @@
 	<GL/glfw.h>
 	"shapes.h"
 
+1367000561 source:c:\cygwin\home\rprimian\git\cloaked-octo-bear\glfwtest\main.cpp
+	<math.h>
+	<stdio.h>
+	<GL/glfw.h>
+	"shapes.h"
+
+1367000561 c:\cygwin\home\rprimian\git\cloaked-octo-bear\glfwtest\shapes.h
+
+1367000561 source:c:\cygwin\home\rprimian\git\cloaked-octo-bear\glfwtest\shapes.c
+	<math.h>
+	<GL/glfw.h>
+	"shapes.h"
+
+1367008006 source:c:\cygwin\home\rprimian\git\cloaked-octo-bear\glfwtest\camera.cpp
+	<GL/glfw.h>
+	"camera.h"
+
+1367009359 c:\cygwin\home\rprimian\git\cloaked-octo-bear\glfwtest\camera.h
+
