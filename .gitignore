@@ -13,6 +13,8 @@
 *.a
 
 # Code::Blocks non-essential files
+*.depend
+*.depend.*
 *.layout
 *.layout.*
 
