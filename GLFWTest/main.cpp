@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <GL/glfw.h>
 #include "shapes.h"
+#include "camera.h"
 
 int main()
 {
