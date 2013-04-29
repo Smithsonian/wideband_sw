@@ -4,11 +4,17 @@
 class Camera
 {
     public:
-        Camera(GLfloat[3], GLfloat[3]);
+        Camera(GLfloat, GLfloat, GLfloat,  // initial position
+               GLfloat, GLfloat, GLfloat); // initial angle
+        GLfloat xangle, yangle, zangle; // Direction Camera looks at
+        void stepForward(GLfloat);
+        void stepBack(GLfloat);
+        void stepLeft(GLfloat);
+        void stepRight(GLfloat);
+        int update(void);
         virtual ~Camera();
     protected:
         GLfloat xposition, yposition, zposition; // Camera position
-        GLfloat xlookat, ylookat, zlookat; // Direction Camera looks at
     private:
 };
 
