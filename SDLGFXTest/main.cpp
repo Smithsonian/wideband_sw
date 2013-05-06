@@ -1,18 +1,84 @@
+#include <time.h>
+#include <math.h>
+#include <stdlib.h>
 #include "SDL.h"
 #include "SDL_gfxPrimitives.h"
 #include "figure.h"
 
-const int WINDOW_WIDTH = 640;
-const int WINDOW_HEIGHT = 480;
-const char* WINDOW_TITLE = "SDL Start";
+#define ARRAY_LENGTH 16
+#define WINDOW_WIDTH 1920
+#define WINDOW_HEIGHT 1080
+#define WINDOW_TITLE "SDL Start"
 
+void randomizeArray(int length, int maxValue, int* arr)
+{
+
+    for (int i=0; i<length; i++)
+    {
+        arr[i] = rand() % maxValue;
+        //arr[i] = 300 + (int)(maxValue * cosf(i / (length/32.0)));
+    }
+
+}
+
+void draw(SDL_Surface* screen, int* arr)
+{
+    int xLastPoint = 0;
+    float xPointsPerPixel = 0.0;
+    float yPointsPerPixel = 0.0;
+
+    xPointsPerPixel = ARRAY_LENGTH / (float)screen->w;
+    yPointsPerPixel = (WINDOW_HEIGHT/2) / (float)screen->h;
+
+    SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 255, 255, 255));
+
+    for (int p=0; p<screen->w; p++)
+    {
+        bool pixelGood;
+        xLastPoint = (int)(p * xPointsPerPixel);
+
+        if (xPointsPerPixel <= 1.0)
+        {
+            pixelGood = p - xLastPoint/xPointsPerPixel < 1.0;
+        }
+        else
+        {
+            pixelGood = true;
+        }
+
+        if (pixelGood)
+        {
+            filledCircleRGBA(screen, p, arr[xLastPoint], 5, 255, 0, 0, 255);
+        }
+
+    }
+
+    SDL_Flip(screen);
+
+}
+
+#undef main
 int main(int argc, char **argv)
 {
+    int frame = 0;
+    SDL_Event event;
+    bool gameRunning = true;
+    int arr[ARRAY_LENGTH];
+
+    //SDL_putenv("SDL_VIDEODRIVER=directx");
+
     Figure fig(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
     SDL_Surface* screen = fig.getScreen();
 
-    SDL_Event event;
-    bool gameRunning = true;
+    // Initialize RNG
+    srand(time(NULL));
+
+    // Get the time since SDL init
+    int startTick = SDL_GetTicks();
+    int tempTick0 = SDL_GetTicks();
+    int tempTick1 = SDL_GetTicks();
+
+    printf("SDL_HWSURFACE=%d\n", screen->flags & SDL_HWSURFACE);
 
     while (gameRunning)
     {
@@ -26,72 +92,39 @@ int main(int argc, char **argv)
             case SDL_VIDEORESIZE:
                 fig.resizeScreen(event.resize.w, event.resize.h);
                 break;
+            case SDL_KEYUP:
+            case SDL_KEYDOWN:
+                if (event.key.keysym.sym == SDLK_ESCAPE)
+                    gameRunning = false;
+                break;
             }
         }
 
-        SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 255, 255, 255));
+        if (frame % 1000 == 0)
+        {
+            tempTick1 = SDL_GetTicks();
+            printf("FPS: %.6f\n", 1000.0 * 1000 / (tempTick1 - tempTick0));
+            randomizeArray(ARRAY_LENGTH, WINDOW_HEIGHT/2, arr);
+            tempTick0 = SDL_GetTicks();
+        }
 
-        pixelRGBA(screen,
-                  10, 15,
-                  255, 255, 255, 255);
+        draw(screen, arr);
 
-        lineRGBA(screen,
-                 20, 10,
-                 70, 90,
-                 255, 0, 0, 255);
+        if (frame == 100000)
+        {
+            gameRunning = false;
+        }
 
-        trigonRGBA(screen,
-                   500, 50,
-                   550, 200,
-                   600, 150,
-                   0, 255, 255, 255);
-
-        filledTrigonRGBA(screen,
-                         200, 200,
-                         300, 50,
-                         400, 200,
-                         0, 0, 255, 255);
-
-        rectangleRGBA(screen,
-                      -10, 300,
-                      100, 380,
-                      0, 255, 0, 255);
-
-        boxRGBA(screen,
-                210, 76,
-                325, 300,
-                255, 0, 0, 150);
-
-        ellipseRGBA(screen,
-                    600, 400,
-                    50, 90,
-                    255, 255, 0, 200);
-
-        filledEllipseRGBA(screen,
-                          600, 400,
-                          25, 150,
-                          0, 255, 0, 255);
-
-        short x[6] = { 350, 275, 300, 325, 350, 400 };
-        short y[6] = { 325, 325, 390, 390, 375, 300 };
-
-        polygonRGBA(screen,
-                    x, y,
-                    6,
-                    255, 255, 255, 155);
-
-        short s[5] = { 400, 450, 450, 425, 300 };
-        short t[5] = { 400, 410, 450, 425, 500};
-
-        filledPolygonRGBA(screen,
-                          s, t,
-                          5,
-                          255, 0, 255, 155);
-
-        SDL_Flip(screen);
+        frame++;
     }
 
+    // Get the stop tick
+    int stopTick = SDL_GetTicks();
+
     SDL_Quit();
+
+    // Print out FPS info
+    printf("Average FPS: %.6f\n", 1000.0 * frame / (stopTick - startTick));
 
     return 0;
 }

@@ -5,8 +5,7 @@ Figure::Figure(int width, int height, const char * title)
     // Initialize the SDL Window
     if ( SDL_Init( SDL_INIT_VIDEO ) < 0)
     {
-        fprintf(stderr, "Couldn't initialize SDL: %s\n",
-                SDL_GetError());
+        fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
         exit(500);
     }
 
@@ -20,8 +19,7 @@ Figure::Figure(int width, int height, const char * title)
 void Figure::resizeScreen(int width, int height)
 {
     // Set the figure size
-    screen = SDL_SetVideoMode( width, height, 0,
-                               SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE );
+    screen = SDL_SetVideoMode(width, height, 16, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE);
 }
 
 SDL_Surface* Figure::getScreen()
