@@ -35,15 +35,20 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
+					<Add option="-pg" />
 					<Add option="-g" />
 					<Add directory="C:/SDL-1.2.15/include/SDL" />
 					<Add directory="C:/SDL_gfx-2.0.24" />
+					<Add directory="C:/SDL_ttf-2.0.11" />
 				</Compiler>
 				<Linker>
+					<Add option="-pg -lgmon" />
 					<Add option="-static-libgcc" />
 					<Add library="SDL" />
+					<Add library="SDL_ttf" />
 					<Add directory="C:/SDL_gfx-2.0.24" />
 					<Add directory="C:/SDL-1.2.15/lib" />
+					<Add directory="C:/SDL_ttf-2.0.11/VisualC" />
 				</Linker>
 			</Target>
 			<Target title="release-win32">
@@ -56,6 +61,7 @@
 					<Add option="-O2" />
 					<Add directory="C:/SDL-1.2.15/include/SDL" />
 					<Add directory="C:/SDL_gfx-2.0.24" />
+					<Add directory="C:/SDL_ttf-2.0.11" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
@@ -66,6 +72,7 @@
 					<Add library="SDL" />
 					<Add directory="C:/SDL_gfx-2.0.24" />
 					<Add directory="C:/SDL-1.2.15/lib" />
+					<Add directory="C:/SDL_ttf-2.0.11/VisualC" />
 				</Linker>
 			</Target>
 		</Build>
