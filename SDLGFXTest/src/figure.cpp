@@ -20,6 +20,11 @@ void Figure::resizeScreen(int width, int height)
 {
     // Set the figure size
     screen = SDL_SetVideoMode(width, height, 16, SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_RESIZABLE);
+    if (screen == NULL)
+    {
+        fprintf(stderr, "Couldn't resize screen: %s\n", SDL_GetError());
+        exit(500);
+    }
 }
 
 SDL_Surface* Figure::getScreen()
