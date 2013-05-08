@@ -15,95 +15,162 @@ INC =  -Iinclude
 CFLAGS =  -Wall `sdl-config --cflags`
 RESINC = 
 LIBDIR = 
-LIB =  -lSDL_gfx
+LIB =  -lSDL_gfx -lSDL_ttf -lSDL_net
 LDFLAGS =  `sdl-config --libs`
 
-INC_DEBUG =  $(INC)
-CFLAGS_DEBUG =  $(CFLAGS) -g
-RESINC_DEBUG =  $(RESINC)
-RCFLAGS_DEBUG =  $(RCFLAGS)
-LIBDIR_DEBUG =  $(LIBDIR)
-LIB_DEBUG = $(LIB)
-LDFLAGS_DEBUG =  $(LDFLAGS)
-OBJDIR_DEBUG = obj/Debug
-DEP_DEBUG = 
-OUT_DEBUG = bin/Debug/SDLGFXTest
+INC_DEBUG_LINUX =  $(INC)
+CFLAGS_DEBUG_LINUX =  $(CFLAGS) -g
+RESINC_DEBUG_LINUX =  $(RESINC)
+RCFLAGS_DEBUG_LINUX =  $(RCFLAGS)
+LIBDIR_DEBUG_LINUX =  $(LIBDIR)
+LIB_DEBUG_LINUX = $(LIB)
+LDFLAGS_DEBUG_LINUX =  $(LDFLAGS)
+OBJDIR_DEBUG_LINUX = obj/Debug
+DEP_DEBUG_LINUX = 
+OUT_DEBUG_LINUX = bin/Debug/SDLGFXTest
 
-INC_RELEASE =  $(INC)
-CFLAGS_RELEASE =  $(CFLAGS) -O2
-RESINC_RELEASE =  $(RESINC)
-RCFLAGS_RELEASE =  $(RCFLAGS)
-LIBDIR_RELEASE =  $(LIBDIR)
-LIB_RELEASE = $(LIB)
-LDFLAGS_RELEASE =  $(LDFLAGS) -s
-OBJDIR_RELEASE = obj/Release
-DEP_RELEASE = 
-OUT_RELEASE = bin/Release/SDLGFXTest
+INC_RELEASE_LINUX =  $(INC)
+CFLAGS_RELEASE_LINUX =  $(CFLAGS) -O2
+RESINC_RELEASE_LINUX =  $(RESINC)
+RCFLAGS_RELEASE_LINUX =  $(RCFLAGS)
+LIBDIR_RELEASE_LINUX =  $(LIBDIR)
+LIB_RELEASE_LINUX = $(LIB)
+LDFLAGS_RELEASE_LINUX =  $(LDFLAGS) -s
+OBJDIR_RELEASE_LINUX = obj/Release
+DEP_RELEASE_LINUX = 
+OUT_RELEASE_LINUX = bin/Release/SDLGFXTest
 
-OBJ_DEBUG = $(OBJDIR_DEBUG)/main.o $(OBJDIR_DEBUG)/src/figure.o
+INC_DEBUG_WIN32 =  $(INC) -IC:/SDL-1.2.15/include/SDL -IC:/SDL_gfx-2.0.24 -IC:/SDL_ttf-2.0.11
+CFLAGS_DEBUG_WIN32 =  $(CFLAGS) -pg -g
+RESINC_DEBUG_WIN32 =  $(RESINC)
+RCFLAGS_DEBUG_WIN32 =  $(RCFLAGS)
+LIBDIR_DEBUG_WIN32 =  $(LIBDIR) -LC:/SDL_gfx-2.0.24 -LC:/SDL-1.2.15/lib -LC:/SDL_ttf-2.0.11/VisualC
+LIB_DEBUG_WIN32 = $(LIB) -lSDL
+LDFLAGS_DEBUG_WIN32 =  $(LDFLAGS) -pg -pg -lgmon -static-libgcc
+OBJDIR_DEBUG_WIN32 = obj/Debug
+DEP_DEBUG_WIN32 = 
+OUT_DEBUG_WIN32 = bin/Debug/SDLGFXTest
 
-OBJ_RELEASE = $(OBJDIR_RELEASE)/main.o $(OBJDIR_RELEASE)/src/figure.o
+INC_RELEASE_WIN32 =  $(INC) -IC:/SDL-1.2.15/include/SDL -IC:/SDL_gfx-2.0.24 -IC:/SDL_ttf-2.0.11
+CFLAGS_RELEASE_WIN32 =  $(CFLAGS) -O2
+RESINC_RELEASE_WIN32 =  $(RESINC)
+RCFLAGS_RELEASE_WIN32 =  $(RCFLAGS)
+LIBDIR_RELEASE_WIN32 =  $(LIBDIR) -LC:/SDL_gfx-2.0.24 -LC:/SDL-1.2.15/lib -LC:/SDL_ttf-2.0.11/VisualC
+LIB_RELEASE_WIN32 = $(LIB) -lmingw32 -lSDLmain -lSDL
+LDFLAGS_RELEASE_WIN32 =  $(LDFLAGS) -s -mwindows -static-libgcc
+OBJDIR_RELEASE_WIN32 = obj/Release
+DEP_RELEASE_WIN32 = 
+OUT_RELEASE_WIN32 = bin/Release/SDLGFXTest
 
-all: before_build build_Debug build_Release after_build
+OBJ_DEBUG_LINUX = $(OBJDIR_DEBUG_LINUX)/main.o $(OBJDIR_DEBUG_LINUX)/src/figure.o
 
-clean: clean_Debug clean_Release
+OBJ_RELEASE_LINUX = $(OBJDIR_RELEASE_LINUX)/main.o $(OBJDIR_RELEASE_LINUX)/src/figure.o
 
-before_build: 
+OBJ_DEBUG_WIN32 = $(OBJDIR_DEBUG_WIN32)/main.o $(OBJDIR_DEBUG_WIN32)/src/figure.o
 
-after_build: 
-	cbp2make -in $projectfile -out Makefile --target-case keep || echo "cbp2make not found"
+OBJ_RELEASE_WIN32 = $(OBJDIR_RELEASE_WIN32)/main.o $(OBJDIR_RELEASE_WIN32)/src/figure.o
 
-before_Debug: 
+all: debug_linux release_linux debug_win32 release_win32
+
+clean: clean_debug_linux clean_release_linux clean_debug_win32 clean_release_win32
+
+before_debug_linux: 
 	test -d bin/Debug || mkdir -p bin/Debug
-	test -d $(OBJDIR_DEBUG) || mkdir -p $(OBJDIR_DEBUG)
-	test -d $(OBJDIR_DEBUG)/src || mkdir -p $(OBJDIR_DEBUG)/src
+	test -d $(OBJDIR_DEBUG_LINUX) || mkdir -p $(OBJDIR_DEBUG_LINUX)
+	test -d $(OBJDIR_DEBUG_LINUX)/src || mkdir -p $(OBJDIR_DEBUG_LINUX)/src
 
-after_Debug: 
+after_debug_linux: 
 
-build_Debug: before_Debug out_Debug after_Debug
+debug_linux: before_debug_linux out_debug_linux after_debug_linux
 
-Debug: before_build build_Debug after_build
+out_debug_linux: before_debug_linux $(OBJ_DEBUG_LINUX) $(DEP_DEBUG_LINUX)
+	$(LD) $(LIBDIR_DEBUG_LINUX) -o $(OUT_DEBUG_LINUX) $(OBJ_DEBUG_LINUX)  $(LDFLAGS_DEBUG_LINUX) $(LIB_DEBUG_LINUX)
 
-out_Debug: before_Debug $(OBJ_DEBUG) $(DEP_DEBUG)
-	$(LD) $(LIBDIR_DEBUG) -o $(OUT_DEBUG) $(OBJ_DEBUG)  $(LDFLAGS_DEBUG) $(LIB_DEBUG)
+$(OBJDIR_DEBUG_LINUX)/main.o: main.cpp
+	$(CXX) $(CFLAGS_DEBUG_LINUX) $(INC_DEBUG_LINUX) -c main.cpp -o $(OBJDIR_DEBUG_LINUX)/main.o
 
-$(OBJDIR_DEBUG)/main.o: main.cpp
-	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c main.cpp -o $(OBJDIR_DEBUG)/main.o
+$(OBJDIR_DEBUG_LINUX)/src/figure.o: src/figure.cpp
+	$(CXX) $(CFLAGS_DEBUG_LINUX) $(INC_DEBUG_LINUX) -c src/figure.cpp -o $(OBJDIR_DEBUG_LINUX)/src/figure.o
 
-$(OBJDIR_DEBUG)/src/figure.o: src/figure.cpp
-	$(CXX) $(CFLAGS_DEBUG) $(INC_DEBUG) -c src/figure.cpp -o $(OBJDIR_DEBUG)/src/figure.o
-
-clean_Debug: 
-	rm -f $(OBJ_DEBUG) $(OUT_DEBUG)
+clean_debug_linux: 
+	rm -f $(OBJ_DEBUG_LINUX) $(OUT_DEBUG_LINUX)
 	rm -rf bin/Debug
-	rm -rf $(OBJDIR_DEBUG)
-	rm -rf $(OBJDIR_DEBUG)/src
+	rm -rf $(OBJDIR_DEBUG_LINUX)
+	rm -rf $(OBJDIR_DEBUG_LINUX)/src
 
-before_Release: 
+before_release_linux: 
 	test -d bin/Release || mkdir -p bin/Release
-	test -d $(OBJDIR_RELEASE) || mkdir -p $(OBJDIR_RELEASE)
-	test -d $(OBJDIR_RELEASE)/src || mkdir -p $(OBJDIR_RELEASE)/src
+	test -d $(OBJDIR_RELEASE_LINUX) || mkdir -p $(OBJDIR_RELEASE_LINUX)
+	test -d $(OBJDIR_RELEASE_LINUX)/src || mkdir -p $(OBJDIR_RELEASE_LINUX)/src
 
-after_Release: 
+after_release_linux: 
 
-build_Release: before_Release out_Release after_Release
+release_linux: before_release_linux out_release_linux after_release_linux
 
-Release: before_build build_Release after_build
+out_release_linux: before_release_linux $(OBJ_RELEASE_LINUX) $(DEP_RELEASE_LINUX)
+	$(LD) $(LIBDIR_RELEASE_LINUX) -o $(OUT_RELEASE_LINUX) $(OBJ_RELEASE_LINUX)  $(LDFLAGS_RELEASE_LINUX) $(LIB_RELEASE_LINUX)
 
-out_Release: before_Release $(OBJ_RELEASE) $(DEP_RELEASE)
-	$(LD) $(LIBDIR_RELEASE) -o $(OUT_RELEASE) $(OBJ_RELEASE)  $(LDFLAGS_RELEASE) $(LIB_RELEASE)
+$(OBJDIR_RELEASE_LINUX)/main.o: main.cpp
+	$(CXX) $(CFLAGS_RELEASE_LINUX) $(INC_RELEASE_LINUX) -c main.cpp -o $(OBJDIR_RELEASE_LINUX)/main.o
 
-$(OBJDIR_RELEASE)/main.o: main.cpp
-	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c main.cpp -o $(OBJDIR_RELEASE)/main.o
+$(OBJDIR_RELEASE_LINUX)/src/figure.o: src/figure.cpp
+	$(CXX) $(CFLAGS_RELEASE_LINUX) $(INC_RELEASE_LINUX) -c src/figure.cpp -o $(OBJDIR_RELEASE_LINUX)/src/figure.o
 
-$(OBJDIR_RELEASE)/src/figure.o: src/figure.cpp
-	$(CXX) $(CFLAGS_RELEASE) $(INC_RELEASE) -c src/figure.cpp -o $(OBJDIR_RELEASE)/src/figure.o
-
-clean_Release: 
-	rm -f $(OBJ_RELEASE) $(OUT_RELEASE)
+clean_release_linux: 
+	rm -f $(OBJ_RELEASE_LINUX) $(OUT_RELEASE_LINUX)
 	rm -rf bin/Release
-	rm -rf $(OBJDIR_RELEASE)
-	rm -rf $(OBJDIR_RELEASE)/src
+	rm -rf $(OBJDIR_RELEASE_LINUX)
+	rm -rf $(OBJDIR_RELEASE_LINUX)/src
 
-.PHONY: before_build after_build before_Debug after_Debug clean_Debug before_Release after_Release clean_Release
+before_debug_win32: 
+	test -d bin/Debug || mkdir -p bin/Debug
+	test -d $(OBJDIR_DEBUG_WIN32) || mkdir -p $(OBJDIR_DEBUG_WIN32)
+	test -d $(OBJDIR_DEBUG_WIN32)/src || mkdir -p $(OBJDIR_DEBUG_WIN32)/src
+
+after_debug_win32: 
+
+debug_win32: before_debug_win32 out_debug_win32 after_debug_win32
+
+out_debug_win32: before_debug_win32 $(OBJ_DEBUG_WIN32) $(DEP_DEBUG_WIN32)
+	$(LD) $(LIBDIR_DEBUG_WIN32) -o $(OUT_DEBUG_WIN32) $(OBJ_DEBUG_WIN32)  $(LDFLAGS_DEBUG_WIN32) $(LIB_DEBUG_WIN32)
+
+$(OBJDIR_DEBUG_WIN32)/main.o: main.cpp
+	$(CXX) $(CFLAGS_DEBUG_WIN32) $(INC_DEBUG_WIN32) -c main.cpp -o $(OBJDIR_DEBUG_WIN32)/main.o
+
+$(OBJDIR_DEBUG_WIN32)/src/figure.o: src/figure.cpp
+	$(CXX) $(CFLAGS_DEBUG_WIN32) $(INC_DEBUG_WIN32) -c src/figure.cpp -o $(OBJDIR_DEBUG_WIN32)/src/figure.o
+
+clean_debug_win32: 
+	rm -f $(OBJ_DEBUG_WIN32) $(OUT_DEBUG_WIN32)
+	rm -rf bin/Debug
+	rm -rf $(OBJDIR_DEBUG_WIN32)
+	rm -rf $(OBJDIR_DEBUG_WIN32)/src
+
+before_release_win32: 
+	test -d bin/Release || mkdir -p bin/Release
+	test -d $(OBJDIR_RELEASE_WIN32) || mkdir -p $(OBJDIR_RELEASE_WIN32)
+	test -d $(OBJDIR_RELEASE_WIN32)/src || mkdir -p $(OBJDIR_RELEASE_WIN32)/src
+
+after_release_win32: 
+
+release_win32: before_release_win32 out_release_win32 after_release_win32
+
+out_release_win32: before_release_win32 $(OBJ_RELEASE_WIN32) $(DEP_RELEASE_WIN32)
+	$(LD) $(LIBDIR_RELEASE_WIN32) -o $(OUT_RELEASE_WIN32) $(OBJ_RELEASE_WIN32)  $(LDFLAGS_RELEASE_WIN32) $(LIB_RELEASE_WIN32)
+
+$(OBJDIR_RELEASE_WIN32)/main.o: main.cpp
+	$(CXX) $(CFLAGS_RELEASE_WIN32) $(INC_RELEASE_WIN32) -c main.cpp -o $(OBJDIR_RELEASE_WIN32)/main.o
+
+$(OBJDIR_RELEASE_WIN32)/src/figure.o: src/figure.cpp
+	$(CXX) $(CFLAGS_RELEASE_WIN32) $(INC_RELEASE_WIN32) -c src/figure.cpp -o $(OBJDIR_RELEASE_WIN32)/src/figure.o
+
+clean_release_win32: 
+	rm -f $(OBJ_RELEASE_WIN32) $(OUT_RELEASE_WIN32)
+	rm -rf bin/Release
+	rm -rf $(OBJDIR_RELEASE_WIN32)
+	rm -rf $(OBJDIR_RELEASE_WIN32)/src
+
+virtual_linux: debug_linux release_linux
+
+.PHONY: before_debug_linux after_debug_linux clean_debug_linux before_release_linux after_release_linux clean_release_linux before_debug_win32 after_debug_win32 clean_debug_win32 before_release_win32 after_release_win32 clean_release_win32
 
