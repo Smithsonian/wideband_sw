@@ -99,17 +99,56 @@ void drawBorder(SDL_Surface *screen)
     thickLineRGBA(screen, screen->w-1,           0,           0,           0, 2, 0, 0, 0, 255);
 }
 
-void drawArray(SDL_Surface* screen, float* arr, float yMin, float yMax, bool showDots, bool showLines)
+void drawText(SDL_Surface* screen, TTF_Font* font, char* text, int x, int y)
+{
+    SDL_Color green = { 0x00, 0xFF, 0x00, 0 };
+    SDL_Color black = { 0x00, 0x00, 0x00, 0 };
+    SDL_Surface* surf;
+    SDL_Rect dstrect;
+
+    surf = TTF_RenderText_Shaded(font, text, green, black);
+    if ( surf != NULL )
+    {
+        dstrect.x = x;
+        dstrect.y = y;
+        dstrect.w = surf->w;
+        dstrect.h = surf->h;
+        if (SDL_BlitSurface(surf, NULL, screen, &dstrect) < 0)
+        {
+            fprintf(stderr, "SDL_BlitSurface: %s\n", SDL_GetError());
+            TTF_CloseFont(font);
+            exit(500);
+        };
+    }
+    else
+    {
+        fprintf(stderr, "TTF_RenderFont_Solid: %s\n", TTF_GetError());
+        TTF_CloseFont(font);
+        exit(500);
+
+    }
+
+    //SDL_FreeSurface(surf);
+}
+
+void drawArray(SDL_Surface* screen, float* arr,
+               float yMin, float yMax,
+               bool showDots, bool showLines,
+               int mouseX, TTF_Font* font)
 {
     bool pixelGood;
     int yPixel = 0;
     int xLastPoint = 0;
     int lastGoodxPixel = -1;
     int lastGoodyPixel =  0;
+    int pointLabelW, pointLabelH;
+    int xPixelAtMouse, yPixelAtMouse;
     float yLastPoint;
     float yPixelsPerPoint = -1 * (float)screen->h / (yMax - yMin);
     float yPixelOffset = -1 * yPixelsPerPoint * yMax;
-    float xPointsPerPixel = ARRAY_LENGTH / (float)screen->w;;
+    float xPointsPerPixel = ARRAY_LENGTH / (float)screen->w;
+    float yPointAtMouse;
+    char pointLabel[64];
 
     // Draw the array data
     for (int xPixel=0; xPixel<screen->w; xPixel++)
@@ -144,6 +183,16 @@ void drawArray(SDL_Surface* screen, float* arr, float yMin, float yMax, bool sho
                          0, 0, 255, 255);
             }
 
+            // Highlight the closest point to mouse
+            if (xPixel == mouseX)
+            {
+                filledCircleRGBA(screen, xPixel, yPixel, 5,
+                                 255, 0, 255, 255);
+                xPixelAtMouse = xPixel;
+                yPixelAtMouse = yPixel;
+                yPointAtMouse = yLastPoint;
+            }
+
             // Set this current pixel to be the last good one
             lastGoodxPixel = xPixel;
             lastGoodyPixel = yPixel;
@@ -151,40 +200,18 @@ void drawArray(SDL_Surface* screen, float* arr, float yMin, float yMax, bool sho
 
     }
 
+    // Draw the label for the highlighted point
+    if (mouseX > 0)
+    {
+        sprintf(pointLabel, "%.2f", yPointAtMouse);
+        TTF_SizeText(font, pointLabel, &pointLabelW, &pointLabelH);
+        drawText(screen, font, pointLabel,
+                 xPixelAtMouse - pointLabelW/2,
+                 yPixelAtMouse - pointLabelH*2);
+    }
+
     drawBorder(screen);
 
-}
-
-void drawText(SDL_Surface* screen, TTF_Font* font, char* text, int x, int y)
-{
-    SDL_Color green = { 0x00, 0xFF, 0x00, 0 };
-    SDL_Color black = { 0x00, 0x00, 0x00, 0 };
-    SDL_Surface* surf;
-    SDL_Rect dstrect;
-
-    surf = TTF_RenderText_Shaded(font, text, green, black);
-    if ( surf != NULL )
-    {
-        dstrect.x = x;
-        dstrect.y = y;
-        dstrect.w = surf->w;
-        dstrect.h = surf->h;
-        if (SDL_BlitSurface(surf, NULL, screen, &dstrect) < 0)
-        {
-            fprintf(stderr, "SDL_BlitSurface: %s\n", SDL_GetError());
-            TTF_CloseFont(font);
-            exit(500);
-        };
-    }
-    else
-    {
-        fprintf(stderr, "TTF_RenderFont_Solid: %s\n", TTF_GetError());
-        TTF_CloseFont(font);
-        exit(500);
-
-    }
-
-    //SDL_FreeSurface(surf);
 }
 
 #undef main
@@ -213,6 +240,16 @@ int main(int argc, char **argv)
     bool enableFlash = false;
     bool showPhases = true;
     bool showMags = true;
+
+    // Get the time since SDL init
+    int startTick = SDL_GetTicks();
+    int tempTick0 = SDL_GetTicks();
+    int tempTick1 = SDL_GetTicks();
+
+    // Mouse pointer variables
+    int subMouseX;
+    int mouseX, mouseY;
+    bool mouseInSubplot = false;
 
     // antenna to input map
     char* mapping[4] =
@@ -266,17 +303,14 @@ int main(int argc, char **argv)
     // Initialize RNG
     srand(time(NULL));
 
-    // Get the time since SDL init
-    int startTick = SDL_GetTicks();
-    int tempTick0 = SDL_GetTicks();
-    int tempTick1 = SDL_GetTicks();
-
-    printf("SDL_HWSURFACE=%d\n", screen->flags & SDL_HWSURFACE);
-
     while (gameRunning)
     {
         if (SDL_PollEvent(&event))
         {
+            // Get mouse position
+            SDL_GetMouseState(&mouseX, &mouseY);
+
+            // Handle other events
             switch (event.type)
             {
             case SDL_QUIT:
@@ -300,6 +334,16 @@ int main(int argc, char **argv)
                     break;
                 case SDLK_p:
                     showPhases = !showPhases;
+                    break;
+                case SDLK_s:
+                    if (SDL_SaveBMP(screen, "/tmp/screen.bmp") == 0)
+                    {
+                        printf("Screen saved to /tmp/screen.bmp\n");
+                    }
+                    else
+                    {
+                        fprintf(stderr, "SDL_SaveBMP: %s\n", SDL_GetError());
+                    }
                     break;
                 default:
                     break;
@@ -377,22 +421,40 @@ int main(int argc, char **argv)
                 // We may need to resize subplots
                 if (screenChanged)
                     subplots[i][j] = createSubplot(screen, i*screen->w/SUBPLOTSW, j*screen->h/SUBPLOTSH,
-                                                   screen->w/SUBPLOTSW, screen->h/SUBPLOTSH);
+                    screen->w/SUBPLOTSW, screen->h/SUBPLOTSH);
+
+                // Check if mouse is here
+                mouseInSubplot =
+                (mouseY >  j    * screen->h/SUBPLOTSH) and
+                (mouseY < (j+1) * screen->h/SUBPLOTSH) and
+                (mouseX >  i    * screen->w/SUBPLOTSW) and
+                (mouseX < (i+1) * screen->w/SUBPLOTSW);
+                subMouseX = mouseInSubplot ? mouseX - i * screen->w/SUBPLOTSW : -1;
 
                 if (dataReceived)
                 {
                     extractData(i, j, data, mag, pha);
                     if (i < j)
-                    { // plot the phases and magnitudes on the bottom
-                        if (showMags)
-                            drawArray(subplots[i][j], mag, CROSS_MAG_MIN, CROSS_MAG_MAX, false, true);
+                    {
+                        // plot the phases and magnitudes on the bottom
                         if (showPhases)
-                            drawArray(subplots[i][j], pha, -180.0, 180.0, true, false);
+                            drawArray(subplots[i][j], pha,
+                            -180.0, 180.0,
+                            true, false,
+                            -1, NULL);
+                        if (showMags)
+                            drawArray(subplots[i][j], mag,
+                            CROSS_MAG_MIN, CROSS_MAG_MAX,
+                            false, true,
+                            subMouseX, font);
                         sprintf(baselineText, "%s x %s", mapping[i], mapping[j]);
                     }
                     else if (i == j)
                     { // and just magnitude for the autos
-                        drawArray(subplots[i][j], mag, AUTO_MAG_MIN, AUTO_MAG_MAX, false, true);
+                        drawArray(subplots[i][j], mag,
+                        AUTO_MAG_MIN, AUTO_MAG_MAX,
+                        false, true,
+                        subMouseX, font);
                         sprintf(baselineText, "%s", mapping[i]);
                     }
                     //else
