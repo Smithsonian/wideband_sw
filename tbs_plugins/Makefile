@@ -1,9 +1,11 @@
 -include $(TARGET).make
 
 $(TARGET)/example.so: LDLIBS = 
-$(TARGET)/sma_walsh.so: LDLIBS = -lrt
-$(TARGET)/sma_astro.so: LDLIBS = -lrt -lm
 $(TARGET)/alarm.so: LDLIBS = -lrt
+$(TARGET)/sma_walsh.so: LDLIBS = -lrt
+$(TARGET)/sma_astro.so: LDLIBS = -lrt -lm 
+$(TARGET)/dsm.so: LDLIBS = -lrt -ldsm -L$(COMMON)/lib
+$(TARGET)/dsm.o: IDIRS = -I$(GLOBAL)/dsm
 
 build: 
 	$(MAKE) TARGET=x86_64 all
@@ -17,14 +19,14 @@ install:
 	$(MAKE) TARGET=x86_64 install-target
 	$(MAKE) TARGET=powerpc install-target
 
-all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so $(TARGET)/sma_astro.so
+all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so $(TARGET)/sma_astro.so $(TARGET)/dsm.so
 
 $(TARGET):
 	mkdir -p $(TARGET)
 
 $(TARGET)/%.o: %.c
 	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -c $< -o $@ -g \
-		-I$(IDIR)/katcp -I$(IDIR)/tcpborphserver3 -DKATCP_USE_FLOATS \
+		-I$(KATCP)/katcp -I$(KATCP)/tcpborphserver3 $(IDIRS) -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
 $(TARGET)/%.so: $(TARGET)/%.o 
