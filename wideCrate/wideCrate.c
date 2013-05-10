@@ -75,6 +75,51 @@ void* send_walsh_sync(void* arg_ptr)
     printf("reply[%d] is <%s>\n", i, arg_string_katcl(l, i));
   }
 
+  sleep(2);
+
+  /* set mcount reset bit to zero */
+  katcp_result = send_rpc_katcl(l, 1000,
+  				KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?wordwrite",
+				KATCP_FLAG_STRING, "sync_ctrl", // register name
+  				KATCP_FLAG_ULONG, 0, // offset, here zero
+  				KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, 0x00000000,
+  				NULL);
+  printf("result of ?wordwrite is %d\n", katcp_result);
+  total = arg_count_katcl(l);
+  printf("have %d arguments in reply\n", total);
+  for(i = 0; i < total; i++){
+    printf("reply[%d] is <%s>\n", i, arg_string_katcl(l, i));
+  }
+
+  /* set mcount reset bit to one */
+  katcp_result = send_rpc_katcl(l, 1000,
+  				KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?wordwrite",
+				KATCP_FLAG_STRING, "sync_ctrl", // register name
+  				KATCP_FLAG_ULONG, 0, // offset, here zero
+  				KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, 0x20000000,
+  				NULL);
+  printf("result of ?wordwrite is %d\n", katcp_result);
+  total = arg_count_katcl(l);
+  printf("have %d arguments in reply\n", total);
+  for(i = 0; i < total; i++){
+    printf("reply[%d] is <%s>\n", i, arg_string_katcl(l, i));
+  }
+
+
+  /* set mcount reset bit to zero */
+  katcp_result = send_rpc_katcl(l, 1000,
+  				KATCP_FLAG_FIRST | KATCP_FLAG_STRING, "?wordwrite",
+  				KATCP_FLAG_STRING, "sync_ctrl", // register name
+  				KATCP_FLAG_ULONG, 0, // offset, here zero
+  				KATCP_FLAG_LAST  | KATCP_FLAG_ULONG, 0x00000000,
+  				NULL);
+  printf("result of ?wordwrite is %d\n", katcp_result);
+  total = arg_count_katcl(l);
+  printf("have %d arguments in reply\n", total);
+  for(i = 0; i < total; i++){
+    printf("reply[%d] is <%s>\n", i, arg_string_katcl(l, i));
+  }
+
   destroy_rpc_katcl(l);
 
   resp->errCode = OK;
