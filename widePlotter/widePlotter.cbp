@@ -2,13 +2,13 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6" />
 	<Project>
-		<Option title="SDLGFXTest" />
+		<Option title="widePlotter" />
 		<Option pch_mode="2" />
 		<Option default_target="release-win32" />
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="debug-linux">
-				<Option output="bin/Debug/SDLGFXTest" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/widePlotter" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
 				<Option compiler="gcc" />
@@ -17,7 +17,7 @@
 				</Compiler>
 			</Target>
 			<Target title="release-linux">
-				<Option output="bin/Release/SDLGFXTest" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/widePlotter" prefix_auto="1" extension_auto="1" />
 				<Option object_output="obj/Release/" />
 				<Option type="0" />
 				<Option compiler="gcc" />
@@ -29,7 +29,7 @@
 				</Linker>
 			</Target>
 			<Target title="debug-win32">
-				<Option output="bin/Debug/SDLGFXTest" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Debug/widePlotter" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="C:/SDL-1.2.15/bin" />
 				<Option object_output="obj/Debug/" />
 				<Option type="1" />
@@ -52,7 +52,7 @@
 				</Linker>
 			</Target>
 			<Target title="release-win32">
-				<Option output="bin/Release/SDLGFXTest" prefix_auto="1" extension_auto="1" />
+				<Option output="bin/Release/widePlotter" prefix_auto="1" extension_auto="1" />
 				<Option working_dir="C:/SDL-1.2.15/bin" />
 				<Option object_output="obj/Release/" />
 				<Option type="0" />
