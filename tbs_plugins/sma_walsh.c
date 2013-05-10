@@ -110,10 +110,12 @@ int test_walsh_cmd(struct katcp_dispatch *d, int argc){
 int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
   int i, j;
   char * pattern;
+  unsigned long input;
   struct tbs_raw *tr;
   struct tbs_entry *te;
   int pattern_len, repeat;
   char final_pattern[WALSH_LEN+1];
+  uint32_t *ind, value, patval;
 
   /* Grab the mode pointer */
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -132,6 +134,13 @@ int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
   te = find_data_avltree(tr->r_registers, WALSH_TABLE_BRAM);
   if(te == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "register %s not defined", WALSH_TABLE_BRAM);
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* Grab the first argument, tv_sec or seconds after epoch */
+  input = arg_unsigned_long_katcp(d, 1);
+  if (input < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
     return KATCP_RESULT_FAIL;
   }
 
@@ -160,7 +169,18 @@ int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
   final_pattern[WALSH_LEN] = '\0';
   for (i=0; i<repeat; i++) {
     for (j=0; j<pattern_len; j++) {
-      final_pattern[i*pattern_len+j] = pattern[j];
+      final_pattern[i*pattern_len + j] = pattern[j];
+
+      /* Get current value of WALSH__TABLE_BRAM[i*pattern_len + j] */
+      ind = tr->r_map + te->e_pos_base + 4*(i*pattern_len + j);
+      value = *((uint32_t *)ind);
+
+      /* Mask in the requested value */
+      patval = ((uint32_t)(pattern[j] - '0') & 0xf) << (input*4);
+      *((uint32_t *)ind) = value & ~(0xf << (input*4)) | patval;
+
+      /* mysnc to update the memory map */
+      msync(tr->r_map, tr->r_map_size, MS_SYNC);
     }
   }
 
