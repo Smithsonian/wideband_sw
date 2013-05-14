@@ -165,7 +165,8 @@ void drawArray(SDL_Surface* screen,
     int lastGoodxPixel = -1;
     int lastGoodyPixel =  0;
     int pointLabelW, pointLabelH;
-    float yLastPoint;
+    int xPixelAtMouse, yPixelAtMouse;
+    float yLastPoint = 0.0;
     float yPixelsPerPoint = -1 * (float)screen->h / (yMax - yMin);
     float yPixelOffset = -1 * yPixelsPerPoint * yMax;
     float xPointsPerPixel = arrlen / (float)screen->w;
@@ -210,21 +211,30 @@ void drawArray(SDL_Surface* screen,
             lastGoodyPixel = yPixel;
         }
 
-        // Highlight the closest point to mouse
+        // Is this the next closest point to mouse?
         xPointsToMouse = (mouseX - lastGoodxPixel) * xPointsPerPixel;
         if ((xPointsToMouse > 0) and ((xPointsToMouse <= xPointsPerPixel) or (xPointsToMouse <= 1)))
         {
+            xPixelAtMouse = lastGoodxPixel;
+            yPixelAtMouse = lastGoodyPixel;
             yPointAtMouse = yLastPoint;
-            filledCircleRGBA(screen, lastGoodxPixel, lastGoodyPixel, 5,
-                             255, 0, 255, 255);
-            sprintf(pointLabel, "%.2f", yPointAtMouse);
-            TTF_SizeText(font, pointLabel, &pointLabelW, &pointLabelH);
-            drawText(screen, font, pointLabel,
-                     lastGoodxPixel - pointLabelW/2,
-                     lastGoodyPixel - pointLabelH*2);
         }
 
     }
+
+    // Finally draw the highlight label
+    filledCircleRGBA(screen, xPixelAtMouse, yPixelAtMouse, 5,
+                     255, 0, 255, 255);
+    sprintf(pointLabel, "%.2f", yPointAtMouse);
+    if (TTF_SizeText(font, pointLabel, &pointLabelW, &pointLabelH))
+    {
+        fprintf(stderr, "TTF_SizeText: %s\n", TTF_GetError());
+        exit(500);
+    }
+    drawText(screen, font, pointLabel,
+             xPixelAtMouse - pointLabelW/2,
+             yPixelAtMouse - pointLabelH);
+
 
     drawBorder(screen);
 
@@ -257,6 +267,7 @@ int main(int argc, char **argv)
     bool screenChanged = true;
     bool enableAverage = true;
     bool enableFlash = false;
+    bool highlightPhase = false;
     bool showPhases = true;
     bool showMags = true;
 
@@ -350,6 +361,9 @@ int main(int argc, char **argv)
                     break;
                 case SDLK_f:
                     enableFlash = !enableFlash;
+                    break;
+                case SDLK_h:
+                    highlightPhase = !highlightPhase;
                     break;
                 case SDLK_m:
                     showMags = !showMags;
@@ -465,13 +479,13 @@ int main(int argc, char **argv)
                             avgToLen, avgpha,
                             -180.0, 180.0,
                             true, false,
-                            -1, NULL);
+                            highlightPhase ? subMouseX : -1, font);
                         if (showMags)
                             drawArray(subplots[i][j],
                             avgToLen, avgmag,
                             CROSS_MAG_MIN, CROSS_MAG_MAX,
                             false, true,
-                            subMouseX, font);
+                            highlightPhase ? -1 : subMouseX, font);
                         sprintf(baselineText, "%s x %s", mapping[i], mapping[j]);
                     }
                     else if (i == j)
