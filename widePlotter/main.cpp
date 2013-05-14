@@ -26,10 +26,10 @@
 #define CROSS_MAG_MIN -10
 #define CROSS_MAG_MAX 70
 
-void extractData(int a, int b, int* data, float* mag, float *pha)
+void extractData(int a, int b, int* data, float* mag, float *pha, int avgToLen)
 {
     bool autoCorrelation = a == b;
-    float real, imag;
+    float avgreal, avgimag;
     int currOffset = 0;
     int offset[4][4] =
     {
@@ -39,21 +39,43 @@ void extractData(int a, int b, int* data, float* mag, float *pha)
         {8,  6, 14, 13},
     };
 
-    for (int i=0; i<ARRAY_LENGTH; i++)
+    // Check that averaging is possible
+    if (ARRAY_LENGTH % avgToLen != 0)
     {
-        currOffset = offset[a][b] + i*256;
-        if (autoCorrelation)
+        fprintf(stderr, "averageData: %d is not divisible by %d\n", ARRAY_LENGTH, avgToLen);
+        exit(500);
+    }
+
+    int factor = ARRAY_LENGTH/avgToLen;
+    for (int i=0; i<avgToLen; i++)
+    {
+        avgreal = 0.0f;
+        avgimag = 0.0f;
+        for (int j=0; j<factor; j++)
         {
-            real = (float)data[currOffset];
-            imag = 0.0f;
+            // Find our offset within the data packet
+            currOffset = offset[a][b] + (i*factor + j)*256;
+
+            // Autos only have real comp.
+            if (autoCorrelation)
+            {
+                avgreal += (float)data[currOffset];
+                avgimag += 0.0f;
+            }
+            else
+            {
+                avgreal += (float)data[currOffset];
+                avgimag += (float)data[currOffset + 1];
+            }
         }
-        else
-        {
-            real = (float)data[currOffset];
-            imag = (float)data[currOffset + 1];
-        }
-        mag[i] = 10.0 * log10(sqrtf(real*real + imag*imag));
-        pha[i] = (180.0/PI) * atan2(imag, real);
+
+        // Scale by the averaging factor
+        avgreal /= (float)factor;
+        avgimag /= (float)factor;
+
+        // Finally set the mag. and phase
+        mag[i] = 10.0 * log10(sqrtf(avgreal*avgreal + avgimag*avgimag));
+        pha[i] = (180.0/PI) * atan2(avgimag, avgreal);
     }
 }
 
@@ -131,7 +153,8 @@ void drawText(SDL_Surface* screen, TTF_Font* font, char* text, int x, int y)
     //SDL_FreeSurface(surf);
 }
 
-void drawArray(SDL_Surface* screen, float* arr,
+void drawArray(SDL_Surface* screen,
+               int arrlen, float* arr,
                float yMin, float yMax,
                bool showDots, bool showLines,
                int mouseX, TTF_Font* font)
@@ -146,7 +169,7 @@ void drawArray(SDL_Surface* screen, float* arr,
     float yLastPoint;
     float yPixelsPerPoint = -1 * (float)screen->h / (yMax - yMin);
     float yPixelOffset = -1 * yPixelsPerPoint * yMax;
-    float xPointsPerPixel = ARRAY_LENGTH / (float)screen->w;
+    float xPointsPerPixel = arrlen / (float)screen->w;
     float yPointAtMouse;
     char pointLabel[64];
 
@@ -220,16 +243,15 @@ int main(int argc, char **argv)
     int frame = 0;
     double fps = 0;
     SDL_Event event;
-    bool gameRunning = true;
+    int avgToLen = 32;
+    float avgmag[ARRAY_LENGTH], avgpha[ARRAY_LENGTH];
     float mag[ARRAY_LENGTH], pha[ARRAY_LENGTH];
     SDL_Surface* subplots[SUBPLOTSW][SUBPLOTSH];
 
-    bool screenChanged = true;
     char baselineText[64];
     char fpsText[64];
     TTF_Font* font;
 
-    bool dataReceived = false;
     int data[DATA_PKT_LEN/4];
     char datas[DATA_PKT_LEN];
     IPaddress ip, *remoteIP;
@@ -237,6 +259,10 @@ int main(int argc, char **argv)
     int bytesRecvd = 0;
     TCPsocket sd, csd;
 
+    bool gameRunning = true;
+    bool dataReceived = false;
+    bool screenChanged = true;
+    bool enableAverage = true;
     bool enableFlash = false;
     bool showPhases = true;
     bool showMags = true;
@@ -325,6 +351,9 @@ int main(int argc, char **argv)
                 {
                 case SDLK_ESCAPE:
                     gameRunning = false;
+                    break;
+                case SDLK_a:
+                    enableAverage = !enableAverage;
                     break;
                 case SDLK_f:
                     enableFlash = !enableFlash;
@@ -433,17 +462,20 @@ int main(int argc, char **argv)
 
                 if (dataReceived)
                 {
-                    extractData(i, j, data, mag, pha);
+                    avgToLen = enableAverage ? 32 : ARRAY_LENGTH;
+                    extractData(i, j, data, avgmag, avgpha, avgToLen);
                     if (i < j)
                     {
                         // plot the phases and magnitudes on the bottom
                         if (showPhases)
-                            drawArray(subplots[i][j], pha,
+                            drawArray(subplots[i][j],
+                            avgToLen, avgpha,
                             -180.0, 180.0,
                             true, false,
                             -1, NULL);
                         if (showMags)
-                            drawArray(subplots[i][j], mag,
+                            drawArray(subplots[i][j],
+                            avgToLen, avgmag,
                             CROSS_MAG_MIN, CROSS_MAG_MAX,
                             false, true,
                             subMouseX, font);
@@ -451,7 +483,8 @@ int main(int argc, char **argv)
                     }
                     else if (i == j)
                     { // and just magnitude for the autos
-                        drawArray(subplots[i][j], mag,
+                        drawArray(subplots[i][j],
+                        avgToLen, avgmag,
                         AUTO_MAG_MIN, AUTO_MAG_MAX,
                         false, true,
                         subMouseX, font);
