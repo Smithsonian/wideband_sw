@@ -165,12 +165,11 @@ void drawArray(SDL_Surface* screen,
     int lastGoodxPixel = -1;
     int lastGoodyPixel =  0;
     int pointLabelW, pointLabelH;
-    int xPixelAtMouse, yPixelAtMouse;
     float yLastPoint;
     float yPixelsPerPoint = -1 * (float)screen->h / (yMax - yMin);
     float yPixelOffset = -1 * yPixelsPerPoint * yMax;
     float xPointsPerPixel = arrlen / (float)screen->w;
-    float yPointAtMouse;
+    float xPointsToMouse, yPointAtMouse;
     char pointLabel[64];
 
     // Draw the array data
@@ -206,31 +205,25 @@ void drawArray(SDL_Surface* screen,
                          0, 0, 255, 255);
             }
 
-            // Highlight the closest point to mouse
-            if (xPixel == mouseX)
-            {
-                filledCircleRGBA(screen, xPixel, yPixel, 5,
-                                 255, 0, 255, 255);
-                xPixelAtMouse = xPixel;
-                yPixelAtMouse = yPixel;
-                yPointAtMouse = yLastPoint;
-            }
-
             // Set this current pixel to be the last good one
             lastGoodxPixel = xPixel;
             lastGoodyPixel = yPixel;
         }
 
-    }
+        // Highlight the closest point to mouse
+        xPointsToMouse = (mouseX - lastGoodxPixel) * xPointsPerPixel;
+        if ((xPointsToMouse > 0) and ((xPointsToMouse <= xPointsPerPixel) or (xPointsToMouse <= 1)))
+        {
+            yPointAtMouse = yLastPoint;
+            filledCircleRGBA(screen, lastGoodxPixel, lastGoodyPixel, 5,
+                             255, 0, 255, 255);
+            sprintf(pointLabel, "%.2f", yPointAtMouse);
+            TTF_SizeText(font, pointLabel, &pointLabelW, &pointLabelH);
+            drawText(screen, font, pointLabel,
+                     lastGoodxPixel - pointLabelW/2,
+                     lastGoodyPixel - pointLabelH*2);
+        }
 
-    // Draw the label for the highlighted point
-    if (mouseX > 0)
-    {
-        sprintf(pointLabel, "%.2f", yPointAtMouse);
-        TTF_SizeText(font, pointLabel, &pointLabelW, &pointLabelH);
-        drawText(screen, font, pointLabel,
-                 xPixelAtMouse - pointLabelW/2,
-                 yPixelAtMouse - pointLabelH*2);
     }
 
     drawBorder(screen);
