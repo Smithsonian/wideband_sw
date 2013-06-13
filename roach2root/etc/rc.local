@@ -1,0 +1,22 @@
+#!/bin/sh -e
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# By default this script does nothing.
+
+mount -o remount,rw /
+/etc/init.d/portmap start
+ROACH_NUMBER=`ifconfig eth0|grep 'inet addr'|sed 's/\s*inet addr://'|awk '{print $1}'|{ read; echo "${REPLY#${REPLY%?}}";}`
+NAME_PREFIX='roach2-0'
+hostname $NAME_PREFIX$ROACH_NUMBER
+mount -o nolock ono:/usr2/smaSoftware/instances/roach2/$ROACH_NUMBER /instance
+/common/bin/smainit
+
+exit 0
