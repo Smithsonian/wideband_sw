@@ -1,0 +1,62 @@
+127.0.0.1	localhost
+172.22.4.124 ono ono.rt.sma           # Main SMA fileserver
+172.22.4.66  phasemon phasemon.rt.sma # Phase Monitor Control
+172.22.4.81  acc1 acc1.rt.sma         # Antenna 1
+172.22.4.82  acc2 acc2.rt.sma         # Antenna 2
+172.22.4.83  acc3 acc3.rt.sma         # Antenna 3
+172.22.4.84  acc4 acc4.rt.sma         # Antenna 4
+172.22.4.85  acc5 acc5.rt.sma         # Antenna 5
+172.22.4.86  acc6 acc6.rt.sma         # Antenna 6
+172.22.4.87  acc7 acc7.rt.sma         # Antenna 7
+172.22.4.88  acc8 acc8.rt.sma         # Antenna 8
+172.22.4.90  acc9 acc9.rt.sma         # Antenna 9
+172.22.4.89  blocks2 blocks2.rt.sma   # Controls C2DC LOs
+172.22.4.91  crate1 crate1.rt.sma     # Correlator crate 1
+172.22.4.92  crate2 crate2.rt.sma     # Correlator crate 2
+172.22.4.93  crate3 crate3.rt.sma     # Correlator crate 3
+172.22.4.94  crate4 crate4.rt.sma     # Correlator crate 4
+172.22.4.95  crate5 crate5.rt.sma     # Correlator crate 5
+172.22.4.96  crate6 crate6.rt.sma     # Correlator crate 6
+172.22.4.97  crate7 crate7.rt.sma     # Correlator crate 7
+172.22.4.98  crate8 crate8.rt.sma     # Correlator crate 8
+172.22.4.99  crate9 crate9.rt.sma     # Correlator crate 9
+172.22.4.100 crate10 crate10.rt.sma   # Correlator crate 10
+172.22.4.101 crate11 crate11.rt.sma   # Correlator crate 11
+172.22.4.102 crate12 crate12.rt.sma   # Correlator crate 12
+172.22.4.103 blocks1 blocks1.rt.sma   # Downconverter control computer
+172.22.4.104 corcon corcon.rt.sma     # Correlator Controller 
+172.22.4.108 vengdb1 vengdb1.rt.sma   # Postgres database server
+172.22.4.114 obscon obscon.rt.sma     # Realtime Monitoring
+172.22.4.120 hcn hcn.rt.sma           # Data storage machine
+172.22.4.131 optel1 optel1.rt.sma     # Antenna 1 optical
+172.22.4.132 optel2 optel2.rt.sma     # Antenna 2 optical
+172.22.4.133 optel3 optel3.rt.sma     # Antenna 3 optical
+172.22.4.134 optel4 optel4.rt.sma     # Antenna 4 optical
+172.22.4.135 optel5 optel5.rt.sma     # Antenna 5 optical
+172.22.4.136 optel6 optel6.rt.sma     # Antenna 6 optical
+172.22.4.137 optel7 optel7.rt.sma     # Antenna 7 optical
+172.22.4.138 optel8 optel8.rt.sma     # Antenna 8 optical
+172.22.4.161 polar1 polar1.rt.sma     # Antenna 1 waveplate
+172.22.4.162 polar2 polar2.rt.sma     # Antenna 2 waveplate
+172.22.4.163 polar3 polar3.rt.sma     # Antenna 3 waveplate
+172.22.4.164 polar4 polar4.rt.sma     # Antenna 4 waveplate
+172.22.4.165 polar5 polar5.rt.sma     # Antenna 5 waveplate
+172.22.4.166 polar6 polar6.rt.sma     # Antenna 6 waveplate
+172.22.4.167 polar7 polar7.rt.sma     # Antenna 7 waveplate
+172.22.4.168 polar8 polar8.rt.sma     # Antenna 8 waveplate
+172.22.4.169 m5 m5.rt.sma             # MRG Control
+172.22.4.170 colossus colossus.rt.sma # Monitoring
+172.22.4.180 hal9000 hal9000.rt.sma   # Central computer
+172.22.4.189 newdds newdds.rt.sma     # Phase rotation
+172.22.4.229 tenzing tenzing.rt.sma   # Wideband Corr.
+172.22.4.240 roach2-10 roach2-10.rt.sma # SWARM Correlator Roach 10
+172.22.4.241 roach2-01 roach2-01.rt.sma # SWARM Correlator Roach 1
+172.22.4.242 roach2-02 roach2-02.rt.sma # SWARM Correlator Roach 2
+172.22.4.243 roach2-03 roach2-03.rt.sma # SWARM Correlator Roach 3
+172.22.4.244 roach2-04 roach2-04.rt.sma # SWARM Correlator Roach 4
+172.22.4.245 roach2-05 roach2-05.rt.sma # SWARM Correlator Roach 5
+172.22.4.246 roach2-06 roach2-06.rt.sma # SWARM Correlator Roach 6
+172.22.4.247 roach2-07 roach2-07.rt.sma # SWARM Correlator Roach 7
+172.22.4.248 roach2-08 roach2-08.rt.sma # SWARM Correlator Roach 8
+172.22.4.249 roach2-09 roach2-09.rt.sma # SWARM Correlator Roach 9
+
