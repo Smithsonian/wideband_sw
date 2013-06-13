@@ -1,0 +1,8 @@
+# CD /common/bin
+#
+# if we restart more than 10 times, something is wrong
+RESTART 10
+#
+# can use -v for verbose output
+RUN /common/bin/rebooter
+
