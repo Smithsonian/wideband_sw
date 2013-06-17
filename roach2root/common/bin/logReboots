@@ -1,0 +1,4 @@
+#!/bin/bash
+sleep 15
+echo `hostname` `date` >> /global/logs/reboots
+
