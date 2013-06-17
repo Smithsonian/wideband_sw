@@ -18,5 +18,6 @@ NAME_PREFIX='roach2-0'
 hostname $NAME_PREFIX$ROACH_NUMBER
 mount -o nolock ono:/usr2/smaSoftware/instances/roach2/$ROACH_NUMBER /instance
 /common/bin/smainit
+nohup /common/bin/logReboots&
 
 exit 0
