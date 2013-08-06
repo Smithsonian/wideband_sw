@@ -12,7 +12,7 @@
 
 int sendIntegration(int nPoints, double uT, float duration, int chunk,
 		    int ant1, int pol1, int ant2, int pol2,
-		    float *lsbCross, float *usbCross);
+		    float *lsbCross, float *usbCross, int forceTransfer);
 
 int main()
 {
@@ -48,7 +48,7 @@ int main()
 	    }
 	  }
 	}
-	sendIntegration(P_N_SWARM_CHANNELS, uT, 30.0, chunk, ant1, 0, ant2, 0, lower, upper);
+	sendIntegration(P_N_SWARM_CHANNELS, uT, 30.0, chunk, ant1, 0, ant2, 0, lower, upper, FALSE);
       }
     }
   }
