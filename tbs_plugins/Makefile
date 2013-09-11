@@ -4,7 +4,7 @@ $(TARGET)/example.so: LDLIBS =
 $(TARGET)/alarm.so: LDLIBS = -lrt
 $(TARGET)/sma_walsh.so: LDLIBS = -lrt
 $(TARGET)/sma_astro.so: LDLIBS = -lrt -lm 
-$(TARGET)/dsm.so: LDLIBS = -lrt -ldsm -L$(COMMON)/lib
+$(TARGET)/dsm.so: LDLIBS = -ldsm -lrt -lpthread -L$(COMMON)/lib
 $(TARGET)/dsm.o: IDIRS = -I$(GLOBAL)/dsm
 
 build: 
