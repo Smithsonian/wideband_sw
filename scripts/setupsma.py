@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import corr, time, numpy, struct, sys
+import corr, time, numpy, struct, sys, adc5g
+from pylab import subplot, plot, xlim, savefig, show
 
 #bitstream = 'xeng_core_test_2012_Nov_28_1322.bof' # works but no headers
 #bitstream = 'xeng_core_test_2012_Nov_28_1726.bof'# headers but overflows
@@ -32,8 +33,12 @@ bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added feature
 
 roach     = sys.argv[1] #'roach2-02'
 network   = 'bypass'
-if len(sys.argv) > 2:
+plotting  = 'save'
+if len(sys.argv) == 3:
 	network = sys.argv[2] # pass 'network' to enable direct connect
+elif len(sys.argv) == 4:
+	network = sys.argv[2] # pass 'network' to enable direct connect
+	plotting = sys.argv[3]
 
 if roach=='roach2-01':
 	final_hex = 10
@@ -128,9 +133,9 @@ fpga.write('xengine_xeng_tvg_data7', struct.pack('>%dH' % (8*256), *[6734, 6734,
 fpga.write('source_seed_0', struct.pack('>I', 0xffffffff))
 #fpga.write('source_seed_1', struct.pack('>I', 0xf0000000))
 fpga.write('source_seed_1', struct.pack('>I', 0xffffffff))
-fpga.write('source_ctrl', struct.pack('>I', (1<<31) + (1<<30) + (3<<3) + 3))
-fpga.write('source_ctrl', struct.pack('>I', (3<<3) + 3))
-fpga.write('scope_ctrl', struct.pack('>I', (3<<16) + (12<<8) + 12))
+fpga.write('source_ctrl', struct.pack('>I', (1<<31) + (1<<30) + (2<<3) + 2))
+fpga.write('source_ctrl', struct.pack('>I', (2<<3) + 2))
+fpga.write('scope_ctrl', struct.pack('>I', (3<<16) + (6<<8) + 0))
 fpga.write('fengine_ctrl', struct.pack('>I', 0x55505550))
 gains = [2**12,]*2**14
 fpga.write('cgain_gain_0', struct.pack('>%dH'%(2**14), *gains))
@@ -147,5 +152,38 @@ if network == 'network':
 else:
 	print 'Setting up network bypass mode...',
 	fpga.write('network_ctrl', struct.pack('>I', 1))
-
 print 'done'
+
+conf = adc5g.get_spi_control(fpga, 0)
+conf['test'] = 1 # Set ADC to test mode
+adc5g.set_spi_control(fpga, 0, **conf)
+adc5g.set_spi_control(fpga, 1, **conf)
+fpga.blindwrite('adc5g_controller', struct.pack('>BBBB', 0x0, 0x0, 0x0, 0x3))
+fpga.blindwrite('adc5g_controller', struct.pack('>BBBB', 0x0, 0x0, 0x0, 0x0))
+
+opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 0, ['scope_snap0'])
+opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 0, ['scope_snap0'])
+if opt is None:
+    raise Exception, "Could not calibrate MMCM for ZDOK 0"
+else:
+    print "ZDOK 0: found optimal phase of %d with glitch profile %s" % (opt, "".join(str(int(g>0)) for g in glitches))
+
+opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 1, ['scope_snap1'])
+opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 1, ['scope_snap1'])
+if opt is None:
+    raise Exception, "Could not calibrate MMCM for ZDOK 1"
+else:
+    print "ZDOK 1: found optimal phase of %d with glitch profile %s" % (opt, "".join(str(int(g>0)) for g in glitches))
+
+a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap0',])
+subplot(211); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
+a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap1',])
+subplot(212); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
+if plotting == "save":
+    savefig(roach + "-ramps.pdf")
+else:
+    show()
+
+conf['test'] = 0 # Set ADC back to normal
+adc5g.set_spi_control(fpga, 0, **conf)
+adc5g.set_spi_control(fpga, 1, **conf)
