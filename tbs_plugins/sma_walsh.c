@@ -6,11 +6,18 @@
 #include <sys/mman.h>
 #include <tcpborphserver3.h>
 #include <plugin.h>
+#include <dsm.h>
 
 #define HB_PERIOD 0.010082461
 #define WALSH_LEN 1024
 #define WALSH_ARM_REG "sync_ctrl"
 #define WALSH_TABLE_BRAM "walsh_table"
+#define DDS_HOST "newdds"
+#define DSM_ARMAT_VAR "SYNC_UNIX_TIME_D"
+#define DSM_WALSH_VAR "PATTERN_V2_V64_B"
+#define DSM_WALSH_INP 2
+#define DSM_WALSH_SKIP 2
+#define DSM_WALSH_LEN 64
 
 double timespec_to_double(struct timespec in) {
   return (double)in.tv_sec + (1e-9) * ((double)in.tv_nsec);
@@ -108,14 +115,12 @@ int test_walsh_cmd(struct katcp_dispatch *d, int argc){
 }
 
 int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
-  int i, j;
-  char * pattern;
-  unsigned long input;
+  int i, j, s, input;
+  time_t timeStamp;
+  char walshBytes[2][64];
+  uint32_t *ind, value, patval;
   struct tbs_raw *tr;
   struct tbs_entry *te;
-  int pattern_len, repeat;
-  char final_pattern[WALSH_LEN+1];
-  uint32_t *ind, value, patval;
 
   /* Grab the mode pointer */
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -137,64 +142,46 @@ int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
 
-  /* Grab the first argument, tv_sec or seconds after epoch */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
+  /* Grab the Walsh pattern using DSM */
+  s = dsm_read(DDS_HOST, DSM_WALSH_VAR, &walshBytes, &timeStamp);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read()");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "dsm_read('%s', '%s'): failed with %d", DDS_HOST, DSM_WALSH_VAR, s);
     return KATCP_RESULT_FAIL;
   }
 
-  /* Grab the second argument, a 64-length Walsh pattern */
-  pattern = arg_string_katcp(d, 2);
-  if (pattern == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
+  /* For each input ... */
+  for (input=0; input<DSM_WALSH_INP; input++) {
 
-  /* Pattern length should be a power of 2 */
-  pattern_len = strlen(pattern);
-  if (pattern_len & (pattern_len - 1)) { // clever trick :)
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "pattern must be power of 2! got length of %d instead", pattern_len);
-    return KATCP_RESULT_FAIL;
-  }
+    /* Repeat the pattern to fill the block */
+    for (i=0; i<WALSH_LEN/(DSM_WALSH_LEN/DSM_WALSH_SKIP); i++) {
+      for (j=0; j<(DSM_WALSH_LEN/DSM_WALSH_SKIP); j++) {
 
-  /* Pattern should not be longer than WALSH_LEN */
-  if (pattern_len > WALSH_LEN) { 
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "pattern too long! must be shorter than %d", WALSH_LEN);
-    return KATCP_RESULT_FAIL;
-  }
+	/* Get current value of WALSH_TABLE_BRAM[i*DSM_WALSH_LEN + j] */
+	ind = tr->r_map + te->e_pos_base + 4*(i*(DSM_WALSH_LEN/DSM_WALSH_SKIP) + j);
+	value = *((uint32_t *)ind);
 
-  /* Repeat requested pattern to fill block memory */
-  repeat = WALSH_LEN/pattern_len;
-  final_pattern[WALSH_LEN] = '\0';
-  for (i=0; i<repeat; i++) {
-    for (j=0; j<pattern_len; j++) {
-      final_pattern[i*pattern_len + j] = pattern[j];
+	/* Mask in the requested values */
+	patval = ((uint32_t)walshBytes[input][j*2] & 0xf) << (input*4);
+	*((uint32_t *)ind) = value & ~(0xf << (input*4)) | patval;
 
-      /* Get current value of WALSH__TABLE_BRAM[i*pattern_len + j] */
-      ind = tr->r_map + te->e_pos_base + 4*(i*pattern_len + j);
-      value = *((uint32_t *)ind);
-
-      /* Mask in the requested value */
-      patval = ((uint32_t)(pattern[j] - '0') & 0xf) << (input*4);
-      *((uint32_t *)ind) = value & ~(0xf << (input*4)) | patval;
-
-      /* mysnc to update the memory map */
-      msync(tr->r_map, tr->r_map_size, MS_SYNC);
+	/* mysnc to update the memory map */
+	msync(tr->r_map, tr->r_map_size, MS_SYNC);
+      }
     }
   }
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "final pattern: %s", final_pattern);
   return KATCP_RESULT_OK;
 }
 
 int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
-  int hb_offset;
+  int s, hb_offset;
+  time_t timeStamp;
   uint32_t value;
   struct tbs_raw *tr;
   struct tbs_entry *te;
   double start_db, now_db, arm_at_db;
-  struct timespec start, now, arm_at;
+  struct timespec start, now;
 
   /* Grab the mode pointer */
   tr = get_mode_katcp(d, TBS_MODE_RAW);
@@ -224,41 +211,34 @@ int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
   *((uint32_t *)(tr->r_map + te->e_pos_base)) = value & 0x7fffffff;
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
 
-  /* Grab the first argument, tv_sec or seconds after epoch */
-  arm_at.tv_sec = arg_unsigned_long_katcp(d, 1);
-  if (arm_at.tv_sec < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the second argument, tv_nsec or nanoseconds after tv_sec */
-  arm_at.tv_nsec = arg_unsigned_long_katcp(d, 2);
-  if (arm_at.tv_nsec < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the third argument, offset in heartbeats */
-  hb_offset = arg_signed_long_katcp(d, 3);
-  /* if (hb_offset < 0){ */
-  /*   log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse third command line argument"); */
-  /*   return KATCP_RESULT_FAIL; */
-  /* } */
+  /* Grab the first argument, offset in heartbeats */
+  hb_offset = arg_signed_long_katcp(d, 1);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "hb_offset=%d", hb_offset);
+
+  /* Grab the sync time over DSM */
+  s = dsm_read(DDS_HOST, DSM_ARMAT_VAR, &arm_at_db, &timeStamp);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read()");
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "dsm_read('%s', '%s'): failed with %d", DDS_HOST, DSM_ARMAT_VAR, s);
+    return KATCP_RESULT_FAIL;
+  }
 
   /* Make sure arm_at is not in the past */
   clock_gettime(CLOCK_REALTIME, &now);
-  if (arm_at.tv_sec <= now.tv_sec){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%d.%06d is in the past! It's %d.%06d now", 
-		      arm_at.tv_sec, arm_at.tv_nsec, now.tv_sec, now.tv_nsec);
+  if ((int)arm_at_db <= now.tv_sec){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "%0.6f is in the past! It's %d.%06d now", 
+		      arm_at_db, now.tv_sec, now.tv_nsec);
     return KATCP_RESULT_FAIL;
   }
 
-  /* ... and now we wait, timeout=60 seconds */
-  arm_at_db = timespec_to_double(arm_at);
+  /* Print out requested arm time */
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "arm reqst=%.9f", arm_at_db);
+
+  /* Add in the HB offset and print */
   arm_at_db += ((double)hb_offset) * HB_PERIOD;
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "arming at=%.9f", arm_at_db);
+
+  /* ... and now we wait, timeout=60 seconds */
   clock_gettime(CLOCK_REALTIME, &start);
   start_db = timespec_to_double(start);
   now_db = timespec_to_double(now);
@@ -286,12 +266,12 @@ struct PLUGIN KATCP_PLUGIN = {
   .cmd_array = {
     {
       .name = "?sma-walsh-arm", 
-      .desc = "arm the SOWF generator at specific time (?sma-walsh-arm tv_sec tv_nsec hb_offset)",
+      .desc = "arm the SOWF generator at the DSM-specified time (?sma-walsh-arm hb_offset)",
       .cmd = arm_walsh_cmd
     },
     {
       .name = "?sma-walsh-pattern-load", 
-      .desc = "load input, 0-1, with a particular Walsh pattern (?sma-walsh-load input pattern<64>)",
+      .desc = "load the current DSM-specified Walsh pattern (?sma-walsh-load)",
       .cmd = load_pattern_walsh_cmd
     },
     {
