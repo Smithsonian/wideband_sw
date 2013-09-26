@@ -22,8 +22,13 @@ import corr, time, numpy, struct, sys
 #bitstream = 'sma_corr_2013_Apr_15_0059.bof' # direct connect interleaving problem
 #bitstream = 'sma_corr_2013_Apr_19_0144.bof' # direct connect sync-off-by-1(?)
 #bitstream = 'sma_corr_2013_Apr_28_1952.bof' # off-by-one fix
-bitstream = 'sma_corr_2013_Apr_30_1449.bof' # spurious sync fix
-
+#bitstream = 'sma_corr_2013_Apr_30_1449.bof' # spurious sync fix KNOWN WORKING
+#bitstream = 'sma_corr_2013_Jul_31_0336.bof' # first switched corner-turner, QDR issues
+#bitstream = 'sma_corr_2013_Aug_09_0143.bof' # QDR div_clk @ 143 MHz
+#bitstream = 'sma_corr_2013_Aug_21_0218.bof' # FFT and mlib_devel updates, bad QDR?
+#bitstream = 'sma_corr_2013_Aug_25_1657.bof' # Re-synth netlist, bad QDR?
+#bitstream = 'sma_corr_2013_Sep_13_1058.bof' # Old re-compiled, vlbi-devel
+bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added features, crowley
 
 roach     = sys.argv[1] #'roach2-02'
 network   = 'bypass'
@@ -33,23 +38,35 @@ if len(sys.argv) > 2:
 if roach=='roach2-01':
 	final_hex = 10
 elif roach=='roach2-02':
-	final_hex = 11
-elif roach=='roach2-03':
 	final_hex = 12
-elif roach=='roach2-04':
-	final_hex = 13
-elif roach=='roach2-05':
+elif roach=='roach2-03':
 	final_hex = 14
+elif roach=='roach2-04':
+	final_hex = 16
+elif roach=='roach2-05':
+	final_hex = 18
+elif roach=='roach2-07':
+	final_hex = 20
+elif roach=='roach2-08':
+	final_hex = 22
+elif roach=='roach2-09':
+	final_hex = 24
+elif roach=='roach2-10':
+	final_hex = 26
+elif roach=='roach2-11':
+	final_hex = 28
 else:
 	raise Exception("ROACH2 not supported!")
 
 
 #dest_ip   = 192*(2**24) + 168*(2**16) + 11*(2**8) + 11
-dest_ip   = 192*(2**24) + 168*(2**16) + 11*(2**8) + 30
-dest_port = 4100
+dest_ip0   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 17
+dest_port0 = 4100
+dest_ip1   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 17
+dest_port1 = 4100
 
-src_ip0    = 192*(2**24) + 168*(2**16) + 11*(2**8) + final_hex+51 
-src_ip1    = 192*(2**24) + 168*(2**16) + 10*(2**8) + final_hex+52
+src_ip0    = 192*(2**24) + 168*(2**16) + 10*(2**8) + final_hex+50 
+src_ip1    = 192*(2**24) + 168*(2**16) + 10*(2**8) + final_hex+51
 src_port0  = 4000
 src_port1  = 4001
 
@@ -76,9 +93,14 @@ print 'ok\n'
 time.sleep(1)
 
 print '------------------------'
-print 'Starting tgtap server...',   
-fpga.tap_start('gbe0', gbe0, mac_base0 + src_ip0, src_ip0, src_port0)
-fpga.tap_start('gbe1', gbe1, mac_base1 + src_ip1, src_ip1, src_port1)
+print 'Configuring 10 GbE devices...',   
+#fpga.tap_start('gbe0', gbe0, mac_base0 + src_ip0, src_ip0, src_port0)
+#fpga.tap_start('gbe1', gbe1, mac_base1 + src_ip1, src_ip1, src_port1)
+arp = [0xffffffffffff] * 256
+arp[17] = 0x000f530cd110
+arp[18] = 0x000f530cd111
+fpga.config_10gbe_core(gbe0, mac_base0 + src_ip0, src_ip0, src_port0, arp)
+fpga.config_10gbe_core(gbe1, mac_base1 + src_ip1, src_ip1, src_port1, arp)
 print 'done'
 
 time.sleep(2)
@@ -87,8 +109,12 @@ print '------------------------'
 print 'Setting-up the correlator...',
 sys.stdout.flush()
 fpga.write('xeng_ctrl', struct.pack('>I', 11*64*5))
-fpga.write('visibs_sendto_ip', struct.pack('>I', dest_ip))
-fpga.write('visibs_sendto_port', struct.pack('>I', dest_port))
+# fpga.write('visibs_sendto_ip', struct.pack('>I', dest_ip))
+# fpga.write('visibs_sendto_port', struct.pack('>I', dest_port))
+fpga.write('visibs_gbe0_sendto_ip', struct.pack('>I', dest_ip0))
+fpga.write('visibs_gbe0_sendto_port', struct.pack('>I', dest_port0))
+fpga.write('visibs_gbe1_sendto_ip', struct.pack('>I', dest_ip1))
+fpga.write('visibs_gbe1_sendto_port', struct.pack('>I', dest_port1))
 fpga.write('visibs_tengbe_ctrl', struct.pack('>I', 1<<30))
 fpga.write('visibs_tengbe_ctrl', struct.pack('>I', 0))
 fpga.write('xengine_xeng_tvg_data0', struct.pack('>%dH' % (8*256), *[6734, 6734, 6734, 6734, 6734, 6734, 6734, 6734]*256))
