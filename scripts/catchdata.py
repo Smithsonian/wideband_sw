@@ -143,7 +143,7 @@ while active_count() > 0:
     #             line += "{:.6f} ".format((2**-6)*data[chan*256 + base])
     # 	    file_.write(line + "\n")
 
-    subfile = open('/common/bin/subscribers', 'r')
+    subfile = open('/application/bin/subscribers', 'r')
     subs = list(sub.rstrip() for sub in subfile.readlines())
 
     for sub in subs:
