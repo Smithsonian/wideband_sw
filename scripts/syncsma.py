@@ -8,10 +8,10 @@ threads = []
 roach_names = sys.argv[1:] # list of roach's to sync
 
 def send_sync(name, sec, nsec, off):
-    message = katcp.Message.request("sma-walsh-arm", str(sec), str(nsec), str(off))
+    message = katcp.Message.request("sma-walsh-arm", str(off))
     roach = corr.katcp_wrapper.FpgaClient(name, 7147)
     roach.wait_connected()
-    reply, informs = roach.blocking_request(message)
+    reply, informs = roach.blocking_request(message, timeout=60)
     if not reply.reply_ok():
         print "SOWF arming failed for %s" % name
     else:
