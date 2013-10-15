@@ -108,6 +108,8 @@ struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 4,
   .name = "dsm",
   .version = KATCP_PLUGIN_VERSION,
+  .init = open_cmd,
+  .uninit = close_cmd,
   .cmd_array = {
     {
       .name = "?dsm-open", 

@@ -2,9 +2,9 @@ RPC=/global/rpcFiles/
 GFUNC=/global/functions/
 
 dataFaker: dataFaker.c sendIntegration.c ./Makefile chunkPlot.h chunkPlot_clnt.o chunkPlot_xdr.o dataCatcher.h dataCatcher_clnt.o dataCatcher_xdr.o $(GFUNC)getAntennaList.c $(GFUNC)defaultingEnabled.c
-	gcc -Wall -o dataFaker -lm dataFaker.c sendIntegration.c \
+	gcc -Wall -o dataFaker dataFaker.c sendIntegration.c \
 	$(GFUNC)getAntennaList.c $(GFUNC)defaultingEnabled.c chunkPlot_clnt.o \
-	chunkPlot_xdr.o dataCatcher_clnt.o dataCatcher_xdr.o
+	chunkPlot_xdr.o dataCatcher_clnt.o dataCatcher_xdr.o -lm 
 
 chunkPlot.h: $(RPC)chunkPlot.x ./Makefile
 	cp $(RPC)chunkPlot.x ./

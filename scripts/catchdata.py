@@ -21,13 +21,19 @@ roach     = sys.argv[1] #'roach2-02'
 if roach=='roach2-01':
 	final_hex = 10
 elif roach=='roach2-02':
-	final_hex = 11
-elif roach=='roach2-03':
 	final_hex = 12
-elif roach=='roach2-04':
-	final_hex = 13
-elif roach=='roach2-05':
+elif roach=='roach2-03':
 	final_hex = 14
+elif roach=='roach2-04':
+	final_hex = 16
+elif roach=='roach2-05':
+	final_hex = 18
+elif roach=='roach2-07':
+	final_hex = 20
+elif roach=='roach2-08':
+	final_hex = 22
+elif roach=='roach2-09':
+	final_hex = 24
 else:
 	raise Exception("ROACH2 not supported!")
 
@@ -39,8 +45,8 @@ logger.setLevel(logging.INFO)
 logger.handlers[0].setFormatter(formatter)
 
 
-RECEIVE_FROM = "192.168.11." + str(final_hex+51)
-LISTEN_HOST = "192.168.11.30"
+RECEIVE_FROM = "192.168.10." + str(final_hex+50)
+LISTEN_HOST = "0.0.0.0" #"192.168.10.17"
 LISTEN_PORT = 4100
 class DataCatcher(Thread):
 
