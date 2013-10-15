@@ -5,6 +5,9 @@ $(TARGET)/alarm.so: LDLIBS =
 $(TARGET)/sma_walsh.so: LDLIBS = 
 $(TARGET)/sma_astro.so: LDLIBS = -lm 
 $(TARGET)/dsm.so: LDLIBS = -ldsm -L$(COMMON)/lib
+
+$(TARGET)/sma_walsh.o: IDIRS = -I$(GLOBAL)/dsm
+$(TARGET)/sma_astro.o: IDIRS = -I$(GLOBAL)/dsm
 $(TARGET)/dsm.o: IDIRS = -I$(GLOBAL)/dsm
 
 build: 
