@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <tcpborphserver3.h>
 #include <plugin.h>
+#include <dsm.h>
 #include "lst.h"
 
 #define TRUE 1
@@ -25,6 +26,12 @@
 #define SAMPLE_FREQ 2.288 // sample rate in GHz
 #define FSTOP_UPDATE 100
 #define PI 3.14159265
+#define DDS_HOST "newdds"
+#define DSM_GEOM_VAR "SWARM_SOURCE_GEOM_X"
+#define DSM_GEOM_RA "SOURCE_RA_D"
+#define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
+#define DSM_GEOM_B "GEOM_DELAY_B_V2_D"
+#define DSM_GEOM_C "GEOM_DELAY_C_V2_D"
 
 /* These are the constant, user-programmable delays and phases */
 volatile double delays[N_INPUTS];
@@ -318,6 +325,69 @@ int get_phase_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OWN;
 }
 
+/* Update DSM-derived variables */
+int update_vars() {
+  int s;
+  time_t timeStamp;
+  dsm_structure structure;
+  double rA, a[2], b[2], c[2];
+
+  /* Initialize the DSM geometry structure */
+  s = dsm_structure_init(&structure, DSM_GEOM_VAR);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_init()");
+    return -1;
+  }
+
+  /* Read the structure over DSM */
+  s = dsm_read(DDS_HOST, DSM_GEOM_VAR, &structure, &timeStamp);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read()");
+    return -2;
+  }
+
+  /* Get the source rA element */
+  s = dsm_structure_get_element(&structure, DSM_GEOM_RA, &rA);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(rA)");
+    return -3;
+  }
+
+  /* Get part A of delay triplet */
+  s = dsm_structure_get_element(&structure, DSM_GEOM_A, &a[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(A)");
+    return -4;
+  }
+
+  /* Get part B of delay triplet */
+  s = dsm_structure_get_element(&structure, DSM_GEOM_B, &b[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(B)");
+    return -5;
+  }
+
+  /* Get part C of delay triplet */
+  s = dsm_structure_get_element(&structure, DSM_GEOM_C, &c[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(C)");
+    return -6;
+  }
+
+  /* Finally, set the global variables */
+  pthread_mutex_lock(&fstop_mutex);
+  source_rA = rA;
+  delay_trip[0][0] = a[0] * 1e9;
+  delay_trip[0][1] = b[0] * 1e9;
+  delay_trip[0][2] = c[0] * 1e9;
+  delay_trip[1][0] = a[1] * 1e9;
+  delay_trip[1][1] = b[1] * 1e9;
+  delay_trip[1][2] = c[1] * 1e9;
+  pthread_mutex_unlock(&fstop_mutex);
+
+  return 0;
+}
+
 /* Return -1 if negative, 1 if positive or zero */
 double sign(double n) {
   return (n<0) ? -1 : 1;
@@ -386,6 +456,13 @@ void * fringe_stop(void * tr){
 
     /* Next find the hour angle of the source */
     ha = lst - source_rA;
+
+    /* Update our DSM variables every FSTOP_UPDATE steps */
+    if ((i % FSTOP_UPDATE) == 0){
+      result = update_vars();
+      if (result < 0)
+	printf("update_vars returned error code %d\r\n", result);
+    }
 
     for (j=0; j<N_INPUTS; j++) {
 
@@ -463,15 +540,6 @@ void * fringe_stop(void * tr){
 
       pthread_mutex_unlock(&fstop_mutex);
 
-      /* Print out some useful information every FSTOP_UPDATE steps */
-      if ((i % FSTOP_UPDATE) == 0){
-	printf("delay=%d:%12.6f,  phase=%d:%12.6f, ", j, final_delay, j, final_phase);
-	//printf("cdelay=%d:%d,  fdelay=%d:%12.6f, ", j, cdelay, j, fdelay);
-	if (j == N_INPUTS-1) {
-	  printf("\r\n");
-	}
-      }
-
     }
 
     i++;
@@ -482,7 +550,7 @@ void * fringe_stop(void * tr){
 
 int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   int del_en, pha_en;
-  char *fstopstr, *sourceRAstr, *longitudestr;
+  char *fstopstr, *longitudestr;
 
   /* Grab the first argument, the fringe-stopping frequency */
   fstopstr = arg_string_katcp(d, 1);
@@ -499,23 +567,8 @@ int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   }
   pthread_mutex_unlock(&fstop_mutex);
 
-  /* Grab the second argument, the current source RA */
-  sourceRAstr = arg_string_katcp(d, 2);
-  if (sourceRAstr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  pthread_mutex_lock(&fstop_mutex);
-  source_rA = atof(sourceRAstr);
-  if (source_rA == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-  pthread_mutex_unlock(&fstop_mutex);
-
-  /* Grab the third argument, the longitude */
-  longitudestr = arg_string_katcp(d, 3);
+  /* Grab the second argument, the longitude */
+  longitudestr = arg_string_katcp(d, 2);
   if (longitudestr == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse third command line argument");
     return KATCP_RESULT_FAIL;
@@ -528,17 +581,17 @@ int set_fstop_cmd(struct katcp_dispatch *d, int argc){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
   }
 
-  /* Grab the fourth argument, enable delay flag */
-  del_en = arg_unsigned_long_katcp(d, 4);
+  /* Grab the third argument, enable delay flag */
+  del_en = arg_unsigned_long_katcp(d, 3);
   fstop_del_en = del_en > 0 ? TRUE : FALSE;
 
-  /* Grab the fifth argument, enable phase flag */
-  pha_en = arg_unsigned_long_katcp(d, 5);
+  /* Grab the fourth argument, enable phase flag */
+  pha_en = arg_unsigned_long_katcp(d, 4);
   fstop_pha_en = pha_en > 0 ? TRUE : FALSE;
 
   pthread_mutex_unlock(&fstop_mutex);
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fstop=%.6f, source_rA=%.6f, long=%.6f", fstop_freq, source_rA, longitude);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fstop=%.6f, long=%.6f", fstop_freq, longitude);
   return KATCP_RESULT_OK;
 }
 
@@ -645,8 +698,23 @@ int stop_fstop_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OK;
 }
 
+int info_fstop_cmd(struct katcp_dispatch *d, int argc){
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA: %f", source_rA);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "A[0]: %f", delay_trip[0][0]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "B[0]: %f", delay_trip[0][1]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "C[0]: %f", delay_trip[0][2]);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "A[1]: %f", delay_trip[1][0]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "B[1]: %f", delay_trip[1][1]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "C[1]: %f", delay_trip[1][2]);
+
+  return KATCP_RESULT_OK;
+}
+
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 8,
+  .n_cmds = 9,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
@@ -672,7 +740,7 @@ struct PLUGIN KATCP_PLUGIN = {
     },
     { // 5
       .name = "?sma-astro-fstop-set", 
-      .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop source_rA longitude)",
+      .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop longitude del_en pha_en)",
       .cmd = set_fstop_cmd
     },
     { // 6
@@ -689,6 +757,11 @@ struct PLUGIN KATCP_PLUGIN = {
       .name = "?sma-astro-fstop-stop", 
       .desc = "stop fringe-stopping loop (?sma-astro-fstop-stop)",
       .cmd = stop_fstop_cmd
+    },
+    { // 9
+      .name = "?sma-astro-fstop-info", 
+      .desc = "print some fstop information (?sma-astro-fstop-info)",
+      .cmd = info_fstop_cmd
     },
   }
 };
