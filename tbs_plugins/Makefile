@@ -1,10 +1,10 @@
 -include $(TARGET).make
 
 $(TARGET)/example.so: LDLIBS = 
-$(TARGET)/alarm.so: LDLIBS = -lrt
-$(TARGET)/sma_walsh.so: LDLIBS = -lrt
-$(TARGET)/sma_astro.so: LDLIBS = -lrt -lm 
-$(TARGET)/dsm.so: LDLIBS = -lrt -ldsm -L$(COMMON)/lib
+$(TARGET)/alarm.so: LDLIBS = 
+$(TARGET)/sma_walsh.so: LDLIBS = 
+$(TARGET)/sma_astro.so: LDLIBS = -lm 
+$(TARGET)/dsm.so: LDLIBS = -ldsm -L$(COMMON)/lib
 $(TARGET)/dsm.o: IDIRS = -I$(GLOBAL)/dsm
 
 build: 
