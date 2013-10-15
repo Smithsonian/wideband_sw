@@ -30,7 +30,7 @@ $(TARGET)/%.o: %.c
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
 $(TARGET)/%.so: $(TARGET)/%.o 
-	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
+	$(CROSS_COMPILE)ld -o $@ $^ -shared $(LDLIBS)
 
 $(TARGET)/sma_astro.so: $(TARGET)/sma_astro.o $(TARGET)/lst.o
 	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
