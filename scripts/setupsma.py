@@ -34,11 +34,16 @@ bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added feature
 roach     = sys.argv[1] #'roach2-02'
 network   = 'bypass'
 plotting  = 'save'
+swapips   = False
 if len(sys.argv) == 3:
 	network = sys.argv[2] # pass 'network' to enable direct connect
 elif len(sys.argv) == 4:
 	network = sys.argv[2] # pass 'network' to enable direct connect
 	plotting = sys.argv[3]
+elif len(sys.argv) == 5:
+	network = sys.argv[2] # pass 'network' to enable direct connect
+	plotting = sys.argv[3]
+	swapips = bool(sys.argv[4])
 
 if roach=='roach2-01':
 	final_hex = 10
@@ -65,9 +70,15 @@ else:
 
 
 #dest_ip   = 192*(2**24) + 168*(2**16) + 11*(2**8) + 11
-dest_ip0   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 17
+if not swapips:
+	dest_ip0   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 10
+	dest_ip1   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 11
+else:
+	print "Swapping dest. IPs..."
+	dest_ip0   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 11
+	dest_ip1   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 10
+
 dest_port0 = 4100
-dest_ip1   = 192*(2**24) + 168*(2**16) + 10*(2**8) + 17
 dest_port1 = 4100
 
 src_ip0    = 192*(2**24) + 168*(2**16) + 10*(2**8) + final_hex+50 
@@ -102,8 +113,8 @@ print 'Configuring 10 GbE devices...',
 #fpga.tap_start('gbe0', gbe0, mac_base0 + src_ip0, src_ip0, src_port0)
 #fpga.tap_start('gbe1', gbe1, mac_base1 + src_ip1, src_ip1, src_port1)
 arp = [0xffffffffffff] * 256
-arp[17] = 0x000f530cd110
-arp[18] = 0x000f530cd111
+arp[10] = 0x000f530cd5cc
+arp[11] = 0x000f530cd5cd
 fpga.config_10gbe_core(gbe0, mac_base0 + src_ip0, src_ip0, src_port0, arp)
 fpga.config_10gbe_core(gbe1, mac_base1 + src_ip1, src_ip1, src_port1, arp)
 print 'done'
