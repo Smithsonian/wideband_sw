@@ -377,12 +377,12 @@ int update_vars() {
   /* Finally, set the global variables */
   pthread_mutex_lock(&fstop_mutex);
   source_rA = rA;
-  delay_trip[0][0] = a[0] * 1e9;
-  delay_trip[0][1] = b[0] * 1e9;
-  delay_trip[0][2] = c[0] * 1e9;
-  delay_trip[1][0] = a[1] * 1e9;
-  delay_trip[1][1] = b[1] * 1e9;
-  delay_trip[1][2] = c[1] * 1e9;
+  delay_trip[0][0] = -1.0 * a[0] * 1e9;
+  delay_trip[0][1] = -1.0 * b[0] * 1e9;
+  delay_trip[0][2] = -1.0 * c[0] * 1e9;
+  delay_trip[1][0] = -1.0 * a[1] * 1e9;
+  delay_trip[1][1] = -1.0 * b[1] * 1e9;
+  delay_trip[1][2] = -1.0 * c[1] * 1e9;
   pthread_mutex_unlock(&fstop_mutex);
 
   return 0;
