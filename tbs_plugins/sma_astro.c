@@ -457,11 +457,27 @@ void * fringe_stop(void * tr){
     /* Next find the hour angle of the source */
     ha = lst - source_rA;
 
-    /* Update our DSM variables every FSTOP_UPDATE steps */
+    /* Update our DSM variables every FSTOP_UPDATE steps 
+       also, print out some useful info */
     if ((i % FSTOP_UPDATE) == 0){
+
+      /* Do the DSM update */
       result = update_vars();
       if (result < 0)
 	printf("update_vars returned error code %d\r\n", result);
+
+      /* Convert LST into H:M:S */
+      lst_24h = lst/HOURS_TO_RADIANS;
+      hh = (int)lst_24h;
+      mm = (int)((lst_24h - (double)hh)*60);
+      ss = (lst_24h - (double)hh - ((double)mm)/60.0)*3600.0;
+
+      /* Print out some useful information every FSTOP_UPDATE steps */
+      printf("HA=%25.15f, ", ha * (12.0/PI));
+      printf("LST=%d:%02d:%05.2f, ", hh, mm, ss);
+      printf("Delay[0]=%25.15f, ", total_delay[0]);
+      printf("Delay[1]=%25.15f\n", total_delay[1]);
+
     }
 
     for (j=0; j<N_INPUTS; j++) {
@@ -483,20 +499,6 @@ void * fringe_stop(void * tr){
 	total_phase[j] -= 360.0;
       } else if (total_phase[j] < -180.0) {
 	total_phase[j] += 360.0;
-      }
-
-      /* Convert LST into H:M:S */
-      lst_24h = lst/HOURS_TO_RADIANS;
-      hh = (int)lst_24h;
-      mm = (int)((lst_24h - (double)hh)*60);
-      ss = (lst_24h - (double)hh - ((double)mm)/60.0)*3600.0;
-
-      /* Print out some useful information every FSTOP_UPDATE steps */
-      if ((i % FSTOP_UPDATE) == 0){
-	if (j == 0) {
-	  printf("HA=%25.15f, ", ha * (12.0/PI));
-	  printf("LST=%d:%02d:%05.2f, ", hh, mm, ss);
-	}
       }
 
     }
@@ -700,6 +702,8 @@ int stop_fstop_cmd(struct katcp_dispatch *d, int argc){
 
 int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude: %f", longitude);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq:      %f", fstop_freq);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA: %f", source_rA);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "A[0]: %f", delay_trip[0][0]);
