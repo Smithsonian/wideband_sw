@@ -20,3 +20,15 @@
 
 # Code::Blocks binary directory
 bin/
+
+# Netcat scripts
+*.nc
+
+# Emacs back-up files
+*~
+
+# Partial products from tenzing2root
+tenzing2root/application/sendIntegration/*.h
+tenzing2root/application/sendIntegration/*.c
+tenzing2root/application/sendIntegration/*.x
+tenzing2root/application/sendIntegration/dataFaker
