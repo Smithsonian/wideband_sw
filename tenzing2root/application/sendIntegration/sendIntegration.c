@@ -46,7 +46,7 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
 		    float *lsbCross, float *usbCross, int forceTransfer)
 {
   int i, antennaInArray[11];
-  CLIENT *cl;
+  static CLIENT *corrSaverCl = NULL, *dataCatcherCl = NULL;
 
   if (!forceTransfer)
     getAntennaList(antennaInArray);
@@ -75,22 +75,30 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
     }
     
     /* Send the data to corrPlotter */
-    if (!(cl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
-      clnt_pcreateerror("obscon");
-      return(ERROR);
+    if (corrSaverCl == NULL) {
+      if (!(corrSaverCl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
+	clnt_pcreateerror("obscon");
+	return(ERROR);
+      }
     }
-    if (printResults(plot_swarm_data_1(&sWARMData, cl)))
+    if (printResults(plot_swarm_data_1(&sWARMData, corrSaverCl))) {
       fprintf(stderr, "Error returned from corrPlotter call\n");
-    clnt_destroy(cl);
+      clnt_destroy(corrSaverCl);
+      corrSaverCl = NULL;
+    }
     
     /* Send the data to dataCatcher */
-    if (!(cl = clnt_create("hcn", DATACATCHERPROG, DATACATCHERVERS, "tcp"))) {
-      clnt_pcreateerror("hcn");
-      return(ERROR);
+    if (dataCatcherCl == NULL) {
+      if (!(dataCatcherCl = clnt_create("hcn", DATACATCHERPROG, DATACATCHERVERS, "tcp"))) {
+	clnt_pcreateerror("hcn");
+	return(ERROR);
+      }
     }
-    if (printResults((statusStructure *)catch_swarm_data_1((dSWARMUVBlock *)(&sWARMData), cl)))
+    if (printResults((statusStructure *)catch_swarm_data_1((dSWARMUVBlock *)(&sWARMData), dataCatcherCl))) {
       fprintf(stderr, "Error returned from dataCatcher call\n");
-    clnt_destroy(cl);
+      clnt_destroy(dataCatcherCl);
+      dataCatcherCl = NULL;
+    }
   }
   return OK;
 }
