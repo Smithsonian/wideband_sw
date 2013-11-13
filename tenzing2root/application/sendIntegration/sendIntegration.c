@@ -66,7 +66,7 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
     sWARMData.chunk = chunk;
     if (ant1 == ant2)
       for (i = 0; i < nPoints; i++)
-	sWARMData.lSB[i] = lsbCross[i];
+	sWARMData.lSB[i] = lsbCross[2*i];
     else {
       for (i = 0; i < 2*nPoints; i++) {
 	sWARMData.lSB[i] = lsbCross[i];
