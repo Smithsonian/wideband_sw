@@ -24,13 +24,14 @@ for i, ((left, left_chan), (right, right_chan)) in enumerate(out):
         baseline = tuple(sorted((left, right)))
         visib_order[baseline][left_chan>>3] = i - (i % 2) * (left != right)
 
-for chan in chans:
-    print "##### Chan %2d #########" % chan
-    for left in ants:
-        print "#",
-        for right in ants:
-            baseline = tuple(sorted((left, right)))
-            print "%4d" % visib_order[baseline][chan>>3],
-        print "#"
-    print "#######################"
-    print ""
+if __name__ == "__main__":
+    for chan in chans:
+        print "##### Chan %2d #########" % chan
+        for left in ants:
+            print "#",
+            for right in ants:
+                baseline = tuple(sorted((left, right)))
+                print "%4d" % visib_order[baseline][chan>>3],
+            print "#"
+        print "#######################"
+        print ""
