@@ -124,7 +124,7 @@ time.sleep(2)
 print '------------------------'
 print 'Setting-up the correlator...',
 sys.stdout.flush()
-fpga.write('xeng_ctrl', struct.pack('>I', 11*64*5))
+fpga.write('xeng_ctrl', struct.pack('>I', 11*64*8))
 # fpga.write('visibs_sendto_ip', struct.pack('>I', dest_ip))
 # fpga.write('visibs_sendto_port', struct.pack('>I', dest_port))
 fpga.write('visibs_gbe0_sendto_ip', struct.pack('>I', dest_ip0))
