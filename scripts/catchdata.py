@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import sys, logging
-from time import sleep
+from itertools import chain
+from time import time, sleep
 from struct import pack, unpack
 from Queue import Queue, Empty
 from threading import Thread, Event, active_count
@@ -15,6 +16,8 @@ from numpy import (
     array, linspace, arange, zeros, ones,
     savetxt, 
     )
+import xeng_order
+import pysendint
 
 dc_roaches = ['192.168.10.64', '192.168.10.72']
 
@@ -106,46 +109,105 @@ while active_count() > 0:
 	data_catcher.join()
 	break
 
-    # Swap endiannes
-    data = array(unpack('>524288i', datas))
-    datas = pack('<524288i', *data)
+    # Unpack data
+    data = unpack('>%di' % (524288*2), datas)
+    data_dc0 = data[:len(data)/2]
+    data_dc1 = data[len(data)/2:]
+
+    # Re-order X-engine output
+    zero_pkt = (0,) * 2048
+
+    # Function for sorting baselines
+    def order_baselines(baseline):
+        left, right = baseline
+        if left == right:
+            return left
+        else:
+            return left  * 100
+
+    baselines = sorted(xeng_order.visib_order.keys(), key=order_baselines)
+    for baseline in baselines:
+
+        # Is this one an auto?
+        left, right = baseline
+	if left == right:
+            auto = True
+        else:
+            auto = False
+
+        # Initialize output data
+        lsb_data = zeros(2**15)
+
+        # And fill it in 
+        offsets = xeng_order.visib_order[baseline]
+
+        for chan in range(4):
+
+            # Chan 0 * n
+            lsb_data [chan*32+0::16*8] = data_dc0[256*0+offsets[chan]  ::256*8]
+            if not auto: lsb_data [chan*32+1::16*8] = data_dc0[256*0+offsets[chan]+1::256*8]
+
+            # Chan 1 * n
+            lsb_data [chan*32+2::16*8] = data_dc0[256*1+offsets[chan]  ::256*8]
+            if not auto: lsb_data [chan*32+3::16*8] = data_dc0[256*1+offsets[chan]+1::256*8]
     
-    # # Ant 0 autos
-    # ant0pol0_auto = (2**-6)*data[0::256]
-    # ant0pol1_auto = (2**-6)*data[1::256]
-    # ant0pol0_x_ant0pol1 = (2**-6)*(data[2::256] + 1j*data[3::256])
+            # Chan 2 * n
+            lsb_data [chan*32+4::16*8] = data_dc1[256*0+offsets[chan]  ::256*8]
+            if not auto: lsb_data [chan*32+5::16*8] = data_dc1[256*0+offsets[chan]+1::256*8]
+    
+            # Chan 3 * n
+            lsb_data [chan*32+6::16*8] = data_dc1[256*1+offsets[chan]  ::256*8]
+            if not auto: lsb_data [chan*32+7::16*8] = data_dc1[256*1+offsets[chan]+1::256*8]
+    
+            # Chan 4 * n
+            lsb_data [chan*32+8::16*8] = data_dc0[256*4+offsets[chan]  ::256*8]
+            if not auto: lsb_data [chan*32+9::16*8] = data_dc0[256*4+offsets[chan]+1::256*8]
+    
+            # Chan 5 * n
+            lsb_data[chan*32+10::16*8] = data_dc0[256*5+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+11::16*8] = data_dc0[256*5+offsets[chan]+1::256*8]
+    
+            # Chan 6 * n
+            lsb_data[chan*32+12::16*8] = data_dc1[256*4+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+13::16*8] = data_dc1[256*4+offsets[chan]+1::256*8]
+    
+            # Chan 7 * n
+            lsb_data[chan*32+14::16*8] = data_dc1[256*5+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+15::16*8] = data_dc1[256*5+offsets[chan]+1::256*8]
+    
+            ########
+    
+            # Chan 8 * n
+            lsb_data[chan*32+16::16*8] = data_dc0[256*2+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+17::16*8] = data_dc0[256*2+offsets[chan]+1::256*8]
+    
+            # Chan 9 * n
+            lsb_data[chan*32+18::16*8] = data_dc0[256*3+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+19::16*8] = data_dc0[256*3+offsets[chan]+1::256*8]
+    
+            # Chan 10 * n
+            lsb_data[chan*32+20::16*8] = data_dc1[256*2+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+21::16*8] = data_dc1[256*2+offsets[chan]+1::256*8]
+    
+            # Chan 11 * n
+            lsb_data[chan*32+22::16*8] = data_dc1[256*3+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+23::16*8] = data_dc1[256*3+offsets[chan]+1::256*8]
+    
+            # Chan 12 * n
+            lsb_data[chan*32+24::16*8] = data_dc0[256*6+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+25::16*8] = data_dc0[256*6+offsets[chan]+1::256*8]
+    
+            # Chan 13 * n
+            lsb_data[chan*32+26::16*8] = data_dc0[256*7+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+27::16*8] = data_dc0[256*7+offsets[chan]+1::256*8]
+    
+            # Chan 14 * n
+            lsb_data[chan*32+28::16*8] = data_dc1[256*6+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+29::16*8] = data_dc1[256*6+offsets[chan]+1::256*8]
+    
+            # Chan 15 * n
+            lsb_data[chan*32+30::16*8] = data_dc1[256*7+offsets[chan]  ::256*8]
+            if not auto: lsb_data[chan*32+31::16*8] = data_dc1[256*7+offsets[chan]+1::256*8]
 
-    # # Ant 1 autos
-    # ant1pol0_auto = (2**-6)*data[12::256]
-    # ant1pol1_auto = (2**-6)*data[13::256]
-    # ant1pol0_x_ant1pol1 = (2**-6)*(data[14::256] + 1j*data[15::256])
-
-    # # Ant 0 cross Ant 1
-    # ant0pol0_x_ant1pol0 = (2**-6)*(data[4::256] + 1j*data[5::256])
-    # ant0pol1_x_ant1pol1 = (2**-6)*(data[6::256] + 1j*data[7::256])
-    # ant0pol0_x_ant1pol1 = (2**-6)*(data[8::256] + 1j*data[9::256])
-    # ant0pol1_x_ant1pol0 = (2**-6)*(data[10::256] + 1j*data[11::256])
-
-    # savetxt('data.txt', cross.view(float).reshape(-1, 2))
-
-    # with open('data.txt', 'w') as file_:
-    #     for chan in range(2048):
-    #         line = "{:d} ".format(chan)
-    # 	    for base in range(16):
-    #             line += "{:.6f} ".format((2**-6)*data[chan*256 + base])
-    # 	    file_.write(line + "\n")
-
-    subfile = open('/application/bin/subscribers', 'r')
-    subs = list(sub.rstrip() for sub in subfile.readlines())
-
-    for sub in subs:
-        sock = socket(AF_INET, SOCK_STREAM)
-	try:
-            sock.connect((sub, 54321))
-        except error:
-            logger.error("%s: subscriber not ready" % sub)
-	    continue
-	sock.setsockopt(SOL_SOCKET, SO_SNDBUF, 536870912)
-	sock.send(datas)
-	sock.close()
-	logger.info("Sent [%d, %d, ..., %d] to %s" % (data[0], data[1], data[-1], sub))
+        pysendint.send_integration(time(), 32 * ((2**25)/(52e6)), 0, left, 1, right, 1, lsb_data, lsb_data, 0)
+        pysendint.send_integration(time(), 32 * ((2**25)/(52e6)), 1, left, 1, right, 1, lsb_data, lsb_data, 0)
