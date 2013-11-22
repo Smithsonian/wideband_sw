@@ -16,27 +16,7 @@ from numpy import (
     savetxt, 
     )
 
-roach     = sys.argv[1] #'roach2-02'
-
-if roach=='roach2-01':
-	final_hex = 10
-elif roach=='roach2-02':
-	final_hex = 12
-elif roach=='roach2-03':
-	final_hex = 14
-elif roach=='roach2-04':
-	final_hex = 16
-elif roach=='roach2-05':
-	final_hex = 18
-elif roach=='roach2-07':
-	final_hex = 20
-elif roach=='roach2-08':
-	final_hex = 22
-elif roach=='roach2-09':
-	final_hex = 24
-else:
-	raise Exception("ROACH2 not supported!")
-
+dc_roaches = ['192.168.10.64', '192.168.10.72']
 
 logging.basicConfig()
 formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
@@ -45,7 +25,6 @@ logger.setLevel(logging.INFO)
 logger.handlers[0].setFormatter(formatter)
 
 
-RECEIVE_FROM = "192.168.10." + str(final_hex+50)
 LISTEN_HOST = "0.0.0.0" #"192.168.10.17"
 LISTEN_PORT = 4100
 class DataCatcher(Thread):
@@ -66,31 +45,44 @@ class DataCatcher(Thread):
 
     def run(self):
         self.logger.info('DataCatcher has started')
-        data = {}
-        last_pkt_n = -1
         self._create_socket()
+
+        data = {}
         while not self.stopevent.isSet():
+
+            # Receive a packet and get host info
             try:
                 datar, addr = self.udp_sock.recvfrom(1025*8)
             except timeout:
                 continue
-	    #self.logger.info("received a packet!")
-            pkt_n, acc_n = unpack('>II', datar[:8])
-            if not data.has_key(addr):
-                data[addr] = {}
-            if not data[addr].has_key(acc_n):
-                data[addr][acc_n] = [None]*256
-            data[addr][acc_n][pkt_n] = datar[8:]
-            if data[addr][acc_n].count(None)==0:
-                self.logger.info("received accumulation %d from %r" %(acc_n, addr))
-                temp_data = ''.join(data[addr].pop(acc_n))
-                if addr[0]==RECEIVE_FROM:
-                    self.queue.put(temp_data)
-            # if (pkt_n <> last_pkt_n+1) and (pkt_n <> 0):
-            #     self.logger.error("received packet %d:#%d out of order" %(acc_n, pkt_n))
+            addr = addr[0]
+
+	    # Check if packet is wrong size
             if len(datar) <> 1025*8:
                 self.logger.error("received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-            last_pkt_n = pkt_n
+		continue
+
+	    # Unpack it to get packet # and accum #
+            pkt_n, acc_n = unpack('>II', datar[:8])
+
+	    # Initialize data buffer, if necessary
+            if not data.has_key(acc_n):
+                data[acc_n] = {dc_roaches[0]: [None]*256, dc_roaches[1]: [None]*256}
+
+            # Then store data in it
+            data[acc_n][addr][pkt_n] = datar[8:]
+
+	    # If we've gotten all pkts for acc_n for both direct-connect ROACH2's
+            if data[acc_n][dc_roaches[0]].count(None)==0 and \
+			data[acc_n][dc_roaches[1]].count(None)==0:
+                self.logger.info("received full accumulation #%d" %acc_n)
+                acc_data = data.pop(acc_n)
+                temp_data = ''.join(acc_data[dc_roaches[0]])
+                temp_data += ''.join(acc_data[dc_roaches[1]])
+
+		# Put data onto queue
+		self.queue.put(temp_data)
+
         self.logger.info('DataCatcher has stopped')
         self._close_socket()
 
