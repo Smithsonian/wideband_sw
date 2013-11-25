@@ -29,7 +29,9 @@ from pylab import subplot, plot, xlim, savefig, show
 #bitstream = 'sma_corr_2013_Aug_21_0218.bof' # FFT and mlib_devel updates, bad QDR?
 #bitstream = 'sma_corr_2013_Aug_25_1657.bof' # Re-synth netlist, bad QDR?
 #bitstream = 'sma_corr_2013_Sep_13_1058.bof' # Old re-compiled, vlbi-devel
-bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added features, crowley
+#bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added features, crowley
+#bitstream = 'sma_corr_2013_Oct_28_1058.bof' # Plan Ahead test bitcode
+bitstream = 'sma_corr_2013_Oct_31_1323.bof.gz' # First switch-enabled corner-turner
 
 roach     = sys.argv[1] #'roach2-02'
 network   = 'bypass'
