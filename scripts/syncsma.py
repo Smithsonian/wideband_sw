@@ -18,9 +18,9 @@ def send_sync(name, sec, nsec, off):
         # Wait for sync to happen
         time.sleep(2)
         # Arm the mcount generator
-        roach.write('sync_ctrl', struct.pack('>I', 1))
-        roach.write('sync_ctrl', struct.pack('>I', 0x20000001))
-        roach.write('sync_ctrl', struct.pack('>I', 1))
+        roach.write('sync_ctrl', struct.pack('>I', 0))
+        roach.write('sync_ctrl', struct.pack('>I', 0x20000000))
+        roach.write('sync_ctrl', struct.pack('>I', 0))
 
 # Cycle through ROACH's and sync
 arm_sec = int(time.mktime(time.localtime())) + 2

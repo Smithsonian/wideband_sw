@@ -149,7 +149,6 @@ fpga.write('source_seed_1', struct.pack('>I', 0xffffffff))
 fpga.write('source_ctrl', struct.pack('>I', (1<<31) + (1<<30) + (2<<3) + 2))
 fpga.write('source_ctrl', struct.pack('>I', (2<<3) + 2))
 fpga.write('scope_ctrl', struct.pack('>I', (3<<16) + (6<<8) + 0))
-fpga.write('sync_ctrl', struct.pack('>I', 1))
 fpga.write('fengine_ctrl', struct.pack('>I', 0x55505550))
 gains = [2**12,]*2**14
 fpga.write('cgain_gain_0', struct.pack('>%dH'%(2**14), *gains))
