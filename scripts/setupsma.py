@@ -182,14 +182,14 @@ fpga.blindwrite('adc5g_controller', struct.pack('>BBBB', 0x0, 0x0, 0x0, 0x0))
 opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 0, ['scope_snap0'], wait_period=16)
 opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 0, ['scope_snap0'], wait_period=16)
 if opt is None:
-    raise Exception, "Could not calibrate MMCM for ZDOK 0"
+    raise Exception, "Could not calibrate MMCM for ZDOK 0 with glitch profile %s" % ("".join(str(int(g>0)) for g in glitches))
 else:
     print "ZDOK 0: found optimal phase of %d with glitch profile %s" % (opt, "".join(str(int(g>0)) for g in glitches))
 
 opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 1, ['scope_snap1'], wait_period=16)
 opt, glitches = adc5g.calibrate_mmcm_phase(fpga, 1, ['scope_snap1'], wait_period=16)
 if opt is None:
-    raise Exception, "Could not calibrate MMCM for ZDOK 1"
+    raise Exception, "Could not calibrate MMCM for ZDOK 1 with glitch profile %s" % ("".join(str(int(g>0)) for g in glitches))
 else:
     print "ZDOK 1: found optimal phase of %d with glitch profile %s" % (opt, "".join(str(int(g>0)) for g in glitches))
 
