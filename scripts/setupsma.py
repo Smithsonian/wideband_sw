@@ -31,7 +31,12 @@ from pylab import subplot, plot, xlim, savefig, show
 #bitstream = 'sma_corr_2013_Sep_13_1058.bof' # Old re-compiled, vlbi-devel
 #bitstream = 'sma_corr_2013_Sep_17_1930.bof' # Old re-compiled with added features, crowley
 #bitstream = 'sma_corr_2013_Oct_28_1058.bof' # Plan Ahead test bitcode
-bitstream = 'sma_corr_2013_Oct_31_1323.bof.gz' # First switch-enabled corner-turner
+#bitstream = 'sma_corr_2013_Oct_31_1323.bof.gz' # First switch-enabled corner-turner
+#bitstream = 'sma_corr_2013_Dec_19_0318.bof.gz' # SOWF fix for switched corner-turner, timing errors
+#bitstream = 'sma_corr_2013_Dec_20_1800.bof.gz' # Same as above but zero timing score, from Plan Ahead
+#bitstream = 'sma_corr_2014_Jan_16_0340.bof.gz' # Same as above plus network_sync_count (timing errors)
+bitstream = 'sma_corr_2014_Jan_18_1927.bof.gz' # Fixed(?) extra X engine sync problem
+
 
 roach     = sys.argv[1] #'roach2-02'
 network   = 'bypass'
