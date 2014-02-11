@@ -193,14 +193,15 @@ if opt is None:
 else:
     print "ZDOK 1: found optimal phase of %d with glitch profile %s" % (opt, "".join(str(int(g>0)) for g in glitches))
 
-a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap0',])
-subplot(211); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
-a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap1',])
-subplot(212); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
-if plotting == "save":
-    savefig(roach + "-ramps.pdf")
-else:
-    show()
+if plotting != "noplot":
+    a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap0',])
+    subplot(211); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
+    a, b, c, d = adc5g.get_test_vector(fpga, ['scope_snap1',])
+    subplot(212); plot(a); plot(b); plot(c); plot(d); xlim(0, 256)
+    if plotting == "save":
+        savefig(roach + "-ramps.pdf")
+    else:
+        show()
 
 conf['test'] = 0 # Set ADC back to normal
 adc5g.set_spi_control(fpga, 0, **conf)
