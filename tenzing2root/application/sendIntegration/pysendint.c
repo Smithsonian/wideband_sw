@@ -121,6 +121,11 @@ send_integration(PyObject *self, PyObject *args)
   sts = sendIntegration(nPoints, uT, duration, chunk,
 			ant1, pol1, ant2, pol2,
 			lsbCross, usbCross, forceTransfer);
+
+  /* Free the malloced memory */
+  free(lsbCross);
+  free(usbCross);
+
   return Py_BuildValue("i", sts);
 }
 
