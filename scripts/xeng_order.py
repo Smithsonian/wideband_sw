@@ -3,35 +3,35 @@
 import decode
 
 
-ants  = (2, 5, 6, 7)
-chans = (0, 8, 16, 24)
-direct_connect_mapping = (
-    ((2,  0), (5,  0)), # roach2-00: {input 0: [ant, chanl], input 1: [...]}
-    ((6,  0), (7,  0)), # roach2-01: {input 0: [...], input 1: [...]}
-    ((2,  8), (5,  8)), # roach2-00: {...}
-    ((6,  8), (7,  8)), # ...
-    ((2, 16), (5, 16)), # ...
-    ((6, 16), (7, 16)), # ...
-    ((2, 24), (5, 24)), # ...
-    ((6, 24), (7, 24)), # roach2-01: {...}
-)
+inputs = range(16)
+switched_mapping = list((inputs[i], inputs[i+1]) for i in range(0, len(inputs), 2))
+xengine_out = list(decode.get_xengine_output_order(mapping=switched_mapping))
 
-visib_order = dict(((a, b), [0]*4) for a in ants for b in ants if b >= a)
-out = list(decode.get_xengine_output_order(mapping=direct_connect_mapping))
-
-for i, ((left, left_chan), (right, right_chan)) in enumerate(out):
-    if left_chan == right_chan:
-        baseline = tuple(sorted((left, right)))
-        visib_order[baseline][left_chan>>3] = i - (i % 2) * (left != right)
+visib_order = {}
+for i, (left, right) in enumerate(xengine_out):
+    visib_order[(left, right)] = i - (i % 2) * (left != right)
 
 if __name__ == "__main__":
-    for chan in chans:
-        print "##### Chan %2d #########" % chan
-        for left in ants:
-            print "#",
-            for right in ants:
-                baseline = tuple(sorted((left, right)))
-                print "%4d" % visib_order[baseline][chan>>3],
-            print "#"
-        print "#######################"
-        print ""
+    n_autos = sum(left==right for left, right in visib_order.keys())
+    n_cross = len(visib_order.keys()) - n_autos
+    print "Total  autos: %4d" % n_autos
+    print "Total  cross: %4d" % n_cross
+    print "Total values: %4d" % (n_autos + n_cross*2)
+    print
+    print "    "*2 + " ",
+    # Print header
+    for ant in inputs:
+        print "%4d" % ant,
+    print
+    # Then print the order
+    print "     " + "#####" * (len(inputs) + 1) + "#"
+    for left in inputs:
+        print "%4d" % left,
+        print "#   ",
+        for right in inputs:
+            try:
+                print "%4d" % visib_order[(left, right)],
+            except KeyError:
+                print "----",
+        print "#"
+    print "     " + "#####" * (len(inputs) + 1) + "#"

@@ -12,8 +12,8 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
 from numpy import (
-    pi, sin, sqrt, abs, angle, log10, real, imag,
-    array, linspace, arange, zeros, ones,
+    pi, sin, sqrt, abs, angle, log10, real, imag, nan,
+    array, linspace, arange, empty, ones,
     savetxt, 
     )
 import xeng_order
@@ -97,6 +97,19 @@ data_catcher.setDaemon(True)
 data_catcher.start()
 
 
+# Function for sorting baselines
+def order_baselines(baseline):
+    left, right = baseline
+    if left == right:
+        return left
+    else:
+        return (left + right) * 100
+
+valid_inputs = range(8)
+baselines = sorted(xeng_order.visib_order.keys(), key=order_baselines)
+ind = array(list(j + i for i in range(0, 256*64*2, 64*2) for j in range(0, 8*2, 2)))
+
+n = 0
 while active_count() > 0:
 
     try:
@@ -114,18 +127,9 @@ while active_count() > 0:
     data_dc0 = data[:len(data)/2]
     data_dc1 = data[len(data)/2:]
 
-    # Re-order X-engine output
-    zero_pkt = (0,) * 2048
+    # Scan time
+    scan_time = time()
 
-    # Function for sorting baselines
-    def order_baselines(baseline):
-        left, right = baseline
-        if left == right:
-            return left
-        else:
-            return left  * 100
-
-    baselines = sorted(xeng_order.visib_order.keys(), key=order_baselines)
     for baseline in baselines:
 
         # Is this one an auto?
@@ -135,79 +139,27 @@ while active_count() > 0:
         else:
             auto = False
 
-        # Initialize output data
-        lsb_data = zeros(2**15)
+        # Initialize empty output data
+        lsb_data = empty(2**15)
+        lsb_data.fill(nan)
 
         # And fill it in 
-        offsets = xeng_order.visib_order[baseline]
+        offset = xeng_order.visib_order[baseline]
 
-        for chan in range(4):
+        # Chan [0-7] * n
+        lsb_data[ind]  = data_dc0[offset::256]
+        if not auto: lsb_data[ind+1]  = data_dc0[offset+1::256]
 
-            # Chan 0 * n
-            lsb_data [chan*32+0::16*8] = data_dc0[256*0+offsets[chan]  ::256*8]
-            if not auto: lsb_data [chan*32+1::16*8] = data_dc0[256*0+offsets[chan]+1::256*8]
+        # Chan [8-15] * n
+        lsb_data[ind+16] = data_dc1[offset::256]
+        if not auto: lsb_data[ind+17] = data_dc1[offset+1::256]
 
-            # Chan 1 * n
-            lsb_data [chan*32+2::16*8] = data_dc0[256*1+offsets[chan]  ::256*8]
-            if not auto: lsb_data [chan*32+3::16*8] = data_dc0[256*1+offsets[chan]+1::256*8]
+        if (left in valid_inputs) and (right in valid_inputs): 
+            pysendint.send_integration(scan_time, 32 * ((2**25)/(52e6)), 0, left+1, 1, right+1, 1, lsb_data, lsb_data, 0)
+            pysendint.send_integration(scan_time, 32 * ((2**25)/(52e6)), 1, left+1, 1, right+1, 1, lsb_data, lsb_data, 0)
+            # savetxt("lsb_%dx%d.dat" % (left, right), lsb_data)
+            logger.info("processed baseline: %dx%d" % (left+1, right+1))
     
-            # Chan 2 * n
-            lsb_data [chan*32+4::16*8] = data_dc1[256*0+offsets[chan]  ::256*8]
-            if not auto: lsb_data [chan*32+5::16*8] = data_dc1[256*0+offsets[chan]+1::256*8]
-    
-            # Chan 3 * n
-            lsb_data [chan*32+6::16*8] = data_dc1[256*1+offsets[chan]  ::256*8]
-            if not auto: lsb_data [chan*32+7::16*8] = data_dc1[256*1+offsets[chan]+1::256*8]
-    
-            # Chan 4 * n
-            lsb_data [chan*32+8::16*8] = data_dc0[256*4+offsets[chan]  ::256*8]
-            if not auto: lsb_data [chan*32+9::16*8] = data_dc0[256*4+offsets[chan]+1::256*8]
-    
-            # Chan 5 * n
-            lsb_data[chan*32+10::16*8] = data_dc0[256*5+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+11::16*8] = data_dc0[256*5+offsets[chan]+1::256*8]
-    
-            # Chan 6 * n
-            lsb_data[chan*32+12::16*8] = data_dc1[256*4+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+13::16*8] = data_dc1[256*4+offsets[chan]+1::256*8]
-    
-            # Chan 7 * n
-            lsb_data[chan*32+14::16*8] = data_dc1[256*5+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+15::16*8] = data_dc1[256*5+offsets[chan]+1::256*8]
-    
-            ########
-    
-            # Chan 8 * n
-            lsb_data[chan*32+16::16*8] = data_dc0[256*2+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+17::16*8] = data_dc0[256*2+offsets[chan]+1::256*8]
-    
-            # Chan 9 * n
-            lsb_data[chan*32+18::16*8] = data_dc0[256*3+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+19::16*8] = data_dc0[256*3+offsets[chan]+1::256*8]
-    
-            # Chan 10 * n
-            lsb_data[chan*32+20::16*8] = data_dc1[256*2+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+21::16*8] = data_dc1[256*2+offsets[chan]+1::256*8]
-    
-            # Chan 11 * n
-            lsb_data[chan*32+22::16*8] = data_dc1[256*3+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+23::16*8] = data_dc1[256*3+offsets[chan]+1::256*8]
-    
-            # Chan 12 * n
-            lsb_data[chan*32+24::16*8] = data_dc0[256*6+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+25::16*8] = data_dc0[256*6+offsets[chan]+1::256*8]
-    
-            # Chan 13 * n
-            lsb_data[chan*32+26::16*8] = data_dc0[256*7+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+27::16*8] = data_dc0[256*7+offsets[chan]+1::256*8]
-    
-            # Chan 14 * n
-            lsb_data[chan*32+28::16*8] = data_dc1[256*6+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+29::16*8] = data_dc1[256*6+offsets[chan]+1::256*8]
-    
-            # Chan 15 * n
-            lsb_data[chan*32+30::16*8] = data_dc1[256*7+offsets[chan]  ::256*8]
-            if not auto: lsb_data[chan*32+31::16*8] = data_dc1[256*7+offsets[chan]+1::256*8]
+    logger.info("processed all baselines")
 
-        pysendint.send_integration(time(), 32 * ((2**25)/(52e6)), 0, left, 1, right, 1, lsb_data, lsb_data, 0)
-        pysendint.send_integration(time(), 32 * ((2**25)/(52e6)), 1, left, 1, right, 1, lsb_data, lsb_data, 0)
+    n = n + 1
