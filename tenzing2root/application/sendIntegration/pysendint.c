@@ -41,7 +41,7 @@ send_integration(PyObject *self, PyObject *args)
   }
 
   /* Make sure usbCrossObj is a sequence */
-  if (!PySequence_Check(lsbCrossObj)) {
+  if (!PySequence_Check(usbCrossObj)) {
     PyErr_SetString(PyExc_TypeError, "usbCross argument must be a sequence!");
     return NULL;
   }
