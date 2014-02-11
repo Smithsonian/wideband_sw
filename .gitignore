@@ -33,3 +33,8 @@ tenzing2root/application/sendIntegration/*.h
 tenzing2root/application/sendIntegration/*.c
 tenzing2root/application/sendIntegration/*.x
 tenzing2root/application/sendIntegration/dataFaker
+
+# Documents, plots, and data
+*.pdf
+*.txt
+*.dat
