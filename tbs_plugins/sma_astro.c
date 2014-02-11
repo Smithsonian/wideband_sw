@@ -48,6 +48,12 @@ volatile double delay_trip[N_INPUTS][3];
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
 
+/* Some global monitoring variables */
+volatile int late_errors = 0;
+volatile double  delay_rate[N_INPUTS] = {0.0, 0.0};
+volatile double fringe_rate[N_INPUTS] = {0.0, 0.0};
+volatile double late_ms = 0, max_late_ms = 0, avg_late_ms = 0;
+
 /* Sets the constant part of the phase register */
 int set_phase(int input, double phase, struct tbs_raw *tr){
   char regname[50];
@@ -446,13 +452,17 @@ void * fringe_stop(void * tr){
 
   int cdelay;
   double delay_samp, fdelay;
+  double last_delay [N_INPUTS];
+  double last_phase [N_INPUTS];
   double total_delay[N_INPUTS];
   double total_phase[N_INPUTS];
-  double final_delay, final_phase;
+  double final_delay[N_INPUTS];
+  double final_phase[N_INPUTS];
 
   int hh, mm;
   double ha, lst, lst_24h, tjd, ss;
-  struct timespec start, next;
+  struct timespec start, next, now;
+  double tot_late_ms = 0;
 
   clock_gettime(CLOCK_REALTIME, &start);
   while (fstop_go) {
@@ -465,8 +475,7 @@ void * fringe_stop(void * tr){
     /* Next find the hour angle of the source */
     ha = lst - source_rA;
 
-    /* Update our DSM variables every FSTOP_UPDATE steps 
-       also, print out some useful info */
+    /* Update our DSM variables every FSTOP_UPDATE */
     if ((i % FSTOP_UPDATE) == 0){
 
       /* Do the DSM update */
@@ -480,15 +489,13 @@ void * fringe_stop(void * tr){
       mm = (int)((lst_24h - (double)hh)*60);
       ss = (lst_24h - (double)hh - ((double)mm)/60.0)*3600.0;
 
-      /* Print out some useful information every FSTOP_UPDATE steps */
-      printf("HA=%25.15f, ", ha * (12.0/PI));
-      printf("LST=%d:%02d:%05.2f, ", hh, mm, ss);
-      printf("Delay[0]=%25.15f, ", total_delay[0]);
-      printf("Delay[1]=%25.15f\n", total_delay[1]);
-
     }
 
     for (j=0; j<N_INPUTS; j++) {
+
+      /* Grab the current delay/phase */
+      last_delay[j] = final_delay[j];
+      last_phase[j] = final_phase[j];
 
       pthread_mutex_lock(&fstop_mutex);
 
@@ -496,18 +503,38 @@ void * fringe_stop(void * tr){
       total_delay[j] = delays[j] + delay_trip[j][0] + \
 	cos(ha)*delay_trip[j][1] + sin(ha)*delay_trip[j][2];
 
+      /* If fringe delay tracking is enabled use that, 
+	 otherwise use the constant delay */
+      final_delay[j] = fstop_del_en ? total_delay[j] : delays[j];
+
       /* And the fringe phase */
       total_phase[j] = phases[j] + sign(fstop_freq) * \
 	mod(360 * total_delay[j] * fabs(fstop_freq), 360);
 
-      pthread_mutex_unlock(&fstop_mutex);
+      /* If fringe phase stopping is enabled use that, 
+	 otherwise use the constant phase */
+      final_phase[j] = fstop_pha_en ? total_phase[j] : phases[j];
 
       /* Bring phase within range */
-      if (total_phase[j] > 180.0) {
-	total_phase[j] -= 360.0;
-      } else if (total_phase[j] < -180.0) {
-	total_phase[j] += 360.0;
+      if (final_phase[j] > 180.0) {
+	final_phase[j] -= 360.0;
+      } else if (final_phase[j] < -180.0) {
+	final_phase[j] += 360.0;
       }
+
+      /* Update the monitoring variables */
+      delay_rate[j]  = (final_delay[j] - last_delay[j]) * 1e3;
+      fringe_rate[j] = (final_phase[j] - last_phase[j]) * (1e3 / 360.0);
+
+      /* Print some useful information */
+      printf("%25.15f:  ", timespec_to_double(next));
+      printf("HA=%25.15f  ", ha * (12.0/PI));
+      printf("Phase[%d] = %25.15f    ", j, final_phase[j]);
+      printf("Rate [%d] = %25.15f    ", j, fringe_rate[j]);
+      if (j==1)
+        printf("\n");
+
+      pthread_mutex_unlock(&fstop_mutex);
 
     }
 
@@ -517,32 +544,26 @@ void * fringe_stop(void * tr){
 
       pthread_mutex_lock(&fstop_mutex);
 
-      /* If fringe phase stopping is enabled use that, 
-	 otherwise use the constant phase */
-      final_phase = fstop_pha_en ? total_phase[j] : phases[j];
-
       /* Set the phase values */
-      result = set_phase(j, final_phase, tr);
+      result = set_phase(j, final_phase[j], tr);
       if (result < 0) {
 	printf("set_phase returned error code %d\r\n", result);
       }
 
-      /* If fringe delay tracking is enabled use that, 
-	 otherwise use the constant delay */
-      final_delay = fstop_del_en ? total_delay[j] : delays[j];
-
       /* Convert ns to samples */
-      delay_samp = final_delay * SAMPLE_FREQ;
+      delay_samp = final_delay[j] * SAMPLE_FREQ;
+
+      /* Find the coarse and fine delays */
+      cdelay = (int)delay_samp;
+      fdelay = delay_samp - cdelay;
 
       /* Set the coarse delay values */
-      cdelay = (int)delay_samp;
       result = set_cdelay(j, cdelay, tr);
       if (result < 0) {
 	printf("set_cdelay returned error code %d\r\n", result);
       }
 
       /* Set the fine delay values */
-      fdelay = delay_samp - cdelay;
       result = set_fdelay(j, fdelay, tr);
       if (result < 0) {
 	printf("set_fdelay returned error code %d\r\n", result);
@@ -553,6 +574,24 @@ void * fringe_stop(void * tr){
     }
 
     i++;
+
+    pthread_mutex_lock(&fstop_mutex);
+
+    /* Take note of the time we updated, and how late we were */
+    clock_gettime(CLOCK_REALTIME, &now);
+    late_ms = (timespec_to_double(now) - timespec_to_double(next)) * 1e3;
+
+    /* Generate some lateness statistics */
+    if (late_ms > max_late_ms)
+      max_late_ms = late_ms;
+    if (late_ms > 1.0) {
+      late_errors++;
+      tot_late_ms += late_ms;
+      avg_late_ms = tot_late_ms/late_errors;
+    }
+
+    pthread_mutex_unlock(&fstop_mutex);
+
   }
 
   return tr;
@@ -710,17 +749,19 @@ int stop_fstop_cmd(struct katcp_dispatch *d, int argc){
 
 int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude: %f", longitude);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq:      %f", fstop_freq);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA: %f", source_rA);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq:%f", fstop_freq);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA:%f", source_rA);
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "A[0]: %f", delay_trip[0][0]);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "B[0]: %f", delay_trip[0][1]);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "C[0]: %f", delay_trip[0][2]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "FringeRate[0]:%.6f~Hz", fringe_rate[0]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "FringeRate[1]:%.6f~Hz", fringe_rate[1]);
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "A[1]: %f", delay_trip[1][0]);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "B[1]: %f", delay_trip[1][1]);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "C[1]: %f", delay_trip[1][2]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DelayRate[0]:%.6f~ns/s", delay_rate[0]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DelayRate[1]:%.6f~ns/s", delay_rate[1]);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Max.Lateness:%.6f~ms", max_late_ms);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Avg.Lateness:%.6f~ms", avg_late_ms);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "LateErrors(>1ms):%d", late_errors);
 
   return KATCP_RESULT_OK;
 }
