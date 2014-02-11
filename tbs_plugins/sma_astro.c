@@ -342,6 +342,7 @@ int update_vars() {
   /* Read the structure over DSM */
   s = dsm_read(DDS_HOST, DSM_GEOM_VAR, &structure, &timeStamp);
   if (s != DSM_SUCCESS) {
+    dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_read()");
     return -2;
   }
@@ -350,6 +351,7 @@ int update_vars() {
   s = dsm_structure_get_element(&structure, DSM_GEOM_RA, &rA);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_get_element(rA)");
+    dsm_structure_destroy(&structure);
     return -3;
   }
 
@@ -357,6 +359,7 @@ int update_vars() {
   s = dsm_structure_get_element(&structure, DSM_GEOM_A, &a[0]);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_get_element(A)");
+    dsm_structure_destroy(&structure);
     return -4;
   }
 
@@ -364,6 +367,7 @@ int update_vars() {
   s = dsm_structure_get_element(&structure, DSM_GEOM_B, &b[0]);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_get_element(B)");
+    dsm_structure_destroy(&structure);
     return -5;
   }
 
@@ -371,10 +375,11 @@ int update_vars() {
   s = dsm_structure_get_element(&structure, DSM_GEOM_C, &c[0]);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_get_element(C)");
+    dsm_structure_destroy(&structure);
     return -6;
   }
 
-  /* Finally, set the global variables */
+  /* Set the global variables */
   pthread_mutex_lock(&fstop_mutex);
   source_rA = rA;
   delay_trip[0][0] = -1.0 * a[0] * 1e9;
@@ -384,6 +389,9 @@ int update_vars() {
   delay_trip[1][1] = -1.0 * b[1] * 1e9;
   delay_trip[1][2] = -1.0 * c[1] * 1e9;
   pthread_mutex_unlock(&fstop_mutex);
+
+  /* Finally, clear up the allocated memory */
+  dsm_structure_destroy(&structure);
 
   return 0;
 }
