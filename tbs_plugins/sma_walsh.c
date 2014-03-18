@@ -177,7 +177,7 @@ int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
 int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
   int s, hb_offset;
   time_t timeStamp;
-  uint32_t value;
+  uint32_t value, mask;
   struct tbs_raw *tr;
   struct tbs_entry *te;
   double start_db, now_db, arm_at_db;
@@ -251,8 +251,13 @@ int arm_walsh_cmd(struct katcp_dispatch *d, int argc){
     }
   }      
 
-  /* Set MSB=1 finally to arm */
-  *((uint32_t *)(tr->r_map + te->e_pos_base)) = value | 0x80000000;
+  /* Twiddle bits 31 and 29 finally to arm swof and mcnt */
+  mask = 0xa0000000;
+  *((uint32_t *)(tr->r_map + te->e_pos_base)) = value & ~mask;
+  msync(tr->r_map, tr->r_map_size, MS_SYNC);
+  *((uint32_t *)(tr->r_map + te->e_pos_base)) = value | mask;
+  msync(tr->r_map, tr->r_map_size, MS_SYNC);
+  *((uint32_t *)(tr->r_map + te->e_pos_base)) = value & ~mask;
   msync(tr->r_map, tr->r_map_size, MS_SYNC);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "armed at==%.9f", now_db);
 
