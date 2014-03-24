@@ -4,6 +4,9 @@ from random import randint
 from socket import inet_ntoa
 from threading import Thread, Event
 from collections import OrderedDict
+
+from numpy import clip
+
 from corr.katcp_wrapper import FpgaClient
 from katcp import Message
 
@@ -91,9 +94,8 @@ class SwarmMember:
         # Program the board
         self._program(bitcode)
 
-        # Setup our digital noise
-        self.set_digital_seed(0, (randint(0, 2**28 - 1)<<4) + noise)
-        self.set_digital_seed(1, (randint(0, 2**28 - 1)<<4) + noise)
+        # Set noise to perfect correlation
+        self.set_noise(0xffffffff, 0xffffffff)
         self.reset_digital_noise()
 
         # ...but actually use the ADCs
@@ -139,6 +141,12 @@ class SwarmMember:
         seed_bin = pack(SWARM_REG_FMT, seed)
         self.roach2.write(SWARM_SOURCE_SEED % source_n, seed_bin)
 
+    def set_noise(self, seed_0, seed_1):
+
+        # Setup our digital noise
+        self.set_digital_seed(0, seed_0)
+        self.set_digital_seed(1, seed_1)
+ 
     def reset_digital_noise(self, source_0=True, source_1=True):
 
         # Reset the given sources by twiddling the right bits
@@ -434,6 +442,35 @@ class Swarm:
         # Run func on each valid member
         for fid, member in enumerate(valid_members):
             func(fid, member)
+
+    def set_noise(self, correlation=1.0):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Create a common seed
+        correlated_bits = int(32 * clip(correlation, 0.0, 1.0))
+        uncorrelated_bits = 32 - correlated_bits
+        common_seed = randint(0, 2**correlated_bits - 1)
+
+        # Set noise on all inputs
+        for fid, member in enumerate(valid_members):
+
+            # Make sure all non-correlated nibbles are different
+            uncommon_seed_0 = int(('%x' % (2*fid+0)) * 8, 16)
+            uncommon_seed_1 = int(('%x' % (2*fid+1)) * 8, 16)
+
+            # Mix our common seed with a random one
+            uncommon_mask = ((2**uncorrelated_bits - 1) << correlated_bits)
+            seed_0 = (uncommon_seed_0 & uncommon_mask) + common_seed
+            seed_1 = (uncommon_seed_1 & uncommon_mask) + common_seed
+
+            # Finall set seeds for this member
+            member.set_noise(seed_0, seed_1)
+
+        # Reset the digital noise
+        for fid, member in enumerate(valid_members):
+            member.reset_digital_noise()
 
     def setup(self, bitcode, itime, listener):
 
