@@ -100,7 +100,7 @@ class SwarmMember:
         self.set_source(2, 2)
 
         # Setup our scopes to capture raw data
-        self.set_scope(3, 6, 0)
+        self.set_scope(3, 0, 6)
 
         # Setup the F-engine
         self._setup_fengine()
@@ -154,7 +154,7 @@ class SwarmMember:
         ctrl_bin = pack(SWARM_REG_FMT, (source_1<<3) + source_0)
         self.roach2.write(SWARM_SOURCE_CTRL, ctrl_bin)
 
-    def set_scope(self, sync_out, scope_1, scope_0):
+    def set_scope(self, sync_out, scope_0, scope_1):
 
         # Set our scopes to the given values
         ctrl_bin = pack(SWARM_REG_FMT, (sync_out<<16) + (scope_1<<8) + scope_0)
