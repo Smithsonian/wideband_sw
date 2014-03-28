@@ -263,7 +263,7 @@ class SwarmMember:
         for i in SWARM_ALL_FID:
             self.roach2.write(SWARM_XENG_TVG % i, pack('>%dH' % SWARM_VISIBS_CHANNELS, *const_inputs))
 
-    def visibs_delay(self, enable=True, delay_test=False, chunk_delay=2**21):
+    def visibs_delay(self, enable=True, delay_test=False, chunk_delay=2**23):
 
         # Disable/enable Laura's DDR3 delay and test
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + chunk_delay)
