@@ -11,6 +11,13 @@ from numpy import clip
 from corr.katcp_wrapper import FpgaClient
 from katcp import Message
 
+from adc5g import (
+    calibrate_mmcm_phase,
+    unset_test_mode,
+    set_test_mode,
+    sync_adc,
+    )
+
 from defines import *
 
 
@@ -105,6 +112,9 @@ class SwarmMember:
         # Setup our scopes to capture raw data
         self.set_scope(3, 0, 6)
 
+        # Calibrate the ADC MMCM phases
+        self.calibrate_adc()
+
         # Setup the F-engine
         self._setup_fengine()
 
@@ -168,6 +178,27 @@ class SwarmMember:
         # Set our scopes to the given values
         ctrl_bin = pack(SWARM_REG_FMT, (sync_out<<16) + (scope_1<<8) + scope_0)
         self.roach2.write(SWARM_SCOPE_CTRL, ctrl_bin)
+
+    def calibrate_adc(self):
+
+        # Set ADCs to test mode
+        for inp in SWARM_MAPPING_INPUTS:
+            set_test_mode(self.roach2, inp)
+
+        # Send a sync
+        sync_adc(self.roach2)
+
+        # Do the calibration
+        for inp in SWARM_MAPPING_INPUTS:
+            opt, glitches = calibrate_mmcm_phase(self.roach2, inp, [SWARM_SCOPE_SNAP % inp,])
+            if opt:
+                self.logger.info('ADC%d calibration found optimal phase: %d' % (inp, opt))
+            else:
+                self.logger.error('ADC%d calibration failed!' % inp)
+
+        # Unset test modes
+        for inp in SWARM_MAPPING_INPUTS:
+            unset_test_mode(self.roach2, inp)
 
     def _setup_fengine(self):
 
