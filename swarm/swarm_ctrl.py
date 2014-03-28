@@ -41,27 +41,28 @@ def main():
 
     # Callback for showing statistics
     def log_stats(data):
-        chunk = 0
         sideband = 'USB'
         auto_amps = {}
-        for baseline in data.baselines:
-            interleaved = array(list(p for p in data[baseline][chunk][sideband][32:] if not isnan(p)))
-            complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-            if baseline.is_auto():
-                auto_amps[baseline] = abs(complex_data).mean()
-                norm = auto_amps[baseline]
-            else:
-                norm_left = auto_amps[SwarmBaseline(baseline.left, baseline.left)]
-                norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
-                norm = sqrt(norm_left * norm_right)
-            logger.info(
-                '{baseline!s}[chunk={chunk}].{sideband} : Amp={amp:.4e}, Phase={pha:+.2e}, Corr.={corr:5.2f}%'.format(
-                    baseline=baseline, chunk=chunk, sideband=sideband, 
-                    corr=100.0*abs(complex_data).mean()/norm,
-                    pha=angle(complex_data).mean(),
-                    amp=abs(complex_data).mean()
-                    )
-                )
+        for chunk in (0, 1):
+            for baseline in data.baselines:
+                if baseline.is_valid():
+                    interleaved = array(list(p for p in data[baseline][chunk][sideband][32:] if not isnan(p)))
+                    complex_data = interleaved[0::2] + 1j * interleaved[1::2]
+                    if baseline.is_auto():
+                        auto_amps[baseline] = abs(complex_data).mean()
+                        norm = auto_amps[baseline]
+                    else:
+                        norm_left = auto_amps[SwarmBaseline(baseline.left, baseline.left)]
+                        norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
+                        norm = sqrt(norm_left * norm_right)
+                    logger.info(
+                        '{baseline!s}[chunk={chunk}].{sideband} : Amp={amp:.4e}, Phase={pha:+.2e}, Corr.={corr:5.2f}%'.format(
+                            baseline=baseline, chunk=chunk, sideband=sideband, 
+                            corr=100.0*abs(complex_data).mean()/norm,
+                            pha=angle(complex_data).mean(),
+                            amp=abs(complex_data).mean()
+                            )
+                        )
 
     # Callback for saving raw data
     def save_rawdata(rawdata):

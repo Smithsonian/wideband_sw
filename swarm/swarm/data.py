@@ -243,12 +243,15 @@ class SwarmDataHandler:
             # Get our data arrays
             baseline_data = data[baseline]
 
-            # Send every chunk
-            for chunk in SWARM_MAPPING_CHUNKS:
+            # Send the appropriate chunk
+            if baseline.is_valid():
 
                 # Get baseline antennas
                 ant_left = baseline.left._ant
                 ant_right = baseline.right._ant
+
+                # Get the chunk
+                chunk = baseline.left._chk
 
                 # Get baseline polarizations
                 pol_left = baseline.left._pol

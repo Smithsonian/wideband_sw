@@ -43,7 +43,9 @@ class SwarmBaseline:
         return self.left == self.right
 
     def is_valid(self):
-        return (self.left != None) and (self.right != None)
+        valid_inputs = (self.left != None) and (self.right != None)
+        cross_chunk = self.left._chk != self.right._chk
+        return valid_inputs and not cross_chunk
 
 
 class SwarmXengineWord(SwarmBaseline):
