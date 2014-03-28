@@ -1,4 +1,5 @@
 import logging
+from time import sleep
 from struct import pack
 from random import randint
 from socket import inet_ntoa
@@ -308,13 +309,32 @@ class SwarmMember:
         # Return the visibs core IP 
         return inet_ntoa(pack(SWARM_REG_FMT, self.visibs_netinfo['my_ip']))
 
-    def sync_sowf(self, offset=0):
+    def sync_sowf(self):
 
-        # Send the SWARM sync command over KATCP
-        message = Message.request(SWARM_SYNC_ARM_CMD, str(offset))
-        reply, informs = self.roach2.blocking_request(message, timeout=SWARM_SYNC_TIMEOUT)
-        if not reply.reply_ok():
-            self.logger.error("SOWF arming failed for FID #%d" % self.fid)
+        # Twiddle bit 31
+        mask = 1 << 31 # reset bit location
+        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+
+    def sync_1pps(self):
+
+        # Twiddle bit 30
+        mask = 1 << 30 # reset bit location
+        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+
+    def sync_mcnt(self):
+
+        # Twiddle bit 29
+        mask = 1 << 29 # reset bit location
+        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def enable_network(self):
 
@@ -474,8 +494,6 @@ class Swarm:
 
     def setup(self, bitcode, itime, listener):
 
-        sync_threads = []
-
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
 
@@ -488,14 +506,22 @@ class Swarm:
             # Setup (i.e. program and configure) the ROACH2
             member.setup(fid, self.fids_expected, bitcode, itime, listener)
 
-        # Send sync to all boards simultaneously 
+        # Sync SOWF and 1PPS
         for fid, member in enumerate(valid_members):
-            sync_threads.append(Thread(target=member.sync_sowf, args=[member,]))
-            sync_threads[-1].start()
-        
-        # Join and wait for syncs to finish
-        for thread in sync_threads:
-            thread.join()
+            member.sync_sowf()
+            member.sync_1pps()
+
+        # Wait for the sync
+        self.logger.info('SOWF and 1PPS sync attempted')
+        sleep(2)
+
+        # Sync MCNT 
+        for fid, member in enumerate(valid_members):
+            member.sync_mcnt()
+
+        # Wait for the MCNT sync
+        self.logger.info('MCNT sync attempted')
+        sleep(2)
 
         # Do the post-sync setup
         for fid, member in enumerate(valid_members):
