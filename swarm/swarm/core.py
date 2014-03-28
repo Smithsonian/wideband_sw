@@ -102,6 +102,9 @@ class SwarmMember:
         # Program the board
         self._program(bitcode)
 
+        # Verify QDRs
+        self.verify_qdr()
+
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
         self.reset_digital_noise()
@@ -300,6 +303,29 @@ class SwarmMember:
         # Disable/enable Laura's DDR3 delay and test
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + chunk_delay)
 
+    def qdr_ready(self, qdr_num=0):
+
+        # get the QDR status
+        rdy = self.roach2.read_uint(SWARM_QDR_CTRL % qdr_num, offset=1) & 1
+        #print 'fid %s qdr%d status %s' %(self.fid, qdr_num, stat)
+        return bool(rdy)
+
+    def reset_qdr(self, qdr_num=0):
+
+        # set the QDR status
+        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, struct.pack(SWARM_REG_FMT, 0xffffffff))
+        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, struct.pack(SWARM_REG_FMR, 0x0       ))
+
+    def verify_qdr(self):
+  
+        # check qdr ready, reset if not ready 
+        for qnum in SWARM_ALL_QDRS:
+            self.logger.debug('checking qdr: %d' % qnum)
+            rdy = self.qdr_ready(qnum)
+            if not rdy:
+                self.logger.warning('qdr: %d not ready' % qnum)
+                self.reset_qdr(qnum) 
+    
     def _setup_visibs(self, listener, delay_test=False):
 
         # Store (or override) our listener

@@ -17,6 +17,7 @@ SWARM_WALSH_TIME = SWARM_WCYCLE_CLOCKS / SWARM_CLK_RATE
 
 SWARM_ALL_FID = range(8)
 SWARM_ALL_CORE = range(4)
+SWARM_ALL_QDR = range(4)
 SWARM_SHIFT_SCHEDULE = 0x55505550
 SWARM_FENGINE_CTRL = 'fengine_ctrl'
 SWARM_CGAIN_GAIN = 'cgain_gain_%d'
@@ -29,6 +30,7 @@ SWARM_VISIBS_SENDTO_IP = 'visibs_gbe0_sendto_ip'
 SWARM_VISIBS_SENDTO_PORT = 'visibs_gbe0_sendto_port'
 SWARM_SOURCE_SEED = 'source_seed_%d'
 SWARM_SOURCE_CTRL = 'source_ctrl'
+SWARM_QDR_CTRL = 'qdr%d_ctrl'
 SWARM_SYNC_CTRL = 'sync_ctrl'
 SWARM_SCOPE_CTRL = 'scope_ctrl'
 SWARM_SCOPE_SNAP = 'scope_snap%d'
