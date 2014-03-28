@@ -258,11 +258,11 @@ class SwarmDataHandler:
                 pol_right = baseline.right._pol
 
                 # Get each sidebands data
-                lsb_data = baseline_data[chunk]['LSB']
+                usb_data = baseline_data[chunk]['USB']
                 if baseline.is_auto():
-                    usb_data = lsb_data.copy()
+                    lsb_data = usb_data.copy()
                 else:
-                    usb_data = baseline_data[chunk]['USB']
+                    lsb_data = baseline_data[chunk]['LSB']
 
                 # Send our integration
                 send_integration(0.0, 0.0, chunk, 
