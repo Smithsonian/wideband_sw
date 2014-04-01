@@ -102,9 +102,6 @@ class SwarmMember:
         # Program the board
         self._program(bitcode)
 
-        # Verify QDRs
-        self.verify_qdr()
-
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
         self.reset_digital_noise()
@@ -135,6 +132,9 @@ class SwarmMember:
 
         # Setup the 10 GbE visibility
         self._setup_visibs(listener)
+
+        # Verify QDRs
+        self.verify_qdr()
 
     def _connect(self, roach2_host):
 
@@ -313,17 +313,17 @@ class SwarmMember:
     def reset_qdr(self, qdr_num=0):
 
         # set the QDR status
-        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, struct.pack(SWARM_REG_FMT, 0xffffffff))
-        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, struct.pack(SWARM_REG_FMR, 0x0       ))
+        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
+        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
 
     def verify_qdr(self):
   
         # check qdr ready, reset if not ready 
-        for qnum in SWARM_ALL_QDRS:
-            self.logger.debug('checking qdr: %d' % qnum)
+        for qnum in SWARM_ALL_QDR:
+            self.logger.debug('checking QDR%d' % qnum)
             rdy = self.qdr_ready(qnum)
             if not rdy:
-                self.logger.warning('qdr: %d not ready' % qnum)
+                self.logger.warning('QDR%d not ready, resetting' % qnum)
                 self.reset_qdr(qnum) 
     
     def _setup_visibs(self, listener, delay_test=False):
