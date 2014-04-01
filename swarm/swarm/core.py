@@ -549,6 +549,28 @@ class Swarm:
         for fid, member in enumerate(valid_members):
             member.reset_digital_noise()
 
+    def sync(self):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Sync SOWF and 1PPS
+        for fid, member in enumerate(valid_members):
+            member.sync_sowf()
+            member.sync_1pps()
+
+        # Wait for the sync
+        self.logger.info('SOWF and 1PPS sync attempted')
+        sleep(10)
+
+        # Sync MCNT 
+        for fid, member in enumerate(valid_members):
+            member.sync_mcnt()
+
+        # Wait for the MCNT sync
+        self.logger.info('MCNT sync attempted')
+        sleep(10)
+
     def setup(self, bitcode, itime, listener):
 
         # Create list of valid members
@@ -563,22 +585,8 @@ class Swarm:
             # Setup (i.e. program and configure) the ROACH2
             member.setup(fid, self.fids_expected, bitcode, itime, listener)
 
-        # Sync SOWF and 1PPS
-        for fid, member in enumerate(valid_members):
-            member.sync_sowf()
-            member.sync_1pps()
-
-        # Wait for the sync
-        self.logger.info('SOWF and 1PPS sync attempted')
-        sleep(2)
-
-        # Sync MCNT 
-        for fid, member in enumerate(valid_members):
-            member.sync_mcnt()
-
-        # Wait for the MCNT sync
-        self.logger.info('MCNT sync attempted')
-        sleep(2)
+        # Sync the SWARM
+        self.sync()
 
         # Do the post-sync setup
         for fid, member in enumerate(valid_members):
