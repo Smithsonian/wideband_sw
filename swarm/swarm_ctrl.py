@@ -100,6 +100,8 @@ def main():
                         help='enable the DDR3 visibility ramp test')
     parser.add_argument('--save-raw-data', dest='save_rawdata', action='store_true',
                         help='Save raw data from each FID to file')
+    parser.add_argument('--log-stats', dest='log_stats', action='store_true',
+                        help='Print out some baselines statistics (NOTE: very slow!)')
     args = parser.parse_args()
 
     # Set logging level given verbosity
@@ -138,8 +140,10 @@ def main():
         # Create the data handler 
         swarm_handler = SwarmDataHandler(swarm, listener)
 
-        # Use a callback to show visibility stats
-        swarm_handler.add_callback(log_stats)
+        if args.log_stats:
+
+            # Use a callback to show visibility stats
+            swarm_handler.add_callback(log_stats)
 
         if args.save_rawdata:
 
