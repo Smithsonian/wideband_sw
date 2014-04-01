@@ -38,3 +38,6 @@ tenzing2root/application/sendIntegration/dataFaker
 *.pdf
 *.txt
 *.dat
+
+# Ignore Python setuptools junk
+*.egg-info/
