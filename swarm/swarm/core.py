@@ -91,6 +91,9 @@ class SwarmMember:
     def __getitem__(self, input_n):
         return self._inputs[input_n]
 
+    def get_input(self, input_n):
+        return self._inputs[input_n]
+
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
