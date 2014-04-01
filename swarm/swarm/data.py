@@ -299,9 +299,9 @@ class SwarmDataHandler:
 
                 # Log this accumulation
                 if not math.isnan(last_acc):
-                    self.logger.debug("Received full accumulation #{:<4} from fid #{}: {} ({:.4f} secs since last)".format(acc_n, recv_fid, recv_member, last_acc))
+                    self.logger.info("Received full accumulation #{:<4} from fid #{}: {} ({:.4f} secs since last)".format(acc_n, recv_fid, recv_member, last_acc))
                 else:
-                    self.logger.debug("Received full accumulation #{:<4} from fid #{}: {}".format(acc_n, recv_fid, recv_member))
+                    self.logger.info("Received full accumulation #{:<4} from fid #{}: {}".format(acc_n, recv_fid, recv_member))
 
                 # New accumulation, track it
                 if not acc.has_key(acc_n):
