@@ -1,12 +1,12 @@
 import logging
 from time import sleep
-from struct import pack
+from struct import pack, unpack
 from random import randint
 from socket import inet_ntoa
 from threading import Thread, Event
 from collections import OrderedDict
 
-from numpy import clip
+from numpy import clip, roll
 
 from corr.katcp_wrapper import FpgaClient
 from katcp import Message
@@ -398,18 +398,59 @@ class SwarmMember:
         # Enable the RX and TX
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x30))
 
+    def dewalsh(self, enable_0, enable_1):
+
+        # Set the Walsh control register
+        self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + 0xfffff))
+
+    def set_walsh_pattern(self, input_n, pattern, offset=0):
+
+        # Get the current Walsh table
+        walsh_table_bin = self.roach2.read(SWARM_WALSH_TABLE_BRAM, SWARM_WALSH_TABLE_LEN*4)
+        walsh_table = list(unpack('>%dI' % SWARM_WALSH_TABLE_LEN, walsh_table_bin))
+
+        # Find out many repeats we need
+        pattern_size = len(pattern) / SWARM_WALSH_SKIP
+        repeats = SWARM_WALSH_TABLE_LEN / pattern_size
+
+        # Repeat the pattern as needed
+        for rep in range(repeats):
+
+            # Go through each step (with skips)
+            for step in range(pattern_size):
+
+                # Get the requested Walsh phase
+                index = ((step + offset) * SWARM_WALSH_SKIP) % len(pattern)
+                phase = int(pattern[index])
+
+                # Get the current value in table
+                current = walsh_table[rep*pattern_size + step]
+
+                # Mask in our phase
+                shift_by = input_n * 4
+                mask = 0xf << shift_by
+                new = (current & ~mask) | (phase << shift_by)
+                walsh_table[rep*pattern_size + step] = new
+
+        # Finally write the updated table back
+        walsh_table_bin = pack('>%dI' % SWARM_WALSH_TABLE_LEN, *walsh_table)
+        self.roach2.write(SWARM_WALSH_TABLE_BRAM, walsh_table_bin)
+
 
 EMPTY_MEMBER = SwarmMember(None)
 
 class Swarm:
 
-    def __init__(self, map_filename=SWARM_MAPPING):
+    def __init__(self, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
 
         # Set initial member variables
         self.logger = logging.getLogger('Swarm')
 
         # Parse mapping for first time
         self.load_mapping(map_filename)
+
+        # Parse Walsh patterns
+        self.load_walsh_patterns(walsh_filename)
 
     def __len__(self):
         return len(self.members)
@@ -498,6 +539,68 @@ class Swarm:
         missing_fids = set(SWARM_ALL_FID) - set(range(self.fids_expected))
         for fid in missing_fids:
             self.members[fid] = SwarmMember(None)
+
+    def load_walsh_patterns(self, walsh_filename):
+
+        # Clear the Walsh patterns instance
+        self.walsh_patterns = OrderedDict()
+
+        # Store (or restore) current Walsh pattern file
+        self.walsh_filename = walsh_filename
+
+        # Open the Walsh pattern file
+        with open(self.walsh_filename, 'r') as walsh_file:
+
+            # Parse line by line
+            for walsh_line in walsh_file:
+
+                # Splits by (and removes) whitespace
+                entry = walsh_line.split()
+
+                # Checks if this line is a comment
+                is_comment = entry[0].startswith(SWARM_MAPPING_COMMENT)
+
+                if is_comment:
+
+                    # Display map comment
+                    self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
+
+                else:
+
+                    # First column is antenna number
+                    ant = int(entry[0])
+
+                    # Second column is the pattern
+                    pattern = entry[1]
+
+                    # Display Walsh pattern we found
+                    self.logger.debug('Length %d Walsh pattern found for antenna #%d' % (len(pattern), ant))
+
+                    # Add it to your patterns
+                    self.walsh_patterns[ant] = pattern
+
+    def set_walsh_patterns(self, offset=0):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Go through every member
+        for fid, member in enumerate(valid_members):
+
+            # And every input
+            for inp in SWARM_MAPPING_INPUTS:
+
+                # Get the antenna for this input
+                ant = member[inp]._ant
+
+                # Get the pattern for the antenna
+                pattern = self.walsh_patterns[ant]
+
+                # Then set it using the member function
+                member.set_walsh_pattern(inp, pattern, offset)
+
+            # Enable de-Walshing
+            member.dewalsh(enable_0=3, enable_1=3)
 
     def get_member(self, visibs_ip):
 
