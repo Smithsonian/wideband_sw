@@ -86,8 +86,8 @@ def main():
     parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
     parser.add_argument('-m', '--swarm-mapping', dest='swarm_mapping', metavar='SWARM_MAPPING', type=str, default=SWARM_MAPPING,
                         help='Use file SWARM_MAPPING to determine the SWARM input to IF mapping (default="%s")' % SWARM_MAPPING)
-    parser.add_argument('-i', '--interface', dest='interface', metavar='INTERFACE', type=str, default='p6p1',
-                        help='listen for UDP data on INTERFACE (default="p6p1")')
+    parser.add_argument('-i', '--interface', dest='interface', metavar='INTERFACE', type=str, default='eth2',
+                        help='listen for UDP data on INTERFACE (default="eth2")')
     parser.add_argument('-b', '--bitcode', dest='bitcode', metavar='BITCODE', type=str, default=DEFAULT_BITCODE,
                         help='program ROACH2s with BITCODE (default="%s")' % DEFAULT_BITCODE)
     parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=30.0,
