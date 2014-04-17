@@ -48,6 +48,8 @@ SWARM_NETWORK_FIDS_EXPECTED = 'network_fids_expected'
 SWARM_REG_FMT = '>I'
 
 SWARM_SYNC_ARM_CMD = 'sma-walsh-arm'
+SWARM_FSTOP_STOP_CMD = 'sma-astro-fstop-stop'
+SWARM_FSTOP_START_CMD = 'sma-astro-fstop-start'
 
 SWARM_XENG_PARALLEL_CHAN = 8
 SWARM_XENG_SIDEBANDS = ('LSB', 'USB')

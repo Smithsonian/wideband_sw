@@ -401,6 +401,21 @@ class SwarmMember:
         # Enable the RX and TX
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x30))
 
+    def fringe_stop(self, enable):
+
+        # Stop fringe stopping
+        message = Message.request(SWARM_FSTOP_STOP_CMD)
+        reply, informs = self.roach2.blocking_request(message, timeout=60)
+        if not reply.reply_ok():
+            self.logger.error("Stopping fringe stopping failed!")
+
+        # Start it again (if requested)
+        if enable:
+            message = Message.request(SWARM_FSTOP_START_CMD)
+            reply, informs = self.roach2.blocking_request(message, timeout=60)
+            if not reply.reply_ok():
+                self.logger.error("Starting fringe stopping failed!")
+
     def dewalsh(self, enable_0, enable_1):
 
         # Set the Walsh control register
@@ -604,6 +619,17 @@ class Swarm:
 
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)
+
+    def fringe_stopping(self, enable):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Go through every member
+        for fid, member in enumerate(valid_members):
+
+            # En(dis)able fringe stoppiner per member
+            member.fringe_stop(enable)
 
     def get_member(self, visibs_ip):
 
