@@ -421,7 +421,7 @@ class SwarmMember:
         # Set the Walsh control register
         self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + 0xfffff))
 
-    def set_walsh_pattern(self, input_n, pattern, offset=0):
+    def set_walsh_pattern(self, input_n, pattern, offset=0, swap90=True):
 
         # Get the current Walsh table
         walsh_table_bin = self.roach2.read(SWARM_WALSH_TABLE_BRAM, SWARM_WALSH_TABLE_LEN*4)
@@ -440,6 +440,13 @@ class SwarmMember:
                 # Get the requested Walsh phase
                 index = ((step + offset) * SWARM_WALSH_SKIP) % len(pattern)
                 phase = int(pattern[index])
+
+                # Swap 90 if requested
+                if swap90:
+                    if phase == 1:
+                        phase = 3
+                    elif phase == 3:
+                        phase = 1
 
                 # Get the current value in table
                 current = walsh_table[rep*pattern_size + step]
@@ -597,7 +604,7 @@ class Swarm:
                     # Add it to your patterns
                     self.walsh_patterns[ant] = pattern
 
-    def set_walsh_patterns(self, offset=0):
+    def set_walsh_patterns(self, offset=0, swap90=True):
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -615,7 +622,7 @@ class Swarm:
                 pattern = self.walsh_patterns[ant]
 
                 # Then set it using the member function
-                member.set_walsh_pattern(inp, pattern, offset)
+                member.set_walsh_pattern(inp, pattern, offset=offset, swap90=swap90)
 
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)
