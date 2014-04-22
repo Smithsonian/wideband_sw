@@ -309,9 +309,11 @@ class SwarmMember:
     def qdr_ready(self, qdr_num=0):
 
         # get the QDR status
-        rdy = self.roach2.read_uint(SWARM_QDR_CTRL % qdr_num, offset=1) & 1
+        status = self.roach2.read_uint(SWARM_QDR_CTRL % qdr_num, offset=1)
+        phy_rdy = bool(status & 1)
+        cal_fail = bool((status >> 8) & 1)
         #print 'fid %s qdr%d status %s' %(self.fid, qdr_num, stat)
-        return bool(rdy)
+        return phy_rdy and not cal_fail
 
     def reset_qdr(self, qdr_num=0):
 
