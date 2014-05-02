@@ -209,8 +209,8 @@ class SwarmDataHandler:
 
     def _reorder_data(self, datas_list):
 
-        # Get the xengine order
-        order = list(self.xengine.output_order())
+        # Get the xengine packet ordering
+        order = list(self.xengine.packet_order())
 
         # Create data package to hold baseline data
         data_pkg = SwarmDataPackage(self.swarm)

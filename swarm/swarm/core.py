@@ -19,6 +19,7 @@ from adc5g import (
     )
 
 from defines import *
+from xeng import SwarmXengine
 
 
 class SwarmInput:
@@ -231,7 +232,7 @@ class SwarmMember:
     def set_itime(self, itime_sec):
 
         # Set the integration (11 spectra per step * steps per cycle)
-        self._xeng_itime = 11 * SWARM_WSTEPS_PER_WCYCLE * int(itime_sec/SWARM_WALSH_TIME)
+        self._xeng_itime = 11 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime))
 
     def _reset_corner_turn(self):
@@ -463,6 +464,12 @@ class SwarmMember:
         walsh_table_bin = pack('>%dI' % SWARM_WALSH_TABLE_LEN, *walsh_table)
         self.roach2.write(SWARM_WALSH_TABLE_BRAM, walsh_table_bin)
 
+    def set_sideband_states(self, sb_states):
+
+        # Write the states to the right BRAM
+        sb_states_bin = pack('>%dB' % (len(sb_states)), *sb_states)
+        self.roach2.write(SWARM_SB_STATE_BRAM, sb_states_bin)
+
 
 EMPTY_MEMBER = SwarmMember(None)
 
@@ -478,6 +485,9 @@ class Swarm:
 
         # Parse Walsh patterns
         self.load_walsh_patterns(walsh_filename)
+
+        # Using patterns derive sideband states
+        self.load_sideband_states()
 
     def __len__(self):
         return len(self.members)
@@ -628,6 +638,51 @@ class Swarm:
 
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)
+
+    def load_sideband_states(self):
+
+        # Initialize sideband states
+        self.sideband_states = list()
+
+        # Get the Xengine output order
+        order = list(SwarmXengine(self).xengine_order())
+
+        # For each HB in a single SOWF cycle
+        for hb in range(SWARM_INT_HB_PER_SOWF):
+
+            # Find out step in the Walsh pattern
+            step = (hb * SWARM_WALSH_SKIP) % SWARM_EXT_HB_PER_WCYCLE
+
+            # Go through each Xengine output word
+            for i in range(0, len(order), 2):
+
+                # We skip by two since the Xengine
+                # outputs real and imaginary at once
+                word = order[i]
+
+                # If this is an auto or cross-chunk, 
+                # there is no sideband separation
+                if word.is_auto() or not word.is_valid():
+                    self.sideband_states.append(0)
+                else:
+
+                    # Get 90/270 Walsh state for both antennas
+                    state_left = int(self.walsh_patterns[word.left._ant][step]) & 1
+                    state_right = int(self.walsh_patterns[word.right._ant][step]) & 1
+
+                    # Append the combined state
+                    self.sideband_states.append(int(state_left == state_right))
+
+    def set_sideband_states(self):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Go through every member
+        for fid, member in enumerate(valid_members):
+
+            # Write the states to the FPGA
+            member.set_sideband_states(self.sideband_states)
 
     def fringe_stopping(self, enable):
 

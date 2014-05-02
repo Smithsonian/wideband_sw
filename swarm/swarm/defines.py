@@ -11,15 +11,32 @@ SWARM_WALSH_PATTERNS = '/global/configFiles/swarmWalshPatterns'
 SWARM_WALSH_TABLE_BRAM = 'walsh_table'
 SWARM_WALSH_CTRL = 'walsh_ctrl'
 SWARM_WALSH_TABLE_LEN = 1024
-SWARM_WALSH_SKIP = 2
 
-SWARM_CLK_RATE = 143e6
+SWARM_SB_STATE_BRAM = 'xengine_final_acc_sb_state'
+
+# Clocking parameters
+# (changes with external clock)
+SWARM_CLOCK_RATE = 143e6
+
+# Overall design parameters
+# (should not change unless design changes)
 SWARM_CHANNELS = 2**14
-SWARM_SYNC_TIMEOUT = 60
-SWARM_WSTEPS_PER_WCYCLE = 128
-SWARM_CLOCKS_PER_WSTEP = 11 * 128 * 2048
-SWARM_WCYCLE_CLOCKS = SWARM_WSTEPS_PER_WCYCLE * SWARM_CLOCKS_PER_WSTEP
-SWARM_WALSH_TIME = SWARM_WCYCLE_CLOCKS / SWARM_CLK_RATE
+
+# Internal de-Walshing parameters
+# (should not change unless design changes)
+SWARM_INT_HB_PER_SOWF = 256
+SWARM_CLOCKS_PER_INT_HB = 11 * 128 * 2048
+SWARM_INT_HB_PERIOD = SWARM_CLOCKS_PER_INT_HB / SWARM_CLOCK_RATE
+
+# External Walshing parameters
+# (changes with SMA Walshing changes)
+SWARM_EXT_HB_PER_WCYCLE = 256
+SWARM_EXT_HB_PERIOD = (2**19) / (52e6)
+SWARM_WALSH_PERIOD = SWARM_EXT_HB_PERIOD * SWARM_EXT_HB_PER_WCYCLE
+
+# Internal/external relationship
+# (changes with either; see above)
+SWARM_WALSH_SKIP = int(SWARM_INT_HB_PERIOD / SWARM_EXT_HB_PERIOD)
 
 SWARM_ALL_FID = range(8)
 SWARM_ALL_CORE = range(4)

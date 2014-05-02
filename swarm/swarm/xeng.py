@@ -78,8 +78,11 @@ class SwarmXengine:
     def __init__(self, mapping=simple_mapping):
         self.mapping = mapping
 
-    def output_order(self):
+    def packet_order(self):
         return self._ddr3_out()
+
+    def xengine_order(self):
+        return self._xeng_out()
 
     def _ddr3_out(self):
         xeng_gen = self._xeng_out()
