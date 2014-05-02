@@ -229,6 +229,13 @@ class SwarmMember:
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
+    def get_itime(self):
+        
+        # Get the integration time in spectra
+        xeng_time = self.roach2.read_uint(SWARM_XENG_CTRL) & 0x1ffff
+        cycles = xeng_time / (11 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
+        return cycles * SWARM_WALSH_PERIOD
+
     def set_itime(self, itime_sec):
 
         # Set the integration (11 spectra per step * steps per cycle)
@@ -694,6 +701,26 @@ class Swarm:
 
             # En(dis)able fringe stoppiner per member
             member.fringe_stop(enable)
+
+    def get_itime(self):
+
+        itime = None
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Find the member with the right visibs_ip
+        for fid, member in enumerate(valid_members):
+
+            # Set our first itime
+            if fid == 0:
+                itime = member.get_itime()
+            else:
+                if member.get_itime() != itime:
+                    self.logger.error('FID #%d has mismatching integration time!' % fid)
+
+        # Finally return the itime
+        return itime
 
     def get_member(self, visibs_ip):
 
