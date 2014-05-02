@@ -24,7 +24,7 @@ from swarm import (
     )
 
 
-DEFAULT_BITCODE = 'sma_corr_2014_Mar_19_1331.bof.gz'
+DEFAULT_BITCODE = 'sma_corr_2014_Apr_21_1603.bof.gz'
 
 
 def save_bin(filename, datas):
