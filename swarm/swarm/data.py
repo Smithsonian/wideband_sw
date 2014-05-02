@@ -31,10 +31,12 @@ EMPTY_DATA_ARRAY = array([nan,] * SWARM_CHANNELS * 2)
 
 class SwarmDataPackage:
 
-    def __init__(self, swarm):
+    def __init__(self, swarm, time=0.0, length=0.0):
 
         # Set all initial members
         self.swarm = swarm
+        self.int_time = time
+        self.int_length = length
         self._inputs = list(self.swarm[i][j] for i in range(self.swarm.fids_expected) for j in (0, 1))
         self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self._inputs, r=2) if i._chk==j._chk)
         self._autos = list(SwarmBaseline(i, i) for i in self._inputs)
@@ -207,13 +209,13 @@ class SwarmDataHandler:
     def add_callback(self, func):
         self.callbacks.append(func)
 
-    def _reorder_data(self, datas_list):
+    def _reorder_data(self, datas_list, int_time, int_length):
 
         # Get the xengine packet ordering
         order = list(self.xengine.packet_order())
 
         # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage(self.swarm)
+        data_pkg = SwarmDataPackage(self.swarm, time=int_time, length=int_length)
 
         # Unpack and reorder each FID's data
         for fid, datas in enumerate(datas_list):
@@ -265,7 +267,8 @@ class SwarmDataHandler:
                     lsb_data = baseline_data[chunk]['LSB']
 
                 # Send our integration
-                send_integration(0.0, 0.0, chunk, 
+                send_integration(data.int_time - (data.int_length/2.0), 
+                                 data.int_length, chunk,
                                  ant_left, pol_left, 
                                  ant_right, pol_right, 
                                  lsb_data, usb_data, 0)
@@ -312,6 +315,9 @@ class SwarmDataHandler:
 
                 if acc[acc_n].count(None) == 0:
 
+                    # Get integration time and length
+                    int_time = time()
+
                     # We have all data for this accumulation, log it
                     self.logger.info("Received full accumulation #{:<4}".format(acc_n))
 
@@ -321,7 +327,7 @@ class SwarmDataHandler:
                         rawback(rawdata)
 
                     # Reorder the xengine data
-                    data = self._reorder_data(rawdata)
+                    data = self._reorder_data(rawdata, int_time, self.swarm.get_itime())
 
                     # Handle the baseline data
                     self._handle_data(data)
