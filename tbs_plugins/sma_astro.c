@@ -43,7 +43,7 @@ volatile int fstop_del_en = TRUE;
 volatile int fstop_pha_en = TRUE;
 volatile double source_rA = 0.0;
 volatile double longitude = -2.71359;
-volatile double fstop_freq = 7.850;
+volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
@@ -508,8 +508,8 @@ void * fringe_stop(void * tr){
       final_delay[j] = fstop_del_en ? total_delay[j] : delays[j];
 
       /* And the fringe phase */
-      total_phase[j] = phases[j] + sign(fstop_freq) * \
-	mod(360 * total_delay[j] * fabs(fstop_freq), 360);
+      total_phase[j] = phases[j] + sign(fstop_freq[j]) * \
+	mod(360 * total_delay[j] * fabs(fstop_freq[j]), 360);
 
       /* If fringe phase stopping is enabled use that, 
 	 otherwise use the constant phase */
@@ -599,25 +599,40 @@ void * fringe_stop(void * tr){
 
 int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   int del_en, pha_en;
-  char *fstopstr, *longitudestr;
+  char *fstopstr_0, *fstopstr_1, *longitudestr;
 
-  /* Grab the first argument, the fringe-stopping frequency */
-  fstopstr = arg_string_katcp(d, 1);
-  if (fstopstr == NULL){
+  /* Grab the first argument, the fringe-stopping frequency for input 0 */
+  fstopstr_0 = arg_string_katcp(d, 1);
+  if (fstopstr_0 == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
+    return KATCP_RESULT_FAIL;
+  }
+ 
+  /* Grab the second argument, the fringe-stopping frequency for input 1 */
+  fstopstr_1 = arg_string_katcp(d, 2);
+  if (fstopstr_1 == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
     return KATCP_RESULT_FAIL;
   }
 
-  /* Convert the given string to a double */
+  /* Convert the given string to a double for input 0 */
   pthread_mutex_lock(&fstop_mutex);
-  fstop_freq = atof(fstopstr);
-  if (fstop_freq == 0.0){
+  fstop_freq[0] = atof(fstopstr_0);
+  if (fstop_freq[0] == 0.0){
+    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
+  }
+  pthread_mutex_unlock(&fstop_mutex);
+
+  /* Convert the given string to a double for input 1 */
+  pthread_mutex_lock(&fstop_mutex);
+  fstop_freq[1] = atof(fstopstr_1);
+  if (fstop_freq[1] == 0.0){
     log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
   }
   pthread_mutex_unlock(&fstop_mutex);
 
   /* Grab the second argument, the longitude */
-  longitudestr = arg_string_katcp(d, 2);
+  longitudestr = arg_string_katcp(d, 3);
   if (longitudestr == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse third command line argument");
     return KATCP_RESULT_FAIL;
@@ -631,16 +646,16 @@ int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   }
 
   /* Grab the third argument, enable delay flag */
-  del_en = arg_unsigned_long_katcp(d, 3);
+  del_en = arg_unsigned_long_katcp(d, 4);
   fstop_del_en = del_en > 0 ? TRUE : FALSE;
 
   /* Grab the fourth argument, enable phase flag */
-  pha_en = arg_unsigned_long_katcp(d, 4);
+  pha_en = arg_unsigned_long_katcp(d, 5);
   fstop_pha_en = pha_en > 0 ? TRUE : FALSE;
 
   pthread_mutex_unlock(&fstop_mutex);
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fstop=%.6f, long=%.6f", fstop_freq, longitude);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fstop[0]=%.6f, fstop[1]=%.6f, long=%.6f", fstop_freq[0], fstop_freq[1], longitude);
   return KATCP_RESULT_OK;
 }
 
@@ -749,7 +764,8 @@ int stop_fstop_cmd(struct katcp_dispatch *d, int argc){
 
 int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq:%f", fstop_freq);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[0]:%f", fstop_freq[0]);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[1]:%f", fstop_freq[1]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA:%f", source_rA);
 
@@ -793,7 +809,7 @@ struct PLUGIN KATCP_PLUGIN = {
     },
     { // 5
       .name = "?sma-astro-fstop-set", 
-      .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop longitude del_en pha_en)",
+      .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop_0 fstop_1 longitude del_en pha_en)",
       .cmd = set_fstop_cmd
     },
     { // 6

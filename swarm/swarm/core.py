@@ -623,7 +623,7 @@ class Swarm:
                     # Add it to your patterns
                     self.walsh_patterns[ant] = pattern
 
-    def set_walsh_patterns(self, offset=0, swap90=True):
+    def set_walsh_patterns(self, offset=0, swap90=[True, False]):
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -641,7 +641,7 @@ class Swarm:
                 pattern = self.walsh_patterns[ant]
 
                 # Then set it using the member function
-                member.set_walsh_pattern(inp, pattern, offset=offset, swap90=swap90)
+                member.set_walsh_pattern(inp, pattern, offset=offset, swap90=swap90[inp])
 
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)
