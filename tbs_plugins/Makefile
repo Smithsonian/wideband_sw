@@ -8,8 +8,13 @@ $(OBJDIR)/sma_walsh.o:  IDIRS = -I$(GLOBAL)/dsm
 $(OBJDIR)/sma_astro.o:  IDIRS = -I$(GLOBAL)/dsm
 $(OBJDIR)/dsm.o:        IDIRS = -I$(GLOBAL)/dsm
 
+ifdef CROSS_COMPILE
+	ARCH := $(CROSS_COMPILE)cross
+else
+	ARCH := $(shell uname -m)
+endif
+
 OBJDIR := build
-ARCH := $(shell uname -m)
 ARCHDIR := $(OBJDIR)/$(ARCH)
 EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
 SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_walsh sma_astro))
