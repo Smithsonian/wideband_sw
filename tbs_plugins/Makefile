@@ -1,48 +1,39 @@
--include $(TARGET).make
+$(OBJDIR)/example.so:   LDLIBS = 
+$(OBJDIR)/alarm.so:     LDLIBS = 
+$(OBJDIR)/sma_walsh.so: LDLIBS = 
+$(OBJDIR)/sma_astro.so: LDLIBS = -lm 
+$(OBJDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
 
-$(TARGET)/example.so: LDLIBS = 
-$(TARGET)/alarm.so: LDLIBS = 
-$(TARGET)/sma_walsh.so: LDLIBS = 
-$(TARGET)/sma_astro.so: LDLIBS = -lm 
-$(TARGET)/dsm.so: LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
+$(OBJDIR)/sma_walsh.o:  IDIRS = -I$(GLOBAL)/dsm
+$(OBJDIR)/sma_astro.o:  IDIRS = -I$(GLOBAL)/dsm
+$(OBJDIR)/dsm.o:        IDIRS = -I$(GLOBAL)/dsm
 
-$(TARGET)/sma_walsh.o: IDIRS = -I$(GLOBAL)/dsm
-$(TARGET)/sma_astro.o: IDIRS = -I$(GLOBAL)/dsm
-$(TARGET)/dsm.o: IDIRS = -I$(GLOBAL)/dsm
+OBJDIR := build
+ARCH := $(shell uname -m)
+ARCHDIR := $(OBJDIR)/$(ARCH)
+EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
+SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_walsh sma_astro))
+OBJS := $(EXAMPLES) $(SWARM_ONLY)
 
-build: 
-	$(MAKE) TARGET=x86_64 all
-	$(MAKE) TARGET=powerpc all
+examples: $(EXAMPLES)
+swarm: $(SWARM_ONLY)
+all: $(OBJS)
 
-clean: 
-	$(MAKE) TARGET=x86_64 clean-target
-	$(MAKE) TARGET=powerpc clean-target
+$(OBJS): | $(ARCHDIR)
 
-install: 
-	$(MAKE) TARGET=x86_64 install-target
-	$(MAKE) TARGET=powerpc install-target
+$(ARCHDIR):
+	mkdir -p $(ARCHDIR)
 
-all: $(TARGET) $(TARGET)/example.so $(TARGET)/alarm.so $(TARGET)/sma_walsh.so $(TARGET)/sma_astro.so $(TARGET)/dsm.so
-
-$(TARGET):
-	mkdir -p $(TARGET)
-
-$(TARGET)/%.o: %.c
+$(ARCHDIR)/%.o : %.c
 	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -c $< -o $@ -g \
-		-I$(KATCP)/katcp -I$(KATCP)/tcpborphserver3 $(IDIRS) -DKATCP_USE_FLOATS \
+		-I$(KATCPDIR)/katcp -I$(KATCPDIR)/tcpborphserver3 $(IDIRS) -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
-$(TARGET)/%.so: $(TARGET)/%.o 
+$(ARCHDIR)/%.so: $(ARCHDIR)/%.o
 	$(CROSS_COMPILE)ld -o $@ $^ -shared $(LDLIBS)
 
-$(TARGET)/sma_astro.so: $(TARGET)/sma_astro.o $(TARGET)/lst.o
+sma_astro.so: $(ARCHDIR)/sma_astro.o $(ARCHDIR)/lst.o
 	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
 
-clean-target:
-	rm -f $(TARGET)/*.o
-	rm -f $(TARGET)/*.so
-	rmdir --ignore-fail-on-non-empty -p $(TARGET)
-
-install-target:
-	mkdir -p $(INSTALL_DIR)/tbs_plugins
-	install -m 644 $(TARGET)/*.so $(INSTALL_DIR)/tbs_plugins
+clean:
+	rm -rf $(OBJDIR)
