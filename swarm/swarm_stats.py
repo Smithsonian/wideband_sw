@@ -5,7 +5,6 @@ import argparse
 import datetime
 import logging
 from numpy import array, log10, linspace, histogram
-from corr.katcp_wrapper import FpgaClient
 
 from swarm import *
 
