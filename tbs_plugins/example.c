@@ -18,12 +18,12 @@ struct PLUGIN KATCP_PLUGIN = {
   .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     {
-      .name = "?example_info", 
+      .name = "?example-info",
       .desc = "say hello over log info",
       .cmd = example_info_cmd
     },
     {
-      .name = "?example_error", 
+      .name = "?example-error",
       .desc = "say hello over log error",
       .cmd = example_error_cmd
     },
