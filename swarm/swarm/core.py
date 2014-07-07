@@ -477,6 +477,24 @@ class SwarmMember:
         sb_states_bin = pack('>%dB' % (len(sb_states)), *sb_states)
         self.roach2.write(SWARM_SB_STATE_BRAM, sb_states_bin)
 
+    def get_delay(self, input_n):
+
+        # Get the delay value in ns
+        message = Message.request(SWARM_DELAY_GET_CMD, str(input_n))
+        reply, informs = self.roach2.blocking_request(message, timeout=60)
+        if not reply.reply_ok():
+            self.logger.error("Getting the delay failed!")
+        else:
+            return float(reply.arguments[1])
+
+    def set_delay(self, input_n, value):
+
+        # Set the delay value in ns
+        message = Message.request(SWARM_DELAY_SET_CMD, str(input_n), str(value))
+        reply, informs = self.roach2.blocking_request(message, timeout=60)
+        if not reply.reply_ok():
+            self.logger.error("Setting the delay failed!")
+
 
 EMPTY_MEMBER = SwarmMember(None)
 
@@ -573,8 +591,8 @@ class Swarm:
                     self.members[roach2_host].set_input(roach2_inp, input_inst)
 
                     # We're done, spit some info out
-                    self.logger.info('Mapping antenna=%r to %s:input=%d', 
-                                     input_inst, roach2_host, roach2_inp)
+                    self.logger.debug('Mapping antenna=%r to %s:input=%d', 
+                                      input_inst, roach2_host, roach2_inp)
 
         # Set number FIDs expected
         self.fids_expected = len(self.members)
@@ -771,6 +789,60 @@ class Swarm:
         # Reset the digital noise
         for fid, member in enumerate(valid_members):
             member.reset_digital_noise()
+
+    def get_delay(self, antenna, chunk=0, polarization=0):
+
+        # Create an input instance
+        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Loop through each valid member
+        delays_found = []
+        members_found = 0
+        for fid, member in enumerate(valid_members):
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    delays_found.append(member.get_delay(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return delays_found[0]
+        else:
+            return delays_found
+
+    def set_delay(self, antenna, chunk=0, polarization=0, value=0.0):
+
+        # Create an input instance
+        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in enumerate(valid_members):
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_delay(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
 
     def sync(self):
 
