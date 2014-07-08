@@ -36,6 +36,7 @@ $(ARCHDIR)/%.o: %.c
 		-I$(KATCPDIR)/katcp -I$(KATCPDIR)/tcpborphserver3 $(IDIRS) -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 
+$(ARCHDIR)/sma_astro.so: $(ARCHDIR)/lst.o
 $(ARCHDIR)/%.so: $(ARCHDIR)/%.o
 	$(CROSS_COMPILE)ld -o $@ $^ -shared $(LDLIBS)
 
