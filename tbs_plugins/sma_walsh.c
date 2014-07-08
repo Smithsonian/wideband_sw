@@ -163,7 +163,7 @@ int load_pattern_walsh_cmd(struct katcp_dispatch *d, int argc){
 
 	/* Mask in the requested values */
 	patval = ((uint32_t)walshBytes[input][j*2] & 0xf) << (input*4);
-	*((uint32_t *)ind) = value & ~(0xf << (input*4)) | patval;
+	*((uint32_t *)ind) = (value & ~(0xf << (input*4))) | patval;
 
 	/* mysnc to update the memory map */
 	msync(tr->r_map, tr->r_map_size, MS_SYNC);
