@@ -31,7 +31,7 @@ $(OBJS): | $(ARCHDIR)
 $(ARCHDIR):
 	mkdir -p $(ARCHDIR)
 
-$(ARCHDIR)/%.o : %.c
+$(ARCHDIR)/%.o: %.c
 	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -c $< -o $@ -g \
 		-I$(KATCPDIR)/katcp -I$(KATCPDIR)/tcpborphserver3 $(IDIRS) -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
