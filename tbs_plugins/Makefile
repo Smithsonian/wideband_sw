@@ -1,24 +1,26 @@
-$(OBJDIR)/example.so:   LDLIBS = 
-$(OBJDIR)/alarm.so:     LDLIBS = 
-$(OBJDIR)/sma_walsh.so: LDLIBS = 
-$(OBJDIR)/sma_astro.so: LDLIBS = -lm 
-$(OBJDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
-
-$(OBJDIR)/sma_walsh.o:  IDIRS = -I$(GLOBAL)/dsm
-$(OBJDIR)/sma_astro.o:  IDIRS = -I$(GLOBAL)/dsm
-$(OBJDIR)/dsm.o:        IDIRS = -I$(GLOBAL)/dsm
-
 ifdef CROSS_COMPILE
 	ARCH := $(CROSS_COMPILE)cross
 else
 	ARCH := $(shell uname -m)
 endif
 
+GLOBAL := /global
+COMMON := /common
+ACCAPP := /application
+KATCPDIR := $(ACCAPP)/src/katcp_devel
+
 OBJDIR := build
 ARCHDIR := $(OBJDIR)/$(ARCH)
 EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
 SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_walsh sma_astro))
 OBJS := $(EXAMPLES) $(SWARM_ONLY)
+
+$(ARCHDIR)/sma_astro.so: LDLIBS = -lm
+$(ARCHDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
+
+$(ARCHDIR)/sma_walsh.o:  IDIRS = -I$(GLOBAL)/dsm
+$(ARCHDIR)/sma_astro.o:  IDIRS = -I$(GLOBAL)/dsm
+$(ARCHDIR)/dsm.o:        IDIRS = -I$(GLOBAL)/dsm
 
 examples: $(EXAMPLES)
 swarm: $(SWARM_ONLY)
