@@ -372,7 +372,8 @@ void *monitor_adc(void *args) {
   int zdok;
   float pwr[2];
   int hist[256][2];
-  double avg, rms;
+  double avg;
+  float loading_factor;
 #define NHIST 60
 
   bzero(&hist, sizeof(hist));
@@ -391,8 +392,8 @@ void *monitor_adc(void *args) {
         hist[val+128][zdok]++;
       }
       avg = (double)sum/len;
-      rms = sqrt((double)ssq/len - avg*avg);
-      pwr[zdok] = rms;
+      loading_factor = -20*log10f((float)(128/sqrt((double)ssq/len - avg*avg)));
+      pwr[zdok] = loading_factor + 10.4;;
       pthread_mutex_unlock(&snap_mutex);
       usleep(100);
     }
