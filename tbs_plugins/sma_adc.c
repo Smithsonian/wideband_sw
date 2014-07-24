@@ -9,7 +9,12 @@
 #include <katcp.h>
 #include <sys/mman.h>
 #include <tcpborphserver3.h>
+#include <dsm.h>
+#include <pthread.h>
 #include <plugin.h>
+
+#define TRUE 1
+#define FALSE 0
 
 #define SCOPE_0_DATA "scope_snap0_bram"
 #define SCOPE_0_CTRL "scope_snap0_ctrl"
@@ -25,6 +30,11 @@
 static int *ctrl_p, *stat_p;
 static signed char *snap_p;
 static int *scope_ctrl_p, *source_ctrl_p;
+pthread_mutex_t snap_mutex;
+struct snapshot_args {
+  struct katcp_dispatch *d;
+  struct tbs_raw *tr;
+};
 
 /* the following are for programming the adc through the spi interface. */
 #define ADC5G_CONTROLLER "adc5g_controller"
@@ -38,9 +48,12 @@ static int *scope_ctrl_p, *source_ctrl_p;
 #define SPI_WRITE 0x80;
 
 /* Default file names */
-#define SNAP_NAME "/instance/snap"
+#define SNAP_NAME "/instance/adcTests/snap"
+#define OGP_BASE_NAME "/instance/configFiles/ogp_if"
+#if 0
 #define OGP_NAME "/instance/ogp"
 #define OGP_MEAS_NAME "/instance/ogp_meas"
+#endif
 
 uint32_t *spi_p;
 
@@ -55,6 +68,18 @@ typedef struct {
   float avamp;
   int overload_cnt[4];
 } og_rtn;
+
+/* Things for the adc monitor thread */
+
+int run_adc_monitor = FALSE;
+pthread_t adc_monitor_thread;
+dsm_structure adc_stats;
+
+
+#define ADC_STATS_STRUCT "SWARM_SAMPLER_STATS_X"
+#define ADC_HIST "SAMPLER_HIST_V256_V2_L"
+#define ADC_PWR "SAMPLER_EST_POWER_V2_F"
+#define MONITOR_HOST "obscon"
 
 struct tbs_raw *get_mode_pointer(struct katcp_dispatch *d){
   struct tbs_raw *tr;
@@ -242,42 +267,49 @@ void print_ogp(struct katcp_dispatch *d, float *ogp) {
   }
 }
 
-int set_snapshot_pointers(
-  struct katcp_dispatch *d, struct tbs_raw *tr, int zdok) {
+int set_snapshot_pointers( struct snapshot_args args, int zdok) {
   struct tbs_entry *ctrl_reg, *data_reg, *status_reg;
   struct tbs_entry *scope_ctrl_reg, *source_ctrl_reg;
+  static int cur_zdok = -99;
 
+  if(zdok == cur_zdok) {
+    return(1);
+  }
+  cur_zdok = zdok;
   /* Get the register pointers */
   if(zdok == 0) {
-    ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_0_CTRL);
-    status_reg = find_data_avltree(tr->r_registers, SCOPE_0_STATUS);
-    data_reg = find_data_avltree(tr->r_registers, SCOPE_0_DATA);
+    ctrl_reg = find_data_avltree(args.tr->r_registers, SCOPE_0_CTRL);
+    status_reg = find_data_avltree(args.tr->r_registers, SCOPE_0_STATUS);
+    data_reg = find_data_avltree(args.tr->r_registers, SCOPE_0_DATA);
   } else {
-    ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_1_CTRL);
-    status_reg = find_data_avltree(tr->r_registers, SCOPE_1_STATUS);
-    data_reg = find_data_avltree(tr->r_registers, SCOPE_1_DATA);
+    ctrl_reg = find_data_avltree(args.tr->r_registers, SCOPE_1_CTRL);
+    status_reg = find_data_avltree(args.tr->r_registers, SCOPE_1_STATUS);
+    data_reg = find_data_avltree(args.tr->r_registers, SCOPE_1_DATA);
   }
-  scope_ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_CTRL);
-  source_ctrl_reg = find_data_avltree(tr->r_registers, SOURCE_CTRL);
+  scope_ctrl_reg = find_data_avltree(args.tr->r_registers, SCOPE_CTRL);
+  source_ctrl_reg = find_data_avltree(args.tr->r_registers, SOURCE_CTRL);
   if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL ||
       scope_ctrl_reg == NULL || source_ctrl_reg == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+    log_message_katcp(args.d, KATCP_LEVEL_ERROR, NULL,
       "Snapshot registers not set up correctly");
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+    log_message_katcp(args.d, KATCP_LEVEL_ERROR, NULL,
       "%x %x %x", ctrl_reg, status_reg, data_reg);
     return 0;
   }
-  snap_p = ((signed char *)(tr->r_map + data_reg->e_pos_base));
-  ctrl_p = ((int *)(tr->r_map + ctrl_reg->e_pos_base));
-  stat_p = ((int *)(tr->r_map + status_reg->e_pos_base));
-  scope_ctrl_p = ((int *)(tr->r_map + scope_ctrl_reg->e_pos_base));
-  source_ctrl_p = ((int *)(tr->r_map + source_ctrl_reg->e_pos_base));
+  snap_p = ((signed char *)(args.tr->r_map + data_reg->e_pos_base));
+  ctrl_p = ((int *)(args.tr->r_map + ctrl_reg->e_pos_base));
+  stat_p = ((int *)(args.tr->r_map + status_reg->e_pos_base));
+  scope_ctrl_p = ((int *)(args.tr->r_map + scope_ctrl_reg->e_pos_base));
+  source_ctrl_p = ((int *)(args.tr->r_map + source_ctrl_reg->e_pos_base));
   return 1;
 }
 
-int take_snapshot(struct katcp_dispatch *d) {
+int take_snapshot(struct snapshot_args args, int zdok) {
   int cnt;
 
+  if(set_snapshot_pointers(args, zdok) == 0) {
+    return 0;
+  }
   /* set up for a snapshot of the adc data */
   *scope_ctrl_p = 1536;
   *source_ctrl_p = 18;
@@ -286,7 +318,7 @@ int take_snapshot(struct katcp_dispatch *d) {
   *ctrl_p = 3;
   for(cnt = 0; *stat_p & 0x80000000; cnt++) {
     if(cnt > 100) {
-      log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Snapshot timed out");
+      log_message_katcp(args.d, KATCP_LEVEL_ERROR, NULL, "Snapshot timed out");
       return 0;
     }
   }
@@ -334,16 +366,58 @@ og_rtn og_from_noise(int len, signed char *snap) {
   return(rtn);
 }
 
+void *monitor_adc(void *args) {
+  int status, len;
+  int n, val, sum, ssq;
+  int zdok;
+  float pwr[2];
+  int hist[256][2];
+  double avg, rms;
+
+  while(run_adc_monitor == TRUE) {
+    bzero(&hist, sizeof(hist));
+    for(zdok = 0; zdok < 2; zdok++) {
+      pthread_mutex_lock(&snap_mutex);
+      len = take_snapshot(*(struct snapshot_args *)args, zdok);
+      sum = 0;
+      ssq = 0;
+      if(len > 0) {
+        for(n = 0; n < len; n++) {
+          val = snap_p[n];
+          sum += val;
+          ssq += val*val;
+	  hist[val+128][zdok]++;
+        }
+        avg = (double)sum/len;
+        rms = sqrt((double)ssq/n - avg*avg);
+        pwr[zdok] = rms;
+      }else {
+        pwr[zdok] = 0;
+      }
+      pthread_mutex_unlock(&snap_mutex);
+    }
+    status = dsm_structure_set_element(&adc_stats, ADC_PWR, pwr);
+    status |= dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
+    if (status != DSM_SUCCESS) {
+      dsm_error_message(status, "dsm_structure_get_element for adc stats");
+    }
+    status = dsm_write(MONITOR_HOST, ADC_STATS_STRUCT, &adc_stats);
+    sleep(1);
+  }
+  return args;
+}
+
 int get_snapshot_cmd(struct katcp_dispatch *d, int argc){
   int i = 0;
   int zdok = 0;
   int len;
-  struct tbs_raw *tr;
+  struct snapshot_args args;
   FILE *fp;
 
   /* Grab the mode pointer */
-  if((tr = get_mode_pointer(d)) == NULL)
+  if((args.tr = get_mode_pointer(d)) == NULL)
     return(KATCP_RESULT_FAIL);
+  args.d = d;
 
   /* Grab the first argument, optional zdok will be zero if missing */
   zdok = arg_signed_long_katcp(d, 1);
@@ -352,23 +426,23 @@ int get_snapshot_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
 
-  if(set_snapshot_pointers(d, tr, zdok) == 0) {
-    return KATCP_RESULT_FAIL;
-  }
-  len = take_snapshot(d);
-  if(len == 0) {
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Taking snapshot failed");
-    return KATCP_RESULT_FAIL;
-  }
   umask(0000);
   if((fp = fopen(SNAP_NAME, "w")) == NULL){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
       "Error %s opening %s", strerror(errno), SNAP_NAME);
     return KATCP_RESULT_FAIL;
   }
+  pthread_mutex_lock(&snap_mutex);
+  len = take_snapshot(args, zdok);
+  if(len == 0) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Taking snapshot failed");
+    fclose(fp);
+    return KATCP_RESULT_FAIL;
+  }
   for(i = 0; i < len; i++) {
     fprintf(fp, "%d\n", snap_p[i]);
   }
+  pthread_mutex_unlock(&snap_mutex);
   fclose(fp);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL,
     "1st snapshot values = %d %d %d %d, status %d",
@@ -379,14 +453,16 @@ int get_snapshot_cmd(struct katcp_dispatch *d, int argc){
 int measure_og_cmd(struct katcp_dispatch *d, int argc){
   int rpt = 100;
   int zdok = 0;
-  struct tbs_raw *tr;
+  struct snapshot_args args;
   int i = 0, n;
   int len;
   og_rtn single_og, sum_og;
+  char fname[36];
 
   /* Grab the mode pointer */
-  if((tr = get_mode_pointer(d)) == NULL)
+  if((args.tr = get_mode_pointer(d)) == NULL)
     return(KATCP_RESULT_FAIL);
+  args.d = d;
 
   /* Grab the first argument, optional zdok will be zero if missing */
   zdok = arg_signed_long_katcp(d, 1);
@@ -404,16 +480,20 @@ int measure_og_cmd(struct katcp_dispatch *d, int argc){
   }
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "argc = %d,zdok=%d,rpt=%d", argc,zdok,rpt);
   memset((char *)&sum_og, 0, sizeof(sum_og));
+#if 0
   if(set_snapshot_pointers(d, tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
   }
+#endif
   for(n = rpt; n > 0; n--) {
-    len = take_snapshot(d);
+    pthread_mutex_lock(&snap_mutex);
+    len = take_snapshot(args, zdok);
     if(len == 0) {
       log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "Taking snapshot failed");
       return KATCP_RESULT_FAIL;
     }
     single_og = og_from_noise(len, snap_p);
+    pthread_mutex_unlock(&snap_mutex);
     sum_og.avz += single_og.avz;
     sum_og.avamp += single_og.avamp;
     for(i = 0; i < 12; i++) {
@@ -439,7 +519,8 @@ int measure_og_cmd(struct katcp_dispatch *d, int argc){
   for(i = 0; i < 12; i++) {
     sum_og.ogp[i] /= rpt;
   }
-  if(write_ogp_file(d, OGP_MEAS_NAME, sum_og.ogp) == 0) {
+  sprintf(fname, "%s%d%s", OGP_BASE_NAME, zdok, ".meas");
+  if(write_ogp_file(d, fname, sum_og.ogp) == 0) {
     return KATCP_RESULT_FAIL;
   }
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL,
@@ -464,7 +545,7 @@ int set_ogp_cmd(struct katcp_dispatch *d, int argc){
   int zdok = 0;
   struct tbs_raw *tr;
   float ogp[12];
-  char *fname = OGP_NAME;
+  char fname[36];
 
   /* Grab the mode pointer */
   if((tr = get_mode_pointer(d)) == NULL)
@@ -477,7 +558,9 @@ int set_ogp_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   if(argc > 2) {
-    fname = arg_string_katcp(d, 2);
+    strcpy(fname, arg_string_katcp(d, 2));
+  } else {
+    sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
   }
   if(set_spi_pointer(d, tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
@@ -519,6 +602,7 @@ int update_ogp_cmd(struct katcp_dispatch *d, int argc){
   int i;
   struct tbs_raw *tr;
   float ogp_reg[12], ogp_meas[12];
+  char fname[36];
 
   /* Grab the mode pointer */
   if((tr = get_mode_pointer(d)) == NULL)
@@ -533,23 +617,68 @@ int update_ogp_cmd(struct katcp_dispatch *d, int argc){
   if(set_spi_pointer(d, tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
   }
-  if(read_ogp_file(d, OGP_MEAS_NAME, ogp_meas) == 0) {
+  sprintf(fname, "%s%d%s", OGP_BASE_NAME, zdok, ".meas");
+  if(read_ogp_file(d, fname, ogp_meas) == 0) {
     return KATCP_RESULT_FAIL;
   }
   get_ogp_registers(ogp_reg);
   for(i = 0; i < 12; i++) {
     ogp_reg[i] += ogp_meas[i];
   }
-  if(write_ogp_file(d, OGP_NAME, ogp_reg) == 0) {
+  sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
+  if(write_ogp_file(d, fname, ogp_reg) == 0) {
     return KATCP_RESULT_FAIL;
   }
   set_ogp_registers(ogp_reg);
   return KATCP_RESULT_OK;
 }
 
+int start_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
+  int status;
+  static struct snapshot_args args;
+
+  /* Grab the mode pointer */
+  if((args.tr = get_mode_pointer(d)) == NULL)
+    return(KATCP_RESULT_FAIL);
+  args.d = d;
+
+  /* Set flag run adc monitoring of input level and histogram */
+  run_adc_monitor = TRUE;
+  status = dsm_structure_init(&adc_stats, ADC_STATS_STRUCT);
+  if (status != DSM_SUCCESS) {
+    dsm_error_message(status, "dsm_structure_init()");
+    return KATCP_RESULT_FAIL;
+  }
+#if 0
+  (void)monitor_adc(&args);
+  dsm_structure_destroy(&adc_stats);
+#else
+  /* Start the thread */
+  status = pthread_create(&adc_monitor_thread,NULL, monitor_adc, (void *)&args);
+  if (status < 0){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+                "could not create adc_monitor thread");
+    return KATCP_RESULT_FAIL;
+  }
+#endif
+  return KATCP_RESULT_OK;
+}
+
+int stop_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
+
+  /* Set flag to stop adc_monitor measuring and reporting */
+  run_adc_monitor = FALSE;
+
+  /* Wait until the thread stops */
+  pthread_join(adc_monitor_thread, NULL);
+  dsm_structure_destroy(&adc_stats);
+
+  return KATCP_RESULT_OK;
+}
+
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 5,
-  .name = "adc5g_og",
+  .n_cmds = 7,
+  .name = "sma_adc",
   .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     {
@@ -576,6 +705,16 @@ struct PLUGIN KATCP_PLUGIN = {
       .name = "?update-ogp", 
       .desc = "read /instance/ogp_meas and add to the ogp registers in the adc.  Also store results in /instance/ogp.  Optional argument zdok",
       .cmd = update_ogp_cmd
+    },
+    {
+      .name = "?start-adc-monitor", 
+      .desc = "start the adc monitor thread",
+      .cmd = start_adc_monitor_cmd
+    },
+    {
+      .name = "?stop-adc-monitor", 
+      .desc = "stop the adc monitor thread",
+      .cmd = stop_adc_monitor_cmd
     },
   }
 };
