@@ -366,6 +366,8 @@ og_rtn og_from_noise(int len, signed char *snap) {
   return(rtn);
 }
 
+/* This routine expects that adc_stats has been initialized and that it will
+ * be destroyed after it quits */
 void *monitor_adc(void *args) {
   int status, len;
   int hist_cnt, n, val, sum, ssq;
@@ -391,11 +393,10 @@ void *monitor_adc(void *args) {
         ssq += val*val;
         hist[val+128][zdok]++;
       }
+      pthread_mutex_unlock(&snap_mutex);
       avg = (double)sum/len;
       loading_factor = -20*log10f((float)(128/sqrt((double)ssq/len - avg*avg)));
       pwr[zdok] = loading_factor + 10.4;;
-      pthread_mutex_unlock(&snap_mutex);
-      usleep(100);
     }
     status = dsm_structure_set_element(&adc_stats, ADC_PWR, pwr);
     if(++hist_cnt >= NHIST) {
@@ -654,10 +655,6 @@ int start_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
     dsm_error_message(status, "dsm_structure_init()");
     return KATCP_RESULT_FAIL;
   }
-#if 0
-  (void)monitor_adc(&args);
-  dsm_structure_destroy(&adc_stats);
-#else
   /* Start the thread */
   status = pthread_create(&adc_monitor_thread,NULL, monitor_adc, (void *)&args);
   if (status < 0){
@@ -665,7 +662,6 @@ int start_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
                 "could not create adc_monitor thread");
     return KATCP_RESULT_FAIL;
   }
-#endif
   return KATCP_RESULT_OK;
 }
 
