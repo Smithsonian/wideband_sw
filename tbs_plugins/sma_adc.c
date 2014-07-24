@@ -368,36 +368,40 @@ og_rtn og_from_noise(int len, signed char *snap) {
 
 void *monitor_adc(void *args) {
   int status, len;
-  int n, val, sum, ssq;
+  int hist_cnt, n, val, sum, ssq;
   int zdok;
   float pwr[2];
   int hist[256][2];
   double avg, rms;
+#define NHIST 60
 
+  bzero(&hist, sizeof(hist));
+  (void)dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
+  hist_cnt = 0;
   while(run_adc_monitor == TRUE) {
-    bzero(&hist, sizeof(hist));
     for(zdok = 0; zdok < 2; zdok++) {
-      pthread_mutex_lock(&snap_mutex);
-      len = take_snapshot(*(struct snapshot_args *)args, zdok);
       sum = 0;
       ssq = 0;
-      if(len > 0) {
-        for(n = 0; n < len; n++) {
-          val = snap_p[n];
-          sum += val;
-          ssq += val*val;
-	  hist[val+128][zdok]++;
-        }
-        avg = (double)sum/len;
-        rms = sqrt((double)ssq/n - avg*avg);
-        pwr[zdok] = rms;
-      }else {
-        pwr[zdok] = 0;
+      pthread_mutex_lock(&snap_mutex);
+      len = take_snapshot(*(struct snapshot_args *)args, zdok);
+      for(n = 0; n < len; n++) {
+        val = snap_p[n];
+        sum += val;
+        ssq += val*val;
+        hist[val+128][zdok]++;
       }
+      avg = (double)sum/len;
+      rms = sqrt((double)ssq/len - avg*avg);
+      pwr[zdok] = rms;
       pthread_mutex_unlock(&snap_mutex);
+      usleep(100);
     }
     status = dsm_structure_set_element(&adc_stats, ADC_PWR, pwr);
-    status |= dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
+    if(++hist_cnt >= NHIST) {
+      status |= dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
+      hist_cnt = 0;
+      bzero(&hist, sizeof(hist));
+    }
     if (status != DSM_SUCCESS) {
       dsm_error_message(status, "dsm_structure_get_element for adc stats");
     }
@@ -680,6 +684,8 @@ struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 7,
   .name = "sma_adc",
   .version = KATCP_PLUGIN_VERSION,
+  .init = start_adc_monitor_cmd,
+  .uninit = stop_adc_monitor_cmd,
   .cmd_array = {
     {
       .name = "?get-snapshot", 
