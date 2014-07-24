@@ -15,6 +15,7 @@ EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
 SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_adc sma_walsh sma_astro))
 OBJS := $(EXAMPLES) $(SWARM_ONLY)
 
+$(ARCHDIR)/sma_adc.so:   LDLIBS = -lm
 $(ARCHDIR)/sma_astro.so: LDLIBS = -lm
 $(ARCHDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
 
