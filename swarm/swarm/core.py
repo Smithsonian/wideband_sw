@@ -233,13 +233,13 @@ class SwarmMember:
         
         # Get the integration time in spectra
         xeng_time = self.roach2.read_uint(SWARM_XENG_CTRL) & 0x1ffff
-        cycles = xeng_time / (11 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
+        cycles = xeng_time / (6 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
         return cycles * SWARM_WALSH_PERIOD
 
     def set_itime(self, itime_sec):
 
-        # Set the integration (11 spectra per step * steps per cycle)
-        self._xeng_itime = 11 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
+        # Set the integration (6 spectra per step * steps per cycle)
+        self._xeng_itime = 6 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime))
 
     def _reset_corner_turn(self):
