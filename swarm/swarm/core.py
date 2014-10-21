@@ -616,6 +616,10 @@ class Swarm:
                 # Splits by (and removes) whitespace
                 entry = walsh_line.split()
 
+                # Ignore empty lines
+                if len(entry) == 0:
+                    continue
+
                 # Checks if this line is a comment
                 is_comment = entry[0].startswith(SWARM_MAPPING_COMMENT)
 
