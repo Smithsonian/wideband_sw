@@ -875,15 +875,25 @@ class Swarm:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
-            member.setup(fid, self.fids_expected, bitcode, itime, listener)
+            member.setup(fid, self.fids_expected, bitcode, 0.0, listener)
 
         # Sync the SWARM
         self.sync()
 
         # Do the post-sync setup
         for fid, member in enumerate(valid_members):
-            member.enable_network()
-            member.reset_xeng()
             member.reset_digital_noise()
             member.set_source(3, 3)
+            member.enable_network()
 
+        # Wait for initial accumulations to finish
+        self.logger.info('Waiting for initial accumulations to finish...')
+        while any(m.roach2.read_uint('xeng_xn_num') for m in valid_members):
+            sleep(0.1)
+
+        # Set the itime and wait for it to register
+        self.logger.info('Setting integration time and resetting x-engines...')
+        for fid, member in enumerate(valid_members):
+            member.set_itime(itime)
+        for fid, member in enumerate(valid_members):
+            member.reset_xeng()
