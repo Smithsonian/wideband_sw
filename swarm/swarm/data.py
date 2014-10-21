@@ -5,7 +5,8 @@ from Queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
 from socket import (
-    socket, timeout, error, inet_ntoa,
+    socket, timeout, error, 
+    inet_ntoa, inet_aton,
     AF_INET, SOCK_DGRAM, SOCK_STREAM,
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
@@ -141,40 +142,42 @@ class SwarmDataCatcher(Thread):
             except timeout:
                 continue
 
-            #self.logger.info("Received packet: %s" %datar)
-            
+            # Determine the FID from addr
+            fid = unpack('BBBB', inet_aton(addr[0]))[3]/2 - 29
+
+	    # Unpack it to get packet # and accum #
+            pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
+            self.logger.debug("Received packet #%d for accumulation #%d from %s(FID=%d)" %(pkt_n, acc_n, addr, fid))
+
             # Check if packet is wrong size
             if len(datar) <> SWARM_VISIBS_PKT_SIZE:
                 self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
 		continue
 
-	    # Unpack it to get packet # and accum #
-            pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-
-            # Initialize addr data buffer, if necessary 
-            if not data.has_key(addr):
-                data[addr] = {}
+            # Initialize fid data buffer, if necessary 
+            if not data.has_key(fid):
+                data[fid] = {}
 
 	    # Initialize acc_n data buffer, if necessary
-            if not data[addr].has_key(acc_n):
-                data[addr][acc_n] = [None]*SWARM_VISIBS_N_PKTS
+            if not data[fid].has_key(acc_n):
+                data[fid][acc_n] = [None]*SWARM_VISIBS_N_PKTS
 
             # Initialize last_acc tracker, if necessary 
-            if not last_acc.has_key(addr):
-                last_acc[addr] = float('nan')
+            if not last_acc.has_key(fid):
+                last_acc[fid] = float('nan')
 
             # Then store data in it
-            data[addr][acc_n][pkt_n] = datar[8:]
+            data[fid][acc_n][pkt_n] = datar[8:]
 
-	    # If we've gotten all pkts for acc_n for this addr
-            if data[addr][acc_n].count(None)==0:
+	    # If we've gotten all pkts for acc_n for this fid
+            if data[fid][acc_n].count(None)==0:
 
 		# Put data onto queue
-                temp_data = ''.join(data[addr].pop(acc_n))
-		self.queue.put([addr, acc_n, time() - last_acc[addr], temp_data])
+                temp_data = ''.join(data[fid].pop(acc_n))
+		self.queue.put([fid, acc_n, time() - last_acc[fid], temp_data])
 
                 # Set the last acc time
-                last_acc[addr] = time()
+                last_acc[fid] = time()
 
         self.logger.info('SwarmDataCatcher has stopped')
         self._close_socket()
@@ -289,13 +292,13 @@ class SwarmDataHandler:
             while True:
 
                 try: # to check for data
-                    addr, acc_n, last_acc, datas = self.queue.get_nowait()
+                    recv_fid, acc_n, last_acc, datas = self.queue.get_nowait()
                     sleep(0.1)
                 except Empty: # none available
                     continue
 
                 # Get the member/fid this set is from
-                recv_fid, recv_member = self.swarm.get_member(addr[0])
+                recv_member = self.swarm[recv_fid]
 
                 # Get the host name from member
                 recv_host = recv_member.roach2_host
