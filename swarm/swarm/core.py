@@ -373,11 +373,8 @@ class SwarmMember:
 
     def get_visibs_ip(self):
 
-        # Update/store the visibs core net info
-        self.visibs_netinfo = self.roach2.get_10gbe_core_details(SWARM_VISIBS_CORE)
-
-        # Return the visibs core IP 
-        return inet_ntoa(pack(SWARM_REG_FMT, self.visibs_netinfo['my_ip']))
+        # Return the visibs core IPs
+        return inet_ntoa(self.roach2.read(SWARM_VISIBS_CORE, 4, offset=0x10))
 
     def sync_sowf(self):
 
