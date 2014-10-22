@@ -90,7 +90,7 @@ def main():
                         help='listen for UDP data on INTERFACE (default="eth2")')
     parser.add_argument('-b', '--bitcode', dest='bitcode', metavar='BITCODE', type=str, default=DEFAULT_BITCODE,
                         help='program ROACH2s with BITCODE (default="%s")' % DEFAULT_BITCODE)
-    parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=30.0,
+    parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
                         help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
     parser.add_argument('--setup-only', dest='setup_only', action='store_true',
                         help='only program and setup the board; do not wait for data')
