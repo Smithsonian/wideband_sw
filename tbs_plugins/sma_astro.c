@@ -659,68 +659,6 @@ int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OK;
 }
 
-int set_dtrip_cmd(struct katcp_dispatch *d, int argc){
-  int input;
-  char *Astr, *Bstr, *Cstr;
-  double A, B, C;
-
-  /* Grab the first argument, input number = (0, N_INPUTS) */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the second argument the first delay triplet */
-  Astr = arg_string_katcp(d, 2);
-  if (Astr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  A = atof(Astr);
-  if (A == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-
-  /* Grab the third argument the second delay triplet */
-  Bstr = arg_string_katcp(d, 3);
-  if (Bstr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  B = atof(Bstr);
-  if (B == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-
-  /* Grab the fourth argument the third delay triplet */
-  Cstr = arg_string_katcp(d, 4);
-  if (Cstr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  C = atof(Cstr);
-  if (C == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-
-  /* Finally, set the global variables */
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "setting input %d delay triplet to (%.6f, %.6f, %.6f)", input, A, B, C);
-  pthread_mutex_lock(&fstop_mutex);
-  delay_trip[input][0] = A;
-  delay_trip[input][1] = B;
-  delay_trip[input][2] = C;
-  pthread_mutex_unlock(&fstop_mutex);
-
-  return KATCP_RESULT_OK;
-}
-
 int start_fstop_cmd(struct katcp_dispatch *d, int argc){
   int status;
   struct tbs_raw *tr;
@@ -783,7 +721,7 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 }
 
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 9,
+  .n_cmds = 8,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
@@ -811,11 +749,6 @@ struct PLUGIN KATCP_PLUGIN = {
       .name = "?sma-astro-fstop-set", 
       .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop_0 fstop_1 longitude del_en pha_en)",
       .cmd = set_fstop_cmd
-    },
-    { // 6
-      .name = "?sma-astro-dtrip-set", 
-      .desc = "set the delay triplet for an input (?sma-astro-fstop-set input A B C)",
-      .cmd = set_dtrip_cmd
     },
     { // 7
       .name = "?sma-astro-fstop-start", 
