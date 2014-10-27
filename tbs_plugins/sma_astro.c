@@ -32,6 +32,8 @@
 #define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
 #define DSM_GEOM_B "GEOM_DELAY_B_V2_D"
 #define DSM_GEOM_C "GEOM_DELAY_C_V2_D"
+#define DSM_DEL_OFF "FIXED_DELAY_OFFSET_V2_D"
+#define DSM_PHA_OFF "FIXED_PHASE_OFFSET_V2_D"
 
 /* These are the constant, user-programmable delays and phases */
 volatile double delays[N_INPUTS];
@@ -167,176 +169,13 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
   return 0;
 }
 
-int set_delay_cmd(struct katcp_dispatch *d, int argc){ 
-  int input;
-  double delay;
-  char * delaystr;
-  struct tbs_raw *tr;
-
-  /* Grab the mode pointer */
-  tr = get_mode_katcp(d, TBS_MODE_RAW);
-  if(tr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire raw mode state");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure we're programmed */
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the first argument, input number = (0, N_INPUTS) */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure it's a valid input */
-  if (input >= N_INPUTS){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "given input %d is NOT within range (0,%d)", input, N_INPUTS);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the second argument the desired constant, offset delay */
-  delaystr = arg_string_katcp(d, 2);
-  if (delaystr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  delay = atof(delaystr);
-  if (delay == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-
-  /* Finally, set the global variable */
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "setting input %d to delay of %.6f ns", input, delay);
-  pthread_mutex_lock(&fstop_mutex);
-  delays[input] = delay;
-  pthread_mutex_unlock(&fstop_mutex);
-
-  return KATCP_RESULT_OK;
-}
-
-int set_phase_cmd(struct katcp_dispatch *d, int argc){
-  int input;
-  double phase;
-  char * phasestr;
-  struct tbs_raw *tr;
-
-  /* Grab the mode pointer */
-  tr = get_mode_katcp(d, TBS_MODE_RAW);
-  if(tr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire raw mode state");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure we're programmed */
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "fpga not programmed");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the first argument, input number = (0, N_INPUTS) */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure it's a valid input */
-  if (input >= N_INPUTS){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "given input %d is NOT within range (0,%d)", input, N_INPUTS);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Grab the second argument the desired constant, offset phase */
-  phasestr = arg_string_katcp(d, 2);
-  if (phasestr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse second command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Convert the given string to a double */
-  phase = atof(phasestr);
-  if (phase == 0.0){
-    log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "atof returned 0.0, is that what you wanted?");
-  }
-
-  /* Finally, set the global variable */
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "setting input %d to phase of %.6f deg", input, phase);
-  pthread_mutex_lock(&fstop_mutex);
-  phases[input] = phase;
-  pthread_mutex_unlock(&fstop_mutex);
-
-  return KATCP_RESULT_OK;
-}
-
-int get_delay_cmd(struct katcp_dispatch *d, int argc){ 
-  int input;
-  double delay;
-
-  /* Grab the first argument, input number = (0, N_INPUTS) */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure it's a valid input */
-  if (input >= N_INPUTS){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "given input %d is NOT within range (0,%d)", input, N_INPUTS);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Finally, grab the requested value */
-  delay = delays[input];
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "input %d is set to %.6f ns", input, delay);
-
-  /* And relay it back to the client */
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_double_katcp(d, KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, delay);
-  return KATCP_RESULT_OWN;
-}
-
-int get_phase_cmd(struct katcp_dispatch *d, int argc){
-  int input;
-  double phase;
-
-  /* Grab the first argument, input number = (0, N_INPUTS) */
-  input = arg_unsigned_long_katcp(d, 1);
-  if (input < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Make sure it's a valid input */
-  if (input >= N_INPUTS){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "given input %d is NOT within range (0,%d)", input, N_INPUTS);
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Finally, grab and requested value */
-  phase = phases[input];
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "input %d is set to %.6f ns", input, phase);
-
-  /* And relay it back to the client */
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_double_katcp(d, KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, phase);
-  return KATCP_RESULT_OWN;
-}
-
 /* Update DSM-derived variables */
 int update_vars() {
   int s;
   time_t timeStamp;
   dsm_structure structure;
   double rA, a[2], b[2], c[2];
+  double del_off[2], pha_off[2];
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -359,6 +198,22 @@ int update_vars() {
     dsm_error_message(s, "dsm_structure_get_element(rA)");
     dsm_structure_destroy(&structure);
     return -3;
+  }
+
+  /* Get the fixed delay offset */
+  s = dsm_structure_get_element(&structure, DSM_DEL_OFF, &del_off[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(del_off)");
+    dsm_structure_destroy(&structure);
+    return -6;
+  }
+
+  /* Get the fixed phase offset */
+  s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(pha_off)");
+    dsm_structure_destroy(&structure);
+    return -6;
   }
 
   /* Get part A of delay triplet */
@@ -388,6 +243,10 @@ int update_vars() {
   /* Set the global variables */
   pthread_mutex_lock(&fstop_mutex);
   source_rA = rA;
+  delays[0] = del_off[0];
+  phases[0] = pha_off[0];
+  delays[1] = del_off[1];
+  phases[1] = pha_off[1];
   delay_trip[0][0] = -1.0 * a[0] * 1e9;
   delay_trip[0][1] = -1.0 * b[0] * 1e9;
   delay_trip[0][2] = -1.0 * c[0] * 1e9;
@@ -721,46 +580,26 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 }
 
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 8,
+  .n_cmds = 4,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .cmd_array = {
     { // 1
-      .name = "?sma-astro-delay-set", 
-      .desc = "set constant delay offset per input (?sma-astro-delay-set input delay)",
-      .cmd = set_delay_cmd
-    },
-    { // 2
-      .name = "?sma-astro-phase-set", 
-      .desc = "set constant phase offset per input (?sma-astro-phase-set input phase)",
-      .cmd = set_phase_cmd
-    },
-    { // 3
-      .name = "?sma-astro-delay-get", 
-      .desc = "get constant delay offset for input (?sma-astro-delay-set input)",
-      .cmd = get_delay_cmd
-    },
-    { // 4
-      .name = "?sma-astro-phase-get", 
-      .desc = "get constant phase offset per input (?sma-astro-phase-set input)",
-      .cmd = get_phase_cmd
-    },
-    { // 5
       .name = "?sma-astro-fstop-set", 
       .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop_0 fstop_1 longitude del_en pha_en)",
       .cmd = set_fstop_cmd
     },
-    { // 7
+    { // 2
       .name = "?sma-astro-fstop-start", 
       .desc = "start fringe-stopping loop (?sma-astro-fstop-start)",
       .cmd = start_fstop_cmd
     },
-    { // 8
+    { // 3
       .name = "?sma-astro-fstop-stop", 
       .desc = "stop fringe-stopping loop (?sma-astro-fstop-stop)",
       .cmd = stop_fstop_cmd
     },
-    { // 9
+    { // 4
       .name = "?sma-astro-fstop-info", 
       .desc = "print some fstop information (?sma-astro-fstop-info)",
       .cmd = info_fstop_cmd
