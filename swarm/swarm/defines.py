@@ -45,6 +45,7 @@ SWARM_SHIFT_SCHEDULE = 0x555f555f
 SWARM_FENGINE_CTRL = 'fengine_ctrl'
 SWARM_CGAIN_GAIN = 'cgain_gain_%d'
 SWARM_XENG_CTRL = 'xeng_ctrl'
+SWARM_XENG_XN_NUM = 'xeng_xn_num'
 SWARM_XENG_TVG = 'xengine_xeng_tvg_data%d'
 SWARM_VISIBS_CORE = 'visibs_gbe0'
 SWARM_VISIBS_DELAY_CTRL = 'visibs_delay_ctrl'

@@ -231,8 +231,8 @@ class SwarmMember:
 
     def get_itime(self):
         
-        # Get the integration time in spectra
-        xeng_time = self.roach2.read_uint(SWARM_XENG_CTRL) & 0x1ffff
+        # Get the current integration time in spectra
+        xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
         cycles = xeng_time / (6 * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
         return cycles * SWARM_WALSH_PERIOD
 
