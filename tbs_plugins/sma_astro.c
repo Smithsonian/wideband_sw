@@ -32,8 +32,10 @@
 #define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
 #define DSM_GEOM_B "GEOM_DELAY_B_V2_D"
 #define DSM_GEOM_C "GEOM_DELAY_C_V2_D"
-#define DSM_DEL_OFF "FIXED_DELAY_OFFSET_V2_D"
-#define DSM_PHA_OFF "FIXED_PHASE_OFFSET_V2_D"
+#define OBS_HOST "obscon"
+#define DSM_FOFF_VAR "SWARM_FIXED_OFFSETS_X"
+#define DSM_DEL_OFF "DELAY_V2_D"
+#define DSM_PHA_OFF "PHASE_V2_D"
 
 /* These are the constant, user-programmable delays and phases */
 volatile double delays[N_INPUTS];
@@ -200,22 +202,6 @@ int update_vars() {
     return -3;
   }
 
-  /* Get the fixed delay offset */
-  s = dsm_structure_get_element(&structure, DSM_DEL_OFF, &del_off[0]);
-  if (s != DSM_SUCCESS) {
-    dsm_error_message(s, "dsm_structure_get_element(del_off)");
-    dsm_structure_destroy(&structure);
-    return -6;
-  }
-
-  /* Get the fixed phase offset */
-  s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
-  if (s != DSM_SUCCESS) {
-    dsm_error_message(s, "dsm_structure_get_element(pha_off)");
-    dsm_structure_destroy(&structure);
-    return -6;
-  }
-
   /* Get part A of delay triplet */
   s = dsm_structure_get_element(&structure, DSM_GEOM_A, &a[0]);
   if (s != DSM_SUCCESS) {
@@ -238,6 +224,40 @@ int update_vars() {
     dsm_error_message(s, "dsm_structure_get_element(C)");
     dsm_structure_destroy(&structure);
     return -6;
+  }
+
+  /* Destroy structure before re-creating */
+  dsm_structure_destroy(&structure);
+
+  /* Initialize the fixed offset structure */
+  s = dsm_structure_init(&structure, DSM_FOFF_VAR);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_init()");
+    return -7;
+  }
+
+  /* Read the structure over DSM */
+  s = dsm_read(OBS_HOST, DSM_FOFF_VAR, &structure, &timeStamp);
+  if (s != DSM_SUCCESS) {
+    dsm_structure_destroy(&structure);
+    dsm_error_message(s, "dsm_read()");
+    return -8;
+  }
+
+  /* Get the fixed delay offset */
+  s = dsm_structure_get_element(&structure, DSM_DEL_OFF, &del_off[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(del_off)");
+    dsm_structure_destroy(&structure);
+    return -9;
+  }
+
+  /* Get the fixed phase offset */
+  s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(pha_off)");
+    dsm_structure_destroy(&structure);
+    return -10;
   }
 
   /* Set the global variables */
