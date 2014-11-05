@@ -3,7 +3,7 @@ from time import sleep
 from struct import pack, unpack
 from random import randint
 from socket import inet_ntoa
-from threading import Thread, Event
+from threading import Thread
 from collections import OrderedDict
 
 from numpy import clip, roll
@@ -850,22 +850,30 @@ class Swarm:
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
 
-        # Sync SOWF and 1PPS
-        for fid, member in enumerate(valid_members):
-            member.sync_sowf()
-            member.sync_1pps()
+        # Do a threaded sync of SOWF
+        sowf_threads = list(Thread(target=m.sync_sowf) for m in valid_members)
+        for thread in sowf_threads:
+            thread.start()
+        self.logger.info('SOWF sync attempted')
+        sleep(1)
 
-        # Wait for the sync
-        self.logger.info('SOWF and 1PPS sync attempted')
-        sleep(10)
+        # Do a threaded sync of 1PPS
+        pps_threads = list(Thread(target=m.sync_1pps) for m in valid_members)
+        for thread in pps_threads:
+            thread.start()
+        self.logger.info('1PPS sync attempted')
+        sleep(1)
 
-        # Sync MCNT 
-        for fid, member in enumerate(valid_members):
-            member.sync_mcnt()
-
-        # Wait for the MCNT sync
+        # Do a threaded sync of MCNT
+        mcnt_threads = list(Thread(target=m.sync_mcnt) for m in valid_members)
+        for thread in mcnt_threads:
+            thread.start()
         self.logger.info('MCNT sync attempted')
-        sleep(10)
+        sleep(1)
+
+        # Finally join all threads
+        for thread in sowf_threads + pps_threads + mcnt_threads:
+            thread.join()
 
     def setup(self, bitcode, itime, listener):
 
