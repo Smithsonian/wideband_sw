@@ -338,8 +338,7 @@ void * fringe_stop(void * tr){
   double final_delay[N_INPUTS];
   double final_phase[N_INPUTS];
 
-  int hh, mm;
-  double ha, lst, lst_24h, tjd, ss;
+  double ha, lst, tjd;
   struct timespec start, next, now;
   double tot_late_ms = 0;
 
@@ -361,12 +360,6 @@ void * fringe_stop(void * tr){
       result = update_vars();
       if (result < 0)
 	printf("update_vars returned error code %d\r\n", result);
-
-      /* Convert LST into H:M:S */
-      lst_24h = lst/HOURS_TO_RADIANS;
-      hh = (int)lst_24h;
-      mm = (int)((lst_24h - (double)hh)*60);
-      ss = (lst_24h - (double)hh - ((double)mm)/60.0)*3600.0;
 
     }
 
