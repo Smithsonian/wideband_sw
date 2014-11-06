@@ -22,14 +22,23 @@
 #define SCOPE_1_DATA "scope_snap1_bram"
 #define SCOPE_1_CTRL "scope_snap1_ctrl"
 #define SCOPE_1_STATUS "scope_snap1_status"
+
+#define CHECK_READBACK 1
+#define UPDATE_FROM_OGP_FILE 1
+
+#define SCOPE_SRC_CTRL 0
+#if SCOPE_SRC_CTRL
 /* two control registers for snapshots */
 #define SCOPE_CTRL "scope_ctrl"
 #define SOURCE_CTRL "source_ctrl"
+#endif /* SCOPE_SRC_CTRL */
 
 /* pointers for controlling and accessing the snapshot */
 static int *ctrl_p, *stat_p;
 static signed char *snap_p;
+#if SCOPE_SRC_CTRL
 static int *scope_ctrl_p, *source_ctrl_p;
+#endif /* SCOPE_SRC_CTRL */
 pthread_mutex_t snap_mutex;
 struct snapshot_args {
   struct katcp_dispatch *d;
@@ -73,13 +82,9 @@ typedef struct {
 
 int run_adc_monitor = FALSE;
 pthread_t adc_monitor_thread;
-dsm_structure adc_stats;
 
-
-#define ADC_STATS_STRUCT "SWARM_SAMPLER_STATS_X"
-#define ADC_HIST "SAMPLER_HIST_V256_V2_L"
-#define ADC_PWR "SAMPLER_EST_POWER_V2_F"
-#define MONITOR_HOST "obscon"
+#define ADC_HIST "SWARM_SAMPLER_HIST_V2_V256_L"
+#define ADC_LOADING "SWARM_LOADING_FACTOR_V2_F"
 
 struct tbs_raw *get_mode_pointer(struct katcp_dispatch *d){
   struct tbs_raw *tr;
@@ -223,6 +228,26 @@ void set_ogp_registers(float *ogp) {
   }
 }
 
+int check_ogp_registers(float *desired_ogp) {
+  float read_back_ogp[12];
+  int core, diff, errCnt;
+
+  errCnt = 0;
+  get_ogp_registers(read_back_ogp);
+  for(core = 0; core < 4; core++) {
+    diff = (int)(fabs(read_back_ogp[core*3] - desired_ogp[core*3])
+       *255./100.1 + 0.5);
+    errCnt += diff;
+    diff = (int)(fabs(read_back_ogp[core*3 + 1] - desired_ogp[core*3 + 1])
+       *255./36.03 + 0.5);
+    errCnt += diff;
+    diff = (int)(fabs(read_back_ogp[core*3 + 2] - desired_ogp[core*3 + 2])
+       *255./28.03 + 0.5);
+    errCnt += diff;
+  }
+  return(errCnt);
+}
+
 int read_ogp_file(struct katcp_dispatch *d, char *fname, float *ogp) {
   FILE *fp;
   int i;
@@ -269,7 +294,9 @@ void print_ogp(struct katcp_dispatch *d, float *ogp) {
 
 int set_snapshot_pointers( struct snapshot_args args, int zdok) {
   struct tbs_entry *ctrl_reg, *data_reg, *status_reg;
+#if SCOPE_SRC_CTRL
   struct tbs_entry *scope_ctrl_reg, *source_ctrl_reg;
+#endif /* SCOPE_SRC_CTRL */
   static int cur_zdok = -99;
 
   if(zdok == cur_zdok) {
@@ -286,10 +313,15 @@ int set_snapshot_pointers( struct snapshot_args args, int zdok) {
     status_reg = find_data_avltree(args.tr->r_registers, SCOPE_1_STATUS);
     data_reg = find_data_avltree(args.tr->r_registers, SCOPE_1_DATA);
   }
+#if SCOPE_SRC_CTRL
   scope_ctrl_reg = find_data_avltree(args.tr->r_registers, SCOPE_CTRL);
   source_ctrl_reg = find_data_avltree(args.tr->r_registers, SOURCE_CTRL);
-  if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL ||
-      scope_ctrl_reg == NULL || source_ctrl_reg == NULL){
+#endif /* SCOPE_SRC_CTRL */
+  if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL
+#if SCOPE_SRC_CTRL
+      || scope_ctrl_reg == NULL || source_ctrl_reg == NULL
+#endif /* SCOPE_SRC_CTRL */
+    ) {
     log_message_katcp(args.d, KATCP_LEVEL_ERROR, NULL,
       "Snapshot registers not set up correctly");
     log_message_katcp(args.d, KATCP_LEVEL_ERROR, NULL,
@@ -299,8 +331,10 @@ int set_snapshot_pointers( struct snapshot_args args, int zdok) {
   snap_p = ((signed char *)(args.tr->r_map + data_reg->e_pos_base));
   ctrl_p = ((int *)(args.tr->r_map + ctrl_reg->e_pos_base));
   stat_p = ((int *)(args.tr->r_map + status_reg->e_pos_base));
+#if SCOPE_SRC_CTRL
   scope_ctrl_p = ((int *)(args.tr->r_map + scope_ctrl_reg->e_pos_base));
   source_ctrl_p = ((int *)(args.tr->r_map + source_ctrl_reg->e_pos_base));
+#endif /* SCOPE_SRC_CTRL */
   return 1;
 }
 
@@ -310,9 +344,11 @@ int take_snapshot(struct snapshot_args args, int zdok) {
   if(set_snapshot_pointers(args, zdok) == 0) {
     return 0;
   }
+#if SCOPE_SRC_CTRL
   /* set up for a snapshot of the adc data */
   *scope_ctrl_p = 1536;
   *source_ctrl_p = 18;
+#endif /* SCOPE_SRC_CTRL */
   /* trigger a snapshot capture */
   *ctrl_p = 2;
   *ctrl_p = 3;
@@ -366,20 +402,16 @@ og_rtn og_from_noise(int len, signed char *snap) {
   return(rtn);
 }
 
-/* This routine expects that adc_stats has been initialized and that it will
- * be destroyed after it quits */
 void *monitor_adc(void *args) {
   int status, len;
   int hist_cnt, n, val, sum, ssq;
   int zdok;
-  float pwr[2];
   int hist[256][2];
   double avg;
-  float loading_factor;
+  float loading_factor[2];
 #define NHIST 60
 
   bzero(&hist, sizeof(hist));
-  (void)dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
   hist_cnt = 0;
   while(run_adc_monitor == TRUE) {
     for(zdok = 0; zdok < 2; zdok++) {
@@ -395,19 +427,18 @@ void *monitor_adc(void *args) {
       }
       pthread_mutex_unlock(&snap_mutex);
       avg = (double)sum/len;
-      loading_factor = -20*log10f((float)(128/sqrt((double)ssq/len - avg*avg)));
-      pwr[zdok] = loading_factor + 10.4;;
+      loading_factor[zdok] = -20*log10f((float)(128/sqrt((double)ssq/len -
+            avg*avg)));
     }
-    status = dsm_structure_set_element(&adc_stats, ADC_PWR, pwr);
+    status = dsm_write("SWARM_MONITOR", ADC_LOADING, loading_factor);
     if(++hist_cnt >= NHIST) {
-      status |= dsm_structure_set_element(&adc_stats, ADC_HIST, hist);
+      status |= dsm_write("OBS", ADC_HIST, hist);
       hist_cnt = 0;
       bzero(&hist, sizeof(hist));
     }
     if (status != DSM_SUCCESS) {
-      dsm_error_message(status, "dsm_structure_get_element for adc stats");
+      dsm_error_message(status, "writing adc loading factor or histogram");
     }
-    status = dsm_write(MONITOR_HOST, ADC_STATS_STRUCT, &adc_stats);
     sleep(1);
   }
   return args;
@@ -552,6 +583,7 @@ int set_ogp_cmd(struct katcp_dispatch *d, int argc){
   struct tbs_raw *tr;
   float ogp[12];
   char fname[36];
+  int errCnt;
 
   /* Grab the mode pointer */
   if((tr = get_mode_pointer(d)) == NULL)
@@ -575,6 +607,14 @@ int set_ogp_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   set_ogp_registers(ogp);
+#if CHECK_READBACK 
+  errCnt = check_ogp_registers(ogp);
+  if(errCnt != 0) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Sum of abs integer differences was %d setting ogp registers", errCnt);
+    return KATCP_RESULT_FAIL;
+  }
+#endif
   return KATCP_RESULT_OK;
 }
 
@@ -627,15 +667,41 @@ int update_ogp_cmd(struct katcp_dispatch *d, int argc){
   if(read_ogp_file(d, fname, ogp_meas) == 0) {
     return KATCP_RESULT_FAIL;
   }
+#if UPDATE_FROM_OGP_FILE 
+  /* assume that the ogp registers have been set from the ogp_if* file to
+   * avoid readback errors */
+  sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
+  if(read_ogp_file(d, fname, ogp_reg) == 0) {
+    return KATCP_RESULT_FAIL;
+  }
+  /* for each core round offset and gain to an offset of gain integer value */
+  for(i = 0; i < 12; i+=3) {
+    ogp_reg[i] = (100./255.)*round((255./100.)*ogp_reg[i]);
+    ogp_reg[i] += ogp_meas[i];
+    ogp_reg[i+1] = (36./255.)*round((255./36.)*ogp_reg[i+1]);
+    ogp_reg[i+1] += ogp_meas[i];
+    /* set phase to 0 */
+    ogp_reg[i+2] = 0;
+  }
+#else
   get_ogp_registers(ogp_reg);
   for(i = 0; i < 12; i++) {
     ogp_reg[i] += ogp_meas[i];
   }
+#endif
   sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
   if(write_ogp_file(d, fname, ogp_reg) == 0) {
     return KATCP_RESULT_FAIL;
   }
   set_ogp_registers(ogp_reg);
+#if CHECK_READBACK  
+  i = check_ogp_registers(ogp_reg);
+  if(i != 0) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Sum of abs integer differences was %d setting ogp registers", i);
+    return KATCP_RESULT_FAIL;
+  }
+#endif
   return KATCP_RESULT_OK;
 }
 
@@ -650,11 +716,6 @@ int start_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
 
   /* Set flag run adc monitoring of input level and histogram */
   run_adc_monitor = TRUE;
-  status = dsm_structure_init(&adc_stats, ADC_STATS_STRUCT);
-  if (status != DSM_SUCCESS) {
-    dsm_error_message(status, "dsm_structure_init()");
-    return KATCP_RESULT_FAIL;
-  }
   /* Start the thread */
   status = pthread_create(&adc_monitor_thread,NULL, monitor_adc, (void *)&args);
   if (status < 0){
@@ -672,7 +733,6 @@ int stop_adc_monitor_cmd(struct katcp_dispatch *d, int argc){
 
   /* Wait until the thread stops */
   pthread_join(adc_monitor_thread, NULL);
-  dsm_structure_destroy(&adc_stats);
 
   return KATCP_RESULT_OK;
 }
