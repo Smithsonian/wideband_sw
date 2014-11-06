@@ -627,6 +627,7 @@ struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 4,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
+  .uninit = stop_fstop_cmd,
   .cmd_array = {
     { // 1
       .name = "?sma-astro-fstop-set", 
