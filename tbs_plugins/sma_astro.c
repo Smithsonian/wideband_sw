@@ -36,6 +36,9 @@
 #define DSM_FOFF_VAR "SWARM_FIXED_OFFSETS_X"
 #define DSM_DEL_OFF "DELAY_V2_D"
 #define DSM_PHA_OFF "PHASE_V2_D"
+#define OBS_MONITOR "obscon"
+#define DSM_FSTATS_VAR "SWARM_FSTOP_STATS_X"
+#define DSM_FSTOP_DEL "FSTOP_DELAY_V2_D"
 
 /* These are the constant, user-programmable delays and phases */
 volatile double delays[N_INPUTS];
@@ -49,6 +52,8 @@ volatile double source_rA = 0.0;
 volatile double longitude = -2.71359;
 volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
+volatile double final_delay[N_INPUTS];
+volatile double final_phase[N_INPUTS];
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
 
@@ -275,7 +280,35 @@ int update_vars() {
   delay_trip[1][2] = -1.0 * c[1] * 1e9;
   pthread_mutex_unlock(&fstop_mutex);
 
-  /* Finally, clear up the allocated memory */
+  /* Destroy structure before re-creating */
+  dsm_structure_destroy(&structure);
+
+  /* Initialize the fstop stats structure */
+  s = dsm_structure_init(&structure, DSM_FSTATS_VAR);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_init()");
+    return -11;
+  }
+
+  /* Set the fstop delay part */
+  pthread_mutex_lock(&fstop_mutex);
+  s = dsm_structure_set_element(&structure, DSM_FSTOP_DEL, (double *)&final_delay);
+  pthread_mutex_unlock(&fstop_mutex);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_set_element(fstop_del)");
+    dsm_structure_destroy(&structure);
+    return -12;
+  }
+
+  /* Then write it to the monitor class */
+  s = dsm_write(OBS_MONITOR, DSM_FSTATS_VAR, &structure);
+  if (s != DSM_SUCCESS) {
+    dsm_structure_destroy(&structure);
+    dsm_error_message(s, "dsm_write()");
+    return -13;
+  }
+
+  /* Clear up the allocated memory */
   dsm_structure_destroy(&structure);
 
   return 0;
@@ -335,8 +368,6 @@ void * fringe_stop(void * tr){
   double last_phase [N_INPUTS];
   double total_delay[N_INPUTS];
   double total_phase[N_INPUTS];
-  double final_delay[N_INPUTS];
-  double final_phase[N_INPUTS];
 
   double ha, lst, tjd;
   struct timespec start, next, now;
@@ -365,11 +396,11 @@ void * fringe_stop(void * tr){
 
     for (j=0; j<N_INPUTS; j++) {
 
+      pthread_mutex_lock(&fstop_mutex);
+
       /* Grab the current delay/phase */
       last_delay[j] = final_delay[j];
       last_phase[j] = final_phase[j];
-
-      pthread_mutex_lock(&fstop_mutex);
 
       /* Solve for the geometric delay */
       total_delay[j] = delays[j] + delay_trip[j][0] + \
