@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <math.h>
 #include <sys/stat.h>
 #include <katcp.h>
@@ -25,19 +26,10 @@
 #define SCOPE_1_CTRL "scope_snap1_ctrl"
 #define SCOPE_1_STATUS "scope_snap1_status"
 
-#define SCOPE_SRC_CTRL 0
-#if SCOPE_SRC_CTRL
-/* two control registers for snapshots */
-#define SCOPE_CTRL "scope_ctrl"
-#define SOURCE_CTRL "source_ctrl"
-#endif /* SCOPE_SRC_CTRL */
 
 /* pointers for controlling and accessing the snapshot */
 static int *ctrl_p, *stat_p;
 static signed char *snap_p;
-#if SCOPE_SRC_CTRL
-static int *scope_ctrl_p, *source_ctrl_p;
-#endif /* SCOPE_SRC_CTRL */
 pthread_mutex_t snap_mutex;
 #if 0
 struct snapshot_args {
@@ -90,6 +82,11 @@ dsm_structure dsm_adc_cal;
 int adc_cal_valid = 0;
 int adc_cmd_rtn[3];
 #define CMD_STATUS adc_cmd_rtn[0]
+
+#define USE_GLOBAL_TR 0
+#if USE_GLOBAL_TR
+struct tbs_raw *global_tr;
+#endif
 
 struct tbs_raw *get_mode_pointer(struct katcp_dispatch *d){
   struct tbs_raw *tr;
@@ -233,10 +230,6 @@ void set_ogp_registers(float *ogp) {
 
 int read_adc_calibrations(void) {
   if(!adc_cal_valid) {
-    if(dsm_structure_init(&dsm_adc_cal, DSM_CAL_STRUCT) != DSM_SUCCESS) {
-      CMD_STATUS = STRUCT_INIT;
-      return FAIL;
-    }
     if(dsm_read(DSM_MONITOR_CLASS,DSM_CAL_STRUCT,&dsm_adc_cal, NULL) != DSM_SUCCESS){
       CMD_STATUS = DSM_READ;
       return FAIL;
@@ -302,9 +295,6 @@ void print_ogp(struct katcp_dispatch *d, float *ogp) {
 
 int set_snapshot_pointers(struct tbs_raw *tr, int zdok) {
   struct tbs_entry *ctrl_reg, *data_reg, *status_reg;
-#if SCOPE_SRC_CTRL
-  struct tbs_entry *scope_ctrl_reg, *source_ctrl_reg;
-#endif /* SCOPE_SRC_CTRL */
   static int cur_zdok = -99;
 
   if(zdok == cur_zdok) {
@@ -321,14 +311,7 @@ int set_snapshot_pointers(struct tbs_raw *tr, int zdok) {
     status_reg = find_data_avltree(tr->r_registers, SCOPE_1_STATUS);
     data_reg = find_data_avltree(tr->r_registers, SCOPE_1_DATA);
   }
-#if SCOPE_SRC_CTRL
-  scope_ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_CTRL);
-  source_ctrl_reg = find_data_avltree(tr->r_registers, SOURCE_CTRL);
-#endif /* SCOPE_SRC_CTRL */
   if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL
-#if SCOPE_SRC_CTRL
-      || scope_ctrl_reg == NULL || source_ctrl_reg == NULL
-#endif /* SCOPE_SRC_CTRL */
       ){
     CMD_STATUS = SNAP_REG;
     return 0;
@@ -336,10 +319,6 @@ int set_snapshot_pointers(struct tbs_raw *tr, int zdok) {
   snap_p = ((signed char *)(tr->r_map + data_reg->e_pos_base));
   ctrl_p = ((int *)(tr->r_map + ctrl_reg->e_pos_base));
   stat_p = ((int *)(tr->r_map + status_reg->e_pos_base));
-#if SCOPE_SRC_CTRL
-  scope_ctrl_p = ((int *)(tr->r_map + scope_ctrl_reg->e_pos_base));
-  source_ctrl_p = ((int *)(tr->r_map + source_ctrl_reg->e_pos_base));
-#endif /* SCOPE_SRC_CTRL */
   return 1;
 }
 
@@ -349,11 +328,6 @@ int take_snapshot(struct tbs_raw *tr, int zdok) {
   if(set_snapshot_pointers(tr, zdok) == 0) {
     return 0;
   }
-#if SCOPE_SRC_CTRL
-  /* set up for a snapshot of the adc data */
-  *scope_ctrl_p = 1536;
-  *source_ctrl_p = 18;
-#endif /* SCOPE_SRC_CTRL */
   /* trigger a snapshot capture */
   *ctrl_p = 2;
   *ctrl_p = 3;
@@ -425,6 +399,7 @@ void *monitor_adc(void *tr) {
       ssq = 0;
       pthread_mutex_lock(&snap_mutex);
       len = take_snapshot((struct tbs_raw *)tr, zdok);
+      pthread_mutex_unlock(&snap_mutex);
       for(n = 0; n < len; n++) {
         val = snap_p[n];
         sum += val;
@@ -632,13 +607,9 @@ void start_adc_monitor_cmd(struct tbs_raw *tr){
 
   /* Set flag run adc monitoring of input level and histogram */
   run_adc_monitor = TRUE;
-  status = dsm_structure_init(&dsm_adc_cal, DSM_CAL_STRUCT );
-  if (status != DSM_SUCCESS) {
-    CMD_STATUS = STRUCT_INIT;
-    return;
-  }
+
   /* Start the thread */
-  status = pthread_create(&adc_monitor_thread,NULL, monitor_adc, (void *)&tr);
+  status = pthread_create(&adc_monitor_thread,NULL, monitor_adc, (void *)tr);
   if (status < 0){
     CMD_STATUS = MONITOR_THREAD;
     run_adc_monitor = FALSE;
@@ -652,35 +623,82 @@ void stop_adc_monitor_cmd(void){
   run_adc_monitor = FALSE;
 
   /* Wait until the thread stops */
-  pthread_join(adc_monitor_thread, NULL);
+  if(pthread_join(adc_monitor_thread, NULL)) {
+    CMD_STATUS = MONITOR_NOT_JOINED;
+  } else {
+    CMD_STATUS = OK;
+  }
+}
+
+/* SIGINT handler stops waiting */
+void sigint_handler(int sig){
+  run_cmd_monitor = FALSE;
 }
 
 /* cmd_thread routine to monitor SWARM_ADC_CMD_L */
 void *cmd_monitor(void *tr) {
+  char hostName[DSM_NAME_LENGTH];
+  char varName[DSM_NAME_LENGTH];
   int cmd[3];
-  int zdok;
+  int zdok, zdok_cmd;
+  int rtn;
+  static int zdokStart[3] = {0, 1, 0};
+  static int zdokLimit[3] = {1, 2, 2};
+
+  /* Set our INT signal handler so dsm_read_wait can be interrupted */
+  signal(SIGINT, sigint_handler);
 
   while(run_cmd_monitor == TRUE) {
-    dsm_read_wait(HAL_CLASS, DSM_CMD, &cmd[0]);
     bzero(adc_cmd_rtn, sizeof(adc_cmd_rtn));
+    rtn = dsm_read_wait(hostName, varName, cmd);
+    if(rtn == DSM_INTERRUPTED)
+      return (void *)0;
     if(cmd[0] < START_ADC_MONITOR) {
-      zdok = cmd[1];
-      if(zdok < 0 || zdok > 1){
+      zdok_cmd = cmd[1];
+      if(zdok_cmd < 0 || zdok_cmd > 2){
         CMD_STATUS = BAD_ZDOK;
-        return tr;
+        return (void *)0;
+      }
+      for(zdok = zdokStart[zdok_cmd]; zdok < zdokLimit[zdok_cmd]; zdok++) {
+        switch(cmd[0]) {
+	case SET_OGP:
+	  break;
+	case MEASURE_OG:
+          rtn = measure_og_cmd((struct tbs_raw *)tr, zdok, 0);
+	  break;
+	case UPDATE_OGP:
+	  break;
+        default:
+          CMD_STATUS = UNK;
+	}
+	if(rtn != OK) {
+	  adc_cmd_rtn[1] = zdok;
+	  break;
+	}
+      }
+    } else {
+      switch(cmd[0]) {
+      case START_ADC_MONITOR:
+#if 1
+        start_adc_monitor_cmd((struct tbs_raw *)tr);
+#endif
+        break;
+      case STOP_ADC_MONITOR:
+#if 1
+        stop_adc_monitor_cmd();
+#endif
+        break;
+      default:
+        CMD_STATUS = UNK;
       }
     }
-    switch(cmd[0]) {
-    case START_ADC_MONITOR:
-      start_adc_monitor_cmd((struct tbs_raw *)tr);
-      break;
-    case STOP_ADC_MONITOR:
-      stop_adc_monitor_cmd();
-      break;
-    default:
-      CMD_STATUS = UNK;
-    }
-    dsm_write_notify(HAL_CLASS, DSM_CMD_RTN, &adc_cmd_rtn);
+#if 0
+    adc_cmd_rtn[0] = 33;
+    adc_cmd_rtn[1] = (int)tr;
+    adc_cmd_rtn[2] = (int)global_tr;
+#endif
+    sleep(1);
+    dsm_write_notify(HAL, DSM_CMD_RTN, &adc_cmd_rtn);
   }
   return (void *)0;
 }
@@ -688,20 +706,28 @@ void *cmd_monitor(void *tr) {
 int start_cmd_monitor_cmd(struct katcp_dispatch *d, int argc){
   int status;
   static struct tbs_raw *tr;
-
   /* Grab the mode pointer */
   if((tr = get_mode_pointer(d)) == NULL)
     return(KATCP_RESULT_FAIL);
 
+#if USE_GLOBAL_TR
+  global_tr = tr;
+  set_snapshot_pointers(tr, 0);
+#endif
   /* Set flag run adc monitoring of input level and histogram */
   run_cmd_monitor = TRUE;
-  if(dsm_monitor(HAL_CLASS, DSM_CMD) != DSM_SUCCESS) {
+  status = dsm_structure_init(&dsm_adc_cal, DSM_CAL_STRUCT );
+  if (status != DSM_SUCCESS) {
+    CMD_STATUS = STRUCT_INIT;
+    return(KATCP_RESULT_FAIL);
+  }
+  if(dsm_monitor(HAL, DSM_CMD) != DSM_SUCCESS) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
                 "Error setting up monitoring of dsm command.");
     return KATCP_RESULT_FAIL;
   }
   /* Start the thread */
-  status = pthread_create(&cmd_monitor_thread,NULL, cmd_monitor, (void *)&tr);
+  status = pthread_create(&cmd_monitor_thread,NULL, cmd_monitor, (void *)tr);
   if (status < 0){
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
                 "could not create adc command monitor thread");
@@ -720,7 +746,7 @@ int stop_cmd_monitor_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   /* Set flag to stop cmd_monitor thread */
-  run_cmd_monitor = FALSE;
+  pthread_kill(cmd_monitor_thread, SIGINT);
 
   /* Wait until the thread stops */
   pthread_join(cmd_monitor_thread, NULL);
@@ -732,8 +758,8 @@ int stop_cmd_monitor_cmd(struct katcp_dispatch *d, int argc){
 
 
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 7,
-  .name = "sma_adc_new",
+  .n_cmds = 2,
+  .name = "sma_adc_dsm",
   .version = KATCP_PLUGIN_VERSION,
   .init = start_cmd_monitor_cmd,
   .uninit = stop_cmd_monitor_cmd,
