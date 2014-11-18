@@ -26,17 +26,10 @@
 #define SCOPE_1_CTRL "scope_snap1_ctrl"
 #define SCOPE_1_STATUS "scope_snap1_status"
 
-
 /* pointers for controlling and accessing the snapshot */
-static int *ctrl_p, *stat_p;
-static signed char *snap_p;
+static int *ctrl_p[2], *stat_p[2];
+static signed char *snap_p[2];
 pthread_mutex_t snap_mutex;
-#if 0
-struct snapshot_args {
-  struct katcp_dispatch *d;
-  struct tbs_raw *tr;
-};
-#endif
 
 /* the following are for programming the adc through the spi interface. */
 #define ADC5G_CONTROLLER "adc5g_controller"
@@ -49,15 +42,12 @@ struct snapshot_args {
 #define FIRST_EXTINL_REG_ADDR 0x30
 #define SPI_WRITE 0x80;
 
+/* Pointer for accessing the spi interfrace */
+uint32_t *spi_p;
+
 /* Default file names */
 #define SNAP_NAME "/instance/adcTests/snap"
 #define OGP_BASE_NAME "/instance/configFiles/ogp_if"
-#if 0
-#define OGP_NAME "/instance/ogp"
-#define OGP_MEAS_NAME "/instance/ogp_meas"
-#endif
-
-uint32_t *spi_p;
 
 /* The ogp array contains o, g and p of core A followed by the same for cores
  * B, C and D.
@@ -65,8 +55,8 @@ uint32_t *spi_p;
  * Overlaod_cnt will contain a count of -128 and 127 codes for each core.
  */
 typedef struct {
-  float offs[3];
-  float gains[3];
+  float offs[4];
+  float gains[4];
   float avz;
   float avamp;
   int overload_cnt[4];
@@ -82,11 +72,6 @@ dsm_structure dsm_adc_cal;
 int adc_cal_valid = 0;
 int adc_cmd_rtn[3];
 #define CMD_STATUS adc_cmd_rtn[0]
-
-#define USE_GLOBAL_TR 0
-#if USE_GLOBAL_TR
-struct tbs_raw *global_tr;
-#endif
 
 struct tbs_raw *get_mode_pointer(struct katcp_dispatch *d){
   struct tbs_raw *tr;
@@ -230,7 +215,7 @@ void set_ogp_registers(float *ogp) {
 
 int read_adc_calibrations(void) {
   if(!adc_cal_valid) {
-    if(dsm_read(DSM_MONITOR_CLASS,DSM_CAL_STRUCT,&dsm_adc_cal, NULL) != DSM_SUCCESS){
+    if(dsm_read("obscon",DSM_CAL_STRUCT,&dsm_adc_cal, NULL) != DSM_SUCCESS){
       CMD_STATUS = DSM_READ;
       return FAIL;
     }
@@ -241,11 +226,12 @@ int read_adc_calibrations(void) {
 
 int write_adc_calibrations(void) {
   if(!adc_cal_valid) {
-    CMD_STATUS = STRUCT_INIT;
+    CMD_STATUS = DSM_WRITE;
+    adc_cmd_rtn[1] = adc_cal_valid;
     return FAIL;
   }
   if(dsm_write(DSM_MONITOR_CLASS,DSM_CAL_STRUCT,&dsm_adc_cal) != DSM_SUCCESS){
-    CMD_STATUS = DSM_READ;
+    CMD_STATUS = DSM_WRITE;
     return FAIL;
   }
   return OK;
@@ -293,51 +279,50 @@ void print_ogp(struct katcp_dispatch *d, float *ogp) {
   }
 }
 
-int set_snapshot_pointers(struct tbs_raw *tr, int zdok) {
+/* Set up pointers to the registers for taking and accesing a snapshot for
+ * both zdoks. */
+int set_snapshot_pointers(struct tbs_raw *tr) {
   struct tbs_entry *ctrl_reg, *data_reg, *status_reg;
-  static int cur_zdok = -99;
 
-  if(zdok == cur_zdok) {
-    return(1);
-  }
-  cur_zdok = zdok;
   /* Get the register pointers */
-  if(zdok == 0) {
-    ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_0_CTRL);
-    status_reg = find_data_avltree(tr->r_registers, SCOPE_0_STATUS);
-    data_reg = find_data_avltree(tr->r_registers, SCOPE_0_DATA);
-  } else {
-    ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_1_CTRL);
-    status_reg = find_data_avltree(tr->r_registers, SCOPE_1_STATUS);
-    data_reg = find_data_avltree(tr->r_registers, SCOPE_1_DATA);
-  }
+  ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_0_CTRL);
+  status_reg = find_data_avltree(tr->r_registers, SCOPE_0_STATUS);
+  data_reg = find_data_avltree(tr->r_registers, SCOPE_0_DATA);
   if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL
       ){
     CMD_STATUS = SNAP_REG;
     return 0;
   }
-  snap_p = ((signed char *)(tr->r_map + data_reg->e_pos_base));
-  ctrl_p = ((int *)(tr->r_map + ctrl_reg->e_pos_base));
-  stat_p = ((int *)(tr->r_map + status_reg->e_pos_base));
+  snap_p[0] = ((signed char *)(tr->r_map + data_reg->e_pos_base));
+  ctrl_p[0] = ((int *)(tr->r_map + ctrl_reg->e_pos_base));
+  stat_p[0] = ((int *)(tr->r_map + status_reg->e_pos_base));
+    ctrl_reg = find_data_avltree(tr->r_registers, SCOPE_1_CTRL);
+    status_reg = find_data_avltree(tr->r_registers, SCOPE_1_STATUS);
+    data_reg = find_data_avltree(tr->r_registers, SCOPE_1_DATA);
+  if(ctrl_reg == NULL || status_reg == NULL || data_reg == NULL
+      ){
+    CMD_STATUS = SNAP_REG;
+    return 0;
+  }
+  snap_p[1] = ((signed char *)(tr->r_map + data_reg->e_pos_base));
+  ctrl_p[1] = ((int *)(tr->r_map + ctrl_reg->e_pos_base));
+  stat_p[1] = ((int *)(tr->r_map + status_reg->e_pos_base));
   return 1;
 }
 
-int take_snapshot(struct tbs_raw *tr, int zdok) {
+int take_snapshot(int zdok) {
   int cnt;
 
-  if(set_snapshot_pointers(tr, zdok) == 0) {
-    return 0;
-  }
   /* trigger a snapshot capture */
-  *ctrl_p = 2;
-  *ctrl_p = 3;
-  for(cnt = 0; *stat_p & 0x80000000; cnt++) {
+  *ctrl_p[zdok] = 2;
+  *ctrl_p[zdok] = 3;
+  for(cnt = 0; *stat_p[zdok] & 0x80000000; cnt++) {
     if(cnt > 100) {
       CMD_STATUS = SNAP_TO;
       return 0;
     }
   }
-  return *stat_p;	/* return length of snapshot */
+  return *stat_p[zdok];	/* return length of snapshot */
 }
 
 /* Cores are read out in the sequence A, C, B, D , but should be in the natural
@@ -349,6 +334,7 @@ og_rtn og_from_noise(int len, signed char *snap) {
   int sum, i, cnt, core, code, start_i;
 
   memset((char *)&rtn, 0, sizeof(rtn));
+
   for(core = 0; core < 4; core++) {
     start_i = startpos[core];
     cnt = 0;
@@ -398,10 +384,10 @@ void *monitor_adc(void *tr) {
       sum = 0;
       ssq = 0;
       pthread_mutex_lock(&snap_mutex);
-      len = take_snapshot((struct tbs_raw *)tr, zdok);
+      len = take_snapshot(zdok);
       pthread_mutex_unlock(&snap_mutex);
       for(n = 0; n < len; n++) {
-        val = snap_p[n];
+        val = snap_p[zdok][n];
         sum += val;
         ssq += val*val;
         hist[zdok][val+128]++;
@@ -425,7 +411,7 @@ void *monitor_adc(void *tr) {
   return tr;
 }
 
-int get_snapshot_cmd(struct tbs_raw *tr, int zdok){
+int get_snapshot_cmd(int zdok){
   int i = 0;
   int len;
   FILE *fp;
@@ -436,21 +422,22 @@ int get_snapshot_cmd(struct tbs_raw *tr, int zdok){
     return KATCP_RESULT_FAIL;
   }
   pthread_mutex_lock(&snap_mutex);
-  len = take_snapshot(tr, zdok);
+  len = take_snapshot(zdok);
   if(len == 0) {
     CMD_STATUS = SNAP_FAIL;
     fclose(fp);
     return KATCP_RESULT_FAIL;
   }
   for(i = 0; i < len; i++) {
-    fprintf(fp, "%d\n", snap_p[i]);
+    fprintf(fp, "%d\n", snap_p[zdok][i]);
   }
+  adc_cmd_rtn[2] = len;
   pthread_mutex_unlock(&snap_mutex);
   fclose(fp);
   return KATCP_RESULT_OK;
 }
 
-int measure_og_cmd(struct tbs_raw *tr, int zdok, int rpt_arg){
+int measure_og_cmd(int zdok, int rpt_arg){
   int rpt = 100;
   int i, n;
   int len;
@@ -465,13 +452,14 @@ int measure_og_cmd(struct tbs_raw *tr, int zdok, int rpt_arg){
       return FAIL;
     }
   }
-  read_adc_calibrations();
+  i = read_adc_calibrations();
+  if(i != OK) return(i);
   dsm_structure_get_element(&dsm_adc_cal, DEL_OFFS, offs); 
   dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, gains); 
-  dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, oflow); 
+  dsm_structure_get_element(&dsm_adc_cal, DEL_OVL_CNT , oflow); 
   dsm_structure_get_element(&dsm_adc_cal, DEL_AVZ, avz); 
   dsm_structure_get_element(&dsm_adc_cal, DEL_AVAMP, avamp); 
-  /* Need to get avz and avamp here */
+
   /* Clear the values for the zdok we will measure */
   for(i = 0; i < 4; i++) {
     offs[zdok][i] = 0;
@@ -482,12 +470,12 @@ int measure_og_cmd(struct tbs_raw *tr, int zdok, int rpt_arg){
   avamp[zdok] = 0;
   for(n = rpt; n > 0; n--) {
     pthread_mutex_lock(&snap_mutex);
-    len = take_snapshot(tr, zdok);
+    len = take_snapshot(zdok);
     if(len == 0) {
       CMD_STATUS = SNAP_FAIL;
       return FAIL;
     }
-    single_og = og_from_noise(len, snap_p);
+    single_og = og_from_noise(len, snap_p[zdok]);
     pthread_mutex_unlock(&snap_mutex);
     avz[zdok] += single_og.avz;
     avamp[zdok] += single_og.avamp;
@@ -501,10 +489,11 @@ int measure_og_cmd(struct tbs_raw *tr, int zdok, int rpt_arg){
     offs[zdok][i] /= rpt;
     gains[zdok][i] /= rpt;
   }
-  /* Need to also write avz and avamp here */
+  avz[zdok] /= rpt;
+  avamp[zdok] /= rpt;
   dsm_structure_set_element(&dsm_adc_cal, DEL_OFFS, offs); 
   dsm_structure_set_element(&dsm_adc_cal, DEL_GAINS, gains); 
-  dsm_structure_set_element(&dsm_adc_cal, DEL_GAINS, oflow); 
+  dsm_structure_set_element(&dsm_adc_cal, DEL_OVL_CNT , oflow); 
   dsm_structure_set_element(&dsm_adc_cal, DEL_AVZ, avz); 
   dsm_structure_set_element(&dsm_adc_cal, DEL_AVAMP, avamp); 
   return(write_adc_calibrations());
@@ -514,21 +503,6 @@ int measure_og_cmd(struct tbs_raw *tr, int zdok, int rpt_arg){
 int set_ogp_cmd(struct tbs_raw *tr, int zdok){
   float offs[2][4], gains[2][4], phases[2][4];
 
-  /* Grab the mode pointer */
-  if((tr = get_mode_pointer(d)) == NULL)
-    return(KATCP_RESULT_FAIL);
-
-  /* Grab the first argument, optional zdok will be zero if missing */
-  zdok = arg_signed_long_katcp(d, 1);
-  if (zdok < 0 || zdok > 1){
-    CMD_STATUS = BAD_ZDOK;
-    return KATCP_RESULT_FAIL;
-  }
-  if(argc > 2) {
-    strcpy(fname, arg_string_katcp(d, 2));
-  } else {
-    sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
-  }
   if(set_spi_pointer(tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
   }
@@ -541,22 +515,10 @@ int set_ogp_cmd(struct tbs_raw *tr, int zdok){
 }
 
 /* Optional arguments zdok [0] */
-int get_ogp_cmd(struct katcp_dispatch *d, int argc){
-  int zdok = 0;
-  struct tbs_raw *tr;
+int get_ogp_cmd(struct tbs_raw *tr, int zdok){
   float ogp[12];
 
-  /* Grab the mode pointer */
-  if((tr = get_mode_pointer(d)) == NULL)
-    return(KATCP_RESULT_FAIL);
-
-  /* Grab the first argument, optional zdok will be zero if missing */
-  zdok = arg_signed_long_katcp(d, 1);
-  if (zdok < 0 || zdok > 1){
-    CMD_STATUS = BAD_ZDOK;
-    return KATCP_RESULT_FAIL;
-  }
-  if(set_spi_pointer(d, tr, zdok) == 0) {
+  if(set_spi_pointer(tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
   }
   get_ogp_registers(ogp);
@@ -564,29 +526,12 @@ int get_ogp_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OK;
 }
 
-/* Optional arguments zdok [0] */
-int update_ogp_cmd(struct katcp_dispatch *d, int argc){
-  int zdok = 0;
+int update_ogp_cmd(struct tbs_raw *tr, int zdok){
   int i;
   struct tbs_raw *tr;
   float ogp_reg[12], ogp_meas[12];
-  char fname[36];
 
-  /* Grab the mode pointer */
-  if((tr = get_mode_pointer(d)) == NULL)
-    return(KATCP_RESULT_FAIL);
-
-  /* Grab the first argument, optional zdok will be zero if missing */
-  zdok = arg_signed_long_katcp(d, 1);
-  if (zdok < 0 || zdok > 1){
-    CMD_STATUS = BAD_ZDOK;
-    return KATCP_RESULT_FAIL;
-  }
-  if(set_spi_pointer(d, tr, zdok) == 0) {
-    return KATCP_RESULT_FAIL;
-  }
-  sprintf(fname, "%s%d%s", OGP_BASE_NAME, zdok, ".meas");
-  if(read_ogp_file(d, fname, ogp_meas) == 0) {
+  if(set_spi_pointer(tr, zdok) == 0) {
     return KATCP_RESULT_FAIL;
   }
   get_ogp_registers(ogp_reg);
@@ -661,10 +606,13 @@ void *cmd_monitor(void *tr) {
       }
       for(zdok = zdokStart[zdok_cmd]; zdok < zdokLimit[zdok_cmd]; zdok++) {
         switch(cmd[0]) {
+	case TAKE_SNAPSHOT:
+	  get_snapshot_cmd(zdok);
+	  break;
 	case SET_OGP:
 	  break;
 	case MEASURE_OG:
-          rtn = measure_og_cmd((struct tbs_raw *)tr, zdok, 0);
+          rtn = measure_og_cmd(zdok, 0);
 	  break;
 	case UPDATE_OGP:
 	  break;
@@ -679,24 +627,15 @@ void *cmd_monitor(void *tr) {
     } else {
       switch(cmd[0]) {
       case START_ADC_MONITOR:
-#if 1
         start_adc_monitor_cmd((struct tbs_raw *)tr);
-#endif
         break;
       case STOP_ADC_MONITOR:
-#if 1
         stop_adc_monitor_cmd();
-#endif
         break;
       default:
         CMD_STATUS = UNK;
       }
     }
-#if 0
-    adc_cmd_rtn[0] = 33;
-    adc_cmd_rtn[1] = (int)tr;
-    adc_cmd_rtn[2] = (int)global_tr;
-#endif
     sleep(1);
     dsm_write_notify(HAL, DSM_CMD_RTN, &adc_cmd_rtn);
   }
@@ -710,10 +649,7 @@ int start_cmd_monitor_cmd(struct katcp_dispatch *d, int argc){
   if((tr = get_mode_pointer(d)) == NULL)
     return(KATCP_RESULT_FAIL);
 
-#if USE_GLOBAL_TR
-  global_tr = tr;
-  set_snapshot_pointers(tr, 0);
-#endif
+  set_snapshot_pointers(tr);
   /* Set flag run adc monitoring of input level and histogram */
   run_cmd_monitor = TRUE;
   status = dsm_structure_init(&dsm_adc_cal, DSM_CAL_STRUCT );
