@@ -91,7 +91,7 @@ struct tbs_raw *get_mode_pointer(struct katcp_dispatch *d){
   return(tr);
 }
 
-int set_spi_pointer( struct tbs_raw *tr, int zdok) {
+int set_spi_pointer(struct tbs_raw *tr, int zdok) {
   struct tbs_entry *spi_reg;
 
   spi_reg = find_data_avltree(tr->r_registers, ADC5G_CONTROLLER);
@@ -193,23 +193,23 @@ int set_phase_register(int chan, float phase) {
   return reg_val;
 }
 
-void get_ogp_registers(float *ogp) {
+void get_ogp_registers(float *offs, float *gains, float *phases) {
   int chan;
 
   for(chan = 1; chan < 5; chan++) {
-    *ogp++ = get_offset_register(chan);
-    *ogp++ = get_gain_register(chan);
-    *ogp++ = get_phase_register(chan);
+    offs[chan - 1] = get_offset_register(chan);
+    gains[chan - 1] = get_gain_register(chan);
+    phases[chan - 1] = get_phase_register(chan);
   }
 }
 
-void set_ogp_registers(float *ogp) {
+void set_ogp_registers(float *offs, float *gains, float *phases) {
   int chan;
 
   for(chan = 1; chan < 5; chan++) {
-    set_offset_register(chan, *ogp++);
-    set_gain_register(chan, *ogp++);
-    set_phase_register(chan, *ogp++);
+    set_offset_register(chan, offs[chan - 1]);
+    set_gain_register(chan, gains[chan - 1]);
+    set_phase_register(chan, phases[chan - 1]);
   }
 }
 
@@ -499,33 +499,37 @@ int measure_og_cmd(int zdok, int rpt_arg){
   return(write_adc_calibrations());
 }
 
-#if 0
-int set_ogp_cmd(struct tbs_raw *tr, int zdok){
+#if 1
+int set_ogp_cmd(int zdok){
   float offs[2][4], gains[2][4], phases[2][4];
 
-  if(set_spi_pointer(tr, zdok) == 0) {
-    return KATCP_RESULT_FAIL;
-  }
   read_adc_calibrations();
-  dsm_structure_get_element(&dsm_adc_cal, DEL_OFFS, offs); 
-  dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, gains); 
-  dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, oflow); 
-  set_ogp_registers(ogp);
+  dsm_structure_get_element(&dsm_adc_cal, A_OFFS, offs); 
+  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, gains); 
+  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, phases); 
+  set_ogp_registers(offs[zdok], gains[zdok], phases[zdok]);
   return KATCP_RESULT_OK;
 }
+#endif
 
 /* Optional arguments zdok [0] */
-int get_ogp_cmd(struct tbs_raw *tr, int zdok){
-  float ogp[12];
+int get_ogp_cmd(int zdok){
+  float offs[2][4], gains[2][4], phases[2][4];
+  int i;
 
-  if(set_spi_pointer(tr, zdok) == 0) {
-    return KATCP_RESULT_FAIL;
-  }
-  get_ogp_registers(ogp);
-  print_ogp(d, ogp);
-  return KATCP_RESULT_OK;
+  i = read_adc_calibrations();
+  if(i != OK) return(i);
+  dsm_structure_get_element(&dsm_adc_cal, A_OFFS, offs); 
+  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, gains); 
+  dsm_structure_get_element(&dsm_adc_cal, A_PHASES, phases); 
+  get_ogp_registers(offs[zdok], gains[zdok], phases[zdok]);
+  dsm_structure_set_element(&dsm_adc_cal, A_OFFS, offs); 
+  dsm_structure_set_element(&dsm_adc_cal, A_GAINS, gains); 
+  dsm_structure_set_element(&dsm_adc_cal, A_PHASES, phases); 
+  return(write_adc_calibrations());
 }
 
+#if 0
 int update_ogp_cmd(struct tbs_raw *tr, int zdok){
   int i;
   struct tbs_raw *tr;
@@ -605,11 +609,16 @@ void *cmd_monitor(void *tr) {
         return (void *)0;
       }
       for(zdok = zdokStart[zdok_cmd]; zdok < zdokLimit[zdok_cmd]; zdok++) {
+        set_spi_pointer((struct tbs_raw *)tr, zdok);
         switch(cmd[0]) {
 	case TAKE_SNAPSHOT:
 	  get_snapshot_cmd(zdok);
 	  break;
 	case SET_OGP:
+	  set_ogp_cmd(zdok);
+	  break;
+	case GET_OGP:
+	  get_ogp_cmd(zdok);
 	  break;
 	case MEASURE_OG:
           rtn = measure_og_cmd(zdok, 0);
