@@ -639,14 +639,6 @@ int get_ogp_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   get_ogp_registers(ogp);
-#if CHECK_READBACK 
-  errCnt = check_ogp_registers(ogp);
-  if(errCnt != 0) {
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
-        "Sum of abs integer differences was %d setting ogp registers", errCnt);
-    return KATCP_RESULT_FAIL;
-  }
-#endif
   print_ogp(d, ogp);
   return KATCP_RESULT_OK;
 }
