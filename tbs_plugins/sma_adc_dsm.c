@@ -26,6 +26,8 @@
 #define SCOPE_1_CTRL "scope_snap1_ctrl"
 #define SCOPE_1_STATUS "scope_snap1_status"
 
+#define UPDATE_FROM_SAVED_OGP 1
+
 /* pointers for controlling and accessing the snapshot */
 static int *ctrl_p[2], *stat_p[2];
 static signed char *snap_p[2];
@@ -227,7 +229,6 @@ int read_adc_calibrations(void) {
 int write_adc_calibrations(void) {
   if(!adc_cal_valid) {
     CMD_STATUS = DSM_WRITE;
-    adc_cmd_rtn[1] = adc_cal_valid;
     return FAIL;
   }
   if(dsm_write(DSM_MONITOR_CLASS,DSM_CAL_STRUCT,&dsm_adc_cal) != DSM_SUCCESS){
@@ -431,7 +432,6 @@ int get_snapshot_cmd(int zdok){
   for(i = 0; i < len; i++) {
     fprintf(fp, "%d\n", snap_p[zdok][i]);
   }
-  adc_cmd_rtn[2] = len;
   pthread_mutex_unlock(&snap_mutex);
   fclose(fp);
   return KATCP_RESULT_OK;
@@ -499,20 +499,59 @@ int measure_og_cmd(int zdok, int rpt_arg){
   return(write_adc_calibrations());
 }
 
-#if 1
+#define DEBUG_CHECK_OGP_REGISTERS 0
+int check_ogp_registers(float *expect_offs, float *expect_gains,
+        float *expect_phases) {
+  float rb_offs[4], rb_gains[4], rb_phases[4];
+  int core, diff, errCnt;
+#if DEBUG_CHECK_OGP_REGISTERS
+FILE *fp;
+
+umask(0000);
+fp = fopen(SNAP_NAME, "w");
+#endif /* DEBUG_CHECK_OGP_REGISTERS */
+  errCnt = 0;
+  get_ogp_registers(rb_offs, rb_gains, rb_phases);
+  for(core = 0; core < 4; core++) {
+    diff = (int)(fabs(rb_offs[core] - expect_offs[core])
+       *255./100.1 + 0.5);
+#if DEBUG_CHECK_OGP_REGISTERS
+if(diff) fprintf(fp, "Off core %d %.4f %.4f %d\n",
+core, rb_offs[core], expect_offs[core], diff);
+#endif /* DEBUG_CHECK_OGP_REGISTERS */
+    errCnt += diff;
+    diff = (int)(fabs(rb_gains[core] - expect_gains[core])
+       *255./36.03 + 0.5);
+#if DEBUG_CHECK_OGP_REGISTERS
+if(diff) fprintf(fp, "Gains core %d %.4f %.4f %d\n",
+core, rb_gains[core], expect_gains[core], diff);
+#endif /* DEBUG_CHECK_OGP_REGISTERS */
+    errCnt += diff;
+    diff = (int)(fabs(rb_phases[core] - expect_phases[core])
+       *255./28.03 + 0.5);
+#if DEBUG_CHECK_OGP_REGISTERS
+if(diff) fprintf(fp, "Phases core %d %.4f %.4f %d\n",
+core, rb_phases[core], expect_phases[core], diff);
+#endif /* DEBUG_CHECK_OGP_REGISTERS */
+    errCnt += diff;
+  }
+#if DEBUG_CHECK_OGP_REGISTERS
+fclose(fp);
+#endif /* DEBUG_CHECK_OGP_REGISTERS */
+  return(-errCnt);
+}
+
 int set_ogp_cmd(int zdok){
   float offs[2][4], gains[2][4], phases[2][4];
 
   read_adc_calibrations();
-  dsm_structure_get_element(&dsm_adc_cal, A_OFFS, offs); 
-  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, gains); 
-  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, phases); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_OFFS, offs); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, gains); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_PHASES, phases); 
   set_ogp_registers(offs[zdok], gains[zdok], phases[zdok]);
-  return KATCP_RESULT_OK;
+  return(check_ogp_registers(offs[zdok],gains[zdok],phases[zdok]));
 }
-#endif
 
-/* Optional arguments zdok [0] */
 int get_ogp_cmd(int zdok){
   float offs[2][4], gains[2][4], phases[2][4];
   int i;
@@ -529,31 +568,61 @@ int get_ogp_cmd(int zdok){
   return(write_adc_calibrations());
 }
 
-#if 0
-int update_ogp_cmd(struct tbs_raw *tr, int zdok){
+int update_ogp_cmd(int zdok){
   int i;
-  struct tbs_raw *tr;
-  float ogp_reg[12], ogp_meas[12];
+  float del_offs[2][4], del_gains[2][4];
+  float cur_offs[2][4], cur_gains[2][4], cur_phases[2][4];
 
-  if(set_spi_pointer(tr, zdok) == 0) {
-    return KATCP_RESULT_FAIL;
+  i = read_adc_calibrations();
+  if(i != OK)  return(3);
+  dsm_structure_get_element(&dsm_adc_cal, DEL_OFFS, del_offs); 
+  dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, del_gains); 
+#if UPDATE_FROM_SAVED_OGP 
+  dsm_structure_get_element(&dsm_adc_cal, SV_OFFS, cur_offs); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, cur_gains); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, cur_phases); 
+  for(i = 0; i < 4; i++) {
+    cur_offs[zdok][i] = (100./255.)*round((255./100.)*cur_offs[zdok][i]);
+    cur_gains[zdok][i+1] = (36./255.)*round((255./36.)*cur_gains[zdok][i+1]);
   }
-  get_ogp_registers(ogp_reg);
-  for(i = 0; i < 12; i++) {
-    ogp_reg[i] += ogp_meas[i];
-  }
-  sprintf(fname, "%s%d", OGP_BASE_NAME, zdok);
-  if(write_ogp_file(d, fname, ogp_reg) == 0) {
-    return KATCP_RESULT_FAIL;
-  }
-  set_ogp_registers(ogp_reg);
-  return KATCP_RESULT_OK;
-}
+#else
+  get_ogp_registers(cur_offs[zdok], cur_gains[zdok], cur_phases[zdok]);
 #endif
+  for(i = 0; i < 4; i++) {
+    cur_offs[zdok][i] += del_offs[zdok][i];
+    cur_gains[zdok][i] += del_gains[zdok][i];
+  }
+  bzero(cur_phases, sizeof(cur_phases));
+  set_ogp_registers(cur_offs[zdok], cur_gains[zdok], cur_phases[zdok]);
+  dsm_structure_set_element(&dsm_adc_cal, SV_OFFS, cur_offs); 
+  dsm_structure_set_element(&dsm_adc_cal, SV_GAINS, cur_gains); 
+  dsm_structure_set_element(&dsm_adc_cal, SV_PHASES, cur_phases); 
+  i = write_adc_calibrations();
+  if(i != OK)  return(5);
+  return(check_ogp_registers(cur_offs[zdok],cur_gains[zdok],cur_phases[zdok]));
+}
+
+int clear_ogp_cmd(int zdok) {
+  int i;
+  float offs[2][4], gains[2][4], phases[2][4];
+
+  i = read_adc_calibrations();
+  if(i != OK)  return(3);
+  dsm_structure_get_element(&dsm_adc_cal, SV_OFFS, offs); 
+  bzero(offs[zdok], 4*sizeof(float));
+  dsm_structure_set_element(&dsm_adc_cal, SV_OFFS, offs); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, gains); 
+  bzero(gains[zdok], 4*sizeof(float));
+  dsm_structure_set_element(&dsm_adc_cal, SV_GAINS, gains); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_PHASES, phases); 
+  bzero(phases[zdok], 4*sizeof(float));
+  dsm_structure_set_element(&dsm_adc_cal, SV_PHASES, phases); 
+  set_ogp_registers(offs[zdok], gains[zdok], phases[zdok]);
+  return(get_ogp_cmd(zdok));
+}
 
 void start_adc_monitor_cmd(struct tbs_raw *tr){
   int status;
-
   /* Set flag run adc monitoring of input level and histogram */
   run_adc_monitor = TRUE;
 
@@ -590,7 +659,7 @@ void *cmd_monitor(void *tr) {
   char varName[DSM_NAME_LENGTH];
   int cmd[3];
   int zdok, zdok_cmd;
-  int rtn;
+  int rtn, errCnt;
   static int zdokStart[3] = {0, 1, 0};
   static int zdokLimit[3] = {1, 2, 2};
 
@@ -599,6 +668,7 @@ void *cmd_monitor(void *tr) {
 
   while(run_cmd_monitor == TRUE) {
     bzero(adc_cmd_rtn, sizeof(adc_cmd_rtn));
+    errCnt = 0;
     rtn = dsm_read_wait(hostName, varName, cmd);
     if(rtn == DSM_INTERRUPTED)
       return (void *)0;
@@ -615,22 +685,30 @@ void *cmd_monitor(void *tr) {
 	  get_snapshot_cmd(zdok);
 	  break;
 	case SET_OGP:
-	  set_ogp_cmd(zdok);
+	  rtn = set_ogp_cmd(zdok);
 	  break;
 	case GET_OGP:
-	  get_ogp_cmd(zdok);
+	  rtn = get_ogp_cmd(zdok);
 	  break;
 	case MEASURE_OG:
           rtn = measure_og_cmd(zdok, 0);
 	  break;
 	case UPDATE_OGP:
+	  rtn = update_ogp_cmd(zdok);
+	  break;
+	case CLEAR_OGP:
+	  rtn = clear_ogp_cmd(zdok);
 	  break;
         default:
           CMD_STATUS = UNK;
 	}
 	if(rtn != OK) {
-	  adc_cmd_rtn[1] = zdok;
-	  break;
+	  if(rtn > 0) {
+	    break;
+	  } else {
+	    CMD_STATUS = OGP_READBACK;
+	    adc_cmd_rtn[2] = -rtn;
+	  }
 	}
       }
     } else {
