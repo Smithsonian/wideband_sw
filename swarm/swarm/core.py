@@ -12,6 +12,7 @@ from corr.katcp_wrapper import FpgaClient
 from katcp import Message
 
 from adc5g import (
+    pretty_glitch_profile,
     calibrate_mmcm_phase,
     unset_test_mode,
     set_test_mode,
@@ -198,10 +199,11 @@ class SwarmMember:
         # Do the calibration
         for inp in SWARM_MAPPING_INPUTS:
             opt, glitches = calibrate_mmcm_phase(self.roach2, inp, [SWARM_SCOPE_SNAP % inp,])
-            if opt:
-                self.logger.info('ADC%d calibration found optimal phase: %d' % (inp, opt))
+            gprof = pretty_glitch_profile(opt, glitches)
+            if opt is None:
+                self.logger.error('ADC%d calibration failed! Glitch profile: [%s]' % (inp, gprof))
             else:
-                self.logger.error('ADC%d calibration failed!' % inp)
+                self.logger.info( 'ADC%d calibration found optimal phase: %2d [%s]' % (inp, opt, gprof))
 
         # Unset test modes
         for inp in SWARM_MAPPING_INPUTS:
