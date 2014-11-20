@@ -293,7 +293,7 @@ class SwarmDataHandler:
 
                 try: # to check for data
                     recv_fid, acc_n, last_acc, datas = self.queue.get_nowait()
-                    sleep(0.1)
+                    sleep(0.01)
                 except Empty: # none available
                     continue
 
