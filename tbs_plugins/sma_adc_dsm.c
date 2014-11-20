@@ -723,7 +723,7 @@ void *cmd_monitor(void *tr) {
         CMD_STATUS = UNK;
       }
     }
-    sleep(1);
+    usleep(40000);
     dsm_write_notify(HAL, DSM_CMD_RTN, &adc_cmd_rtn);
   }
   return (void *)0;
