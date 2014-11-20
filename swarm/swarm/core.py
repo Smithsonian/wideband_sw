@@ -135,9 +135,6 @@ class SwarmMember:
         # Initial setup of the switched corner-turn
         self._setup_corner_turn(fid, fids_expected)
 
-        # Setup the 10 GbE visibility
-        self._setup_visibs(listener)
-
         # Verify QDRs
         self.verify_qdr()
 
@@ -911,3 +908,7 @@ class Swarm:
             member.set_itime(itime)
         for fid, member in enumerate(valid_members):
             member.reset_xeng()
+
+        # Setup the 10 GbE visibility
+        for fid, member in enumerate(valid_members):
+            member._setup_visibs(listener)
