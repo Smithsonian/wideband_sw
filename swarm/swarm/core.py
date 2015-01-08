@@ -553,7 +553,7 @@ class Swarm:
                         continue
                     
                     # First column is ROACH2 number
-                    roach2_num = int(entry[0])
+                    roach2_num = int(entry[0], base=16)
                     roach2_host = SWARM_ROACH2_IP % roach2_num
 
                     # Create and attach our member instance
