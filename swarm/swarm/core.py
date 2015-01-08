@@ -268,7 +268,7 @@ class SwarmMember:
         arp = [bh_mac] * 256
 
         # Fill the ARP table
-        for fid in SWARM_ALL_FID:
+        for fid in range(self.fids_expected):
             for core in SWARM_ALL_CORE:
                 last_byte = (fid << 4) + 0b1100 + core
                 arp[last_byte] = macbase + last_byte
@@ -337,7 +337,7 @@ class SwarmMember:
             if not rdy:
                 self.logger.warning('QDR%d not ready, resetting' % qnum)
                 self.reset_qdr(qnum) 
-    
+
     def _setup_visibs(self, listener, delay_test=False):
 
         # Store (or override) our listener
