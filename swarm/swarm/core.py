@@ -844,6 +844,22 @@ class Swarm:
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
 
+    def reset_xengines(self):
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Do a threaded reset_xeng
+        rstxeng_threads = list(Thread(target=m.reset_xeng) for m in valid_members)
+        for thread in rstxeng_threads:
+            thread.start()
+        self.logger.info('Resetting the X-engines')
+        sleep(1)
+
+        # Finally join all threads
+        for thread in rstxeng_threads:
+            thread.join()
+
     def sync(self):
 
         # Create list of valid members
@@ -906,8 +922,9 @@ class Swarm:
         self.logger.info('Setting integration time and resetting x-engines...')
         for fid, member in enumerate(valid_members):
             member.set_itime(itime)
-        for fid, member in enumerate(valid_members):
-            member.reset_xeng()
+        
+        # Reset the xengines
+        self.reset_xengines()
 
         # Setup the 10 GbE visibility
         for fid, member in enumerate(valid_members):
