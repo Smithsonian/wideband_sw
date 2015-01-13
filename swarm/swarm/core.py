@@ -297,8 +297,13 @@ class SwarmMember:
         # Configure the visibility packet buffer
         self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe.ip))
 
+        # Reset the 10 GbE cores before enabling
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x40000000))
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+
         # Lastly enable the TX 
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, (1<<31)))
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x80000000))
 
     def reset_ddr3(self):
 
