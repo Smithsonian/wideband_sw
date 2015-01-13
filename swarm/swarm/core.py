@@ -282,17 +282,20 @@ class SwarmMember:
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, fid, dbe_ip, ipbase=0xc0a89b00, macbase=0x000f530ce500, bh_mac=0x000f530cd899):
+    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=0x000f530cd899):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
+
+        # Set the MAC for our destinatino IP
+        arp[dbe.ip & 0xff] = dbe.mac
 
         # Configure 10 GbE device
         last_byte = (fid << 4) + 0b1100
         self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, 0xbea3, arp)
 
         # Configure the visibility packet buffer
-        self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe_ip))
+        self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe.ip))
 
         # Lastly enable the TX 
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, (1<<31)))
