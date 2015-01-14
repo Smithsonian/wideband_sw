@@ -3,7 +3,7 @@ setup(
     name='pysendint', 
     version='1.0', 
     ext_modules = [Extension('pysendint', 
-                             ['pysendint.c', 'sendIntegration.c',
+                             ['pysendint.c', 'sendIntegration.c', 'sendSync.c',
                               'chunkPlot_clnt.c', 'chunkPlot_xdr.c',
                               'dataCatcher_clnt.c', 'dataCatcher_xdr.c',
                               '/global/functions/getAntennaList.c',
