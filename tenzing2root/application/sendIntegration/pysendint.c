@@ -8,6 +8,19 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
 		    int ant1, int pol1, int ant2, int pol2,
 		    float *lsbCross, float *usbCross, int forceTransfer);
 
+/* Function prototype for sendSync */
+int sendSync(void);
+
+static PyObject *
+send_sync(PyObject *self, PyObject *args)
+{
+  int sts; // return value
+
+  sts = sendSync();
+
+  return Py_BuildValue("i", sts);
+}
+
 static PyObject *
 send_integration(PyObject *self, PyObject *args)
 {
@@ -134,6 +147,8 @@ static PyMethodDef SendIntMethods[] = {
 
   {"send_integration", send_integration, METH_VARARGS,
    "Send an integration."},
+  {"send_sync", send_sync, METH_NOARGS,
+   "Send a sync-only to dataCatcher."},
   {NULL, NULL, 0, NULL}
 };
 
