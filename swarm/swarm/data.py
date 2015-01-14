@@ -13,7 +13,7 @@ from socket import (
 
 from numpy import array, nan
 
-from pysendint import send_integration
+from pysendint import send_sync, send_integration
 from defines import *
 from xeng import (
     SwarmBaseline, 
@@ -134,6 +134,7 @@ class SwarmDataCatcher(Thread):
 
         data = {}
         last_acc = {}
+        self.acc_done = True
         while not self.stopevent.isSet():
 
             # Receive a packet and get host info
@@ -141,6 +142,12 @@ class SwarmDataCatcher(Thread):
                 datar, addr = self.udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
             except timeout:
                 continue
+
+            # Send sync if this is the first packet of the next accumulation
+            if self.acc_done:
+                self.logger.info("First packet received")
+                self.acc_done = False
+                send_sync()
 
             # Determine the FID from addr
             fid = unpack('BBBB', inet_aton(addr[0]))[3]/2 - 29
@@ -277,10 +284,10 @@ class SwarmDataHandler:
                                  lsb_data, usb_data, 0)
 
             # Debug log this baseline
-            self.logger.debug("processed baseline: {!s}".format(baseline))
+            self.logger.debug("Processed baseline: {!s}".format(baseline))
 
         # Info log the set
-        self.logger.info("processed all baselines")
+        self.logger.info("Processed all baselines")
 
     def loop(self):
 
@@ -323,6 +330,7 @@ class SwarmDataHandler:
 
                     # We have all data for this accumulation, log it
                     self.logger.info("Received full accumulation #{:<4}".format(acc_n))
+                    self.catcher.acc_done = True
 
                     # Do user rawbacks first
                     rawdata = acc.pop(acc_n)
