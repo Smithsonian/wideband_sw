@@ -284,10 +284,10 @@ class SwarmDataHandler:
                                  lsb_data, usb_data, 0)
 
             # Debug log this baseline
-            self.logger.debug("processed baseline: {!s}".format(baseline))
+            self.logger.debug("Processed baseline: {!s}".format(baseline))
 
         # Info log the set
-        self.logger.info("processed all baselines")
+        self.logger.info("Processed all baselines")
 
     def loop(self):
 
