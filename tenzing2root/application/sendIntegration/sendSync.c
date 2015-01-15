@@ -15,13 +15,14 @@ int sendSync(void)
   if (!cl) {
     fprintf(stderr, "Could not get a client handle to dataCatcher on HCN\n");
     perror("clnt_create");
-    clnt_destroy(cl);
+    return ERROR;
   }
   argument.rt_code = 1;
   if (!(result = sync_asic_1(&argument, cl))) {
     fprintf(stderr, "NULL returned by sync_asic_1()\n");
     perror("sync_asic_1()");
     clnt_destroy(cl);
+    return ERROR;
   }
   clnt_destroy(cl);
   return OK;
