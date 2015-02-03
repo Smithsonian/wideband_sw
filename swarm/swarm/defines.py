@@ -25,7 +25,8 @@ SWARM_CHANNELS = 2**14
 # Internal de-Walshing parameters
 # (should not change unless design changes)
 SWARM_INT_HB_PER_SOWF = 256
-SWARM_CLOCKS_PER_INT_HB = 6 * 128 * 2048
+SWARM_TRANSPOSE_SIZE = 128
+SWARM_CLOCKS_PER_INT_HB = 6 * SWARM_TRANSPOSE_SIZE * 2048
 SWARM_INT_HB_PERIOD = SWARM_CLOCKS_PER_INT_HB / SWARM_CLOCK_RATE
 
 # External Walshing parameters
