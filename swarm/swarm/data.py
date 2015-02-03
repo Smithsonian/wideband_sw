@@ -339,6 +339,7 @@ class SwarmDataHandler:
 
                     # Reorder the xengine data
                     data = self._reorder_data(rawdata, int_time, self.swarm.get_itime())
+                    self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
                     # Handle the baseline data
                     self._handle_data(data)
