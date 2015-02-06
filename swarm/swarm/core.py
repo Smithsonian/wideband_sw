@@ -219,6 +219,29 @@ class SwarmMember:
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *gains)
         self.roach2.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
 
+
+    def set_bengine_gains(self, fid_gain_dict):
+
+        # Go through each requested gain setting
+        for fid, gain in fid_gain_dict.iteritems():
+
+            # Format gain value correctly
+            gain_u16_8 = int(gain * 2**8) # 8-bits fractional
+
+            # Find the register we need to write to
+            beng_gain_reg = SWARM_BENGINE_GAIN % (fid >> 1)
+
+            # Get its current value
+            current = self.roach2.read_uint(beng_gain_reg)
+
+            # Mask in our new gain
+            shift_by = 16 - 16 * (fid & 1)
+            mask = 0xffff << shift_by
+            new = (current & ~mask) | (gain_u16_8 << shift_by)
+
+            # Finally write it back
+            self.roach2.write(beng_gain_reg, pack(SWARM_REG_FMT, new))
+
     def reset_xeng(self):
 
         # Twiddle bit 29
