@@ -141,9 +141,8 @@ class DBEDataHandler:
             except Empty: # none available
                 continue
 
-            # Get the real "chan_id" and "bcount"
-            chan_id = ((bcount_lsb & 1) << 7) | chan_id
-            bcount = (bcount_msb << 31) | (bcount_lsb >> 1)
+            # Get the real "bcount"
+            bcount = (bcount_msb << 32) | (bcount_lsb)
 
             if target_bcount is None: # then this is our first packet
 
