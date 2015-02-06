@@ -18,6 +18,13 @@ SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
 
 
+class DBE:
+
+    def __init__(self, mac, ip):
+        self.mac = mac
+        self.ip = ip
+
+
 class DBEImposter:
 
     def __init__(self, interface, port=0xbea3):
