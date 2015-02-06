@@ -4,6 +4,7 @@ from socket import (
     socket, inet_ntoa,
     AF_INET, SOCK_DGRAM,
     SO_RCVBUF, SO_SNDBUF,
+    timeout,
     )
 from Queue import Queue, Empty
 from threading import Thread, Event
