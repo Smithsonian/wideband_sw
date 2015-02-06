@@ -3,6 +3,8 @@
 import os
 import logging
 from swarm import Swarm
+from swarm.dbe import *
+from swarm.defines import *
 from swarm.ipython import magics
 from IPython.config.loader import Config
 from IPython.terminal.embed import InteractiveShellEmbed
