@@ -16,8 +16,6 @@ from defines import *
 
 SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
-SWARM_N_FIDS = len(SWARM_ALL_FID)
-SWARM_N_INPUTS = len(SWARM_MAPPING_INPUTS)
 
 
 class DBEImposter:
