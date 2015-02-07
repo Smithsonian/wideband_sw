@@ -124,8 +124,8 @@ class SwarmMember:
         self._setup_fengine()
 
         # Setup flat complex gains
-        self.set_flat_cgains(0, 64)
-        self.set_flat_cgains(1, 64)
+        self.set_flat_cgains(0, 256)
+        self.set_flat_cgains(1, 256)
 
         # Setup the X-engine
         self._setup_xeng_tvg()
