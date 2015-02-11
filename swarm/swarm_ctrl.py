@@ -55,6 +55,7 @@ def main():
                     norm_left = auto_amps[SwarmBaseline(baseline.left, baseline.left)]
                     norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
                     norm = sqrt(norm_left * norm_right)
+                norm = max(1.0, norm) # make sure it's not zero
                 logger.info(
                     '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:<08.2e}, Phase(std)={pha:<06.2f}, Corr.={corr:<05.2f}%'.format(
                         baseline=baseline, chunk=chunk, sideband=sideband, 
