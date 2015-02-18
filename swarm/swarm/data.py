@@ -38,9 +38,9 @@ class SwarmDataPackage:
         self.swarm = swarm
         self.int_time = time
         self.int_length = length
-        self._inputs = list(self.swarm[i][j] for i in range(self.swarm.fids_expected) for j in (0, 1))
-        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self._inputs, r=2) if i._chk==j._chk)
-        self._autos = list(SwarmBaseline(i, i) for i in self._inputs)
+        self.inputs = list(self.swarm[i][j] for i in range(self.swarm.fids_expected) for j in SWARM_MAPPING_INPUTS)
+        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2) if i._chk==j._chk)
+        self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
         self._init_data()
 

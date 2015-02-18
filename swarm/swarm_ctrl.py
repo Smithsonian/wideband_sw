@@ -2,8 +2,11 @@
 
 import logging, argparse
 from struct import unpack
+from numpy.linalg import lstsq
 from numpy import (
     array, 
+    around,
+    zeros,
     empty, 
     isnan,
     angle, 
@@ -65,6 +68,31 @@ def main():
                         pha=(180.0/pi)*angle(complex_data.mean()),
                         )
                     )
+
+    # Callback for VLBI calibration
+    def calibrate_vlbi(data):
+        sideband = 'USB'
+        n_inputs = len(data.inputs)
+        baselines = [data._autos[0],] + data._cross 
+        n_baselines = len(baselines)
+        ordinate_vector = zeros([n_baselines,])
+        coefficient_matrix = zeros([n_baselines, n_inputs])
+        for baseline in baselines:
+            if baseline.is_valid():
+                chunk = baseline.left._chk
+                interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
+                complex_data = interleaved[0::2] + 1j * interleaved[1::2]
+                left_i = data.inputs.index(baseline.left)
+                right_i = data.inputs.index(baseline.right)
+                baseline_i = baselines.index(baseline)
+                ordinate_vector[baseline_i] = angle(complex_data.mean())
+                coefficient_matrix[baseline_i][left_i] = 1.0
+                if not baseline.is_auto():
+                    coefficient_matrix[baseline_i][right_i] = -1.0
+        solution_vector, resids, rank, sing = lstsq(coefficient_matrix, ordinate_vector)
+        phases = around(solution_vector, 4) + 0
+        for i in range(n_inputs):
+            logger.info('{} phase= {:<06.2f} deg'.format(data.inputs[i], (180.0/pi)*phases[i]))
 
     # Callback for saving raw data
     def save_rawdata(rawdata):
@@ -146,6 +174,7 @@ def main():
 
             # Use a callback to show visibility stats
             swarm_handler.add_callback(log_stats)
+            swarm_handler.add_callback(calibrate_vlbi)
 
         if args.save_rawdata:
 
