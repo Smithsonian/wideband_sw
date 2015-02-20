@@ -245,10 +245,6 @@ class SwarmDataHandler:
 
     def _handle_data(self, data):
 
-        # Do user callbacks first
-        for callback in self.callbacks:
-            callback(data)
-
         # Send data to dataCatcher/corrSaver
         for baseline in data.baselines:
 
@@ -340,6 +336,10 @@ class SwarmDataHandler:
                     # Reorder the xengine data
                     data = self._reorder_data(rawdata, int_time, self.swarm.get_itime())
                     self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
+
+                    # Finally, do user callbacks
+                    for callback in self.callbacks:
+                        callback(data)
 
                     # Handle the baseline data
                     self._handle_data(data)
