@@ -2,7 +2,7 @@
 
 import logging, argparse
 from struct import unpack
-from numpy.linalg import lstsq
+from scipy.sparse.linalg import eigs
 from numpy import (
     array, 
     around,
@@ -71,28 +71,24 @@ def main():
 
     # Callback for VLBI calibration
     def calibrate_vlbi(data):
+        chunk = 0
         sideband = 'USB'
         n_inputs = len(data.inputs)
-        baselines = [data._autos[0],] + data._cross 
-        n_baselines = len(baselines)
-        ordinate_vector = zeros([n_baselines,])
-        coefficient_matrix = zeros([n_baselines, n_inputs])
-        for baseline in baselines:
-            if baseline.is_valid():
-                chunk = baseline.left._chk
-                interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
-                complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-                left_i = data.inputs.index(baseline.left)
-                right_i = data.inputs.index(baseline.right)
-                baseline_i = baselines.index(baseline)
-                ordinate_vector[baseline_i] = angle(complex_data.mean())
-                coefficient_matrix[baseline_i][left_i] = 1.0
-                if not baseline.is_auto():
-                    coefficient_matrix[baseline_i][right_i] = -1.0
-        solution_vector, resids, rank, sing = lstsq(coefficient_matrix, ordinate_vector)
-        phases = around(solution_vector, 4) + 0
+        corr_matrix = zeros([n_inputs, n_inputs], dtype=complex)
+        for baseline in data.baselines:
+            left_i = data.inputs.index(baseline.left)
+            right_i = data.inputs.index(baseline.right)
+            interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
+            complex_data = interleaved[0::2] + 1j * interleaved[1::2]
+            p_visib = complex_data.mean()
+            corr_matrix[left_i][right_i] = p_visib
+            corr_matrix[right_i][left_i] = p_visib.conjugate()
+        corr_eig_val, corr_eig_vec = eigs(corr_matrix, k=1, which='LM')
+        gains = around(corr_eig_vec * sqrt(corr_eig_val[0]), 8).squeeze()
+        factor = gains[0].conj() / abs(gains[0])
+        gains *= factor
         for i in range(n_inputs):
-            logger.info('{} phase= {:<06.2f} deg'.format(data.inputs[i], (180.0/pi)*phases[i]))
+            logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
 
     # Callback for saving raw data
     def save_rawdata(rawdata):
