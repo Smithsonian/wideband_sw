@@ -46,6 +46,8 @@ def main():
                         help='Save raw data from each FID to file')
     parser.add_argument('--log-stats', dest='log_stats', action='store_true',
                         help='Print out some baselines statistics (NOTE: very slow!)')
+    parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', action='store_true',
+                        help='Solve for per-antenna complex gains to calibrate the phased sum')
     args = parser.parse_args()
 
     # Set logging level given verbosity
@@ -88,6 +90,10 @@ def main():
 
             # Use a callback to show visibility stats
             swarm_handler.add_callback(LogStats)
+
+        if args.calibrate_vlbi:
+
+            # Use a callback to calibrate fringes for VLBI
             swarm_handler.add_callback(CalibrateVLBI)
 
         if args.save_rawdata:
