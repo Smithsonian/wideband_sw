@@ -12,6 +12,10 @@ from swarm import SwarmDataCallback
 
 class CalibrateVLBI(SwarmDataCallback):
 
+    def __init__(self, swarm, reference=None):
+        self.reference = reference if reference is not None else swarm[0].get_input(0)
+        super(CalibrateVLBI, self).__init__(swarm)
+
     def __call__(self, data):
         """ Callback for VLBI calibration """
         chunk = 0
@@ -28,7 +32,8 @@ class CalibrateVLBI(SwarmDataCallback):
             corr_matrix[right_i][left_i] = p_visib.conjugate()
         corr_eig_val, corr_eig_vec = eigs(corr_matrix, k=1, which='LM')
         gains = around(corr_eig_vec * sqrt(corr_eig_val[0]), 8).squeeze()
-        factor = gains[0].conj() / abs(gains[0])
+        reference_gain = gains[data.inputs.index(self.reference)]
+        factor = reference_gain.conj() / abs(reference_gain)
         gains *= factor
         for i in range(n_inputs):
             self.logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
