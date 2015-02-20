@@ -1,32 +1,19 @@
 #!/usr/bin/env python2.7
 
 import logging, argparse
-from struct import unpack
-from scipy.sparse.linalg import eigs
-from numpy import (
-    array, 
-    around,
-    zeros,
-    empty, 
-    isnan,
-    angle, 
-    log10,
-    sqrt,
-    abs,
-    pi,
-)
 
 from swarm import (
-    SWARM_VISIBS_ACC_SIZE,
     SWARM_XENG_SIDEBANDS,
     SWARM_MAPPING_CHUNKS,
     SWARM_MAPPING,
     SwarmDataHandler,
     SwarmListener,
-    SwarmBaseline,
     Swarm,
     )
 from rawbacks.save_rawdata import *
+from callbacks.calibrate_vlbi import *
+from callbacks.check_ramp import *
+from callbacks.log_stats import *
 
 
 DEFAULT_BITCODE = 'sma_corr_2015_Feb_10_1113.bof.gz'
@@ -39,63 +26,6 @@ def main():
     formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
     logger = logging.getLogger()
     logger.handlers[0].setFormatter(formatter)
-
-    # Callback for showing statistics
-    def log_stats(data):
-        sideband = 'USB'
-        auto_amps = {}
-        for baseline in data.baselines:
-            if baseline.is_valid():
-                chunk = baseline.left._chk
-                interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
-                complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-                if baseline.is_auto():
-                    auto_amps[baseline] = abs(complex_data).mean()
-                    norm = auto_amps[baseline]
-                else:
-                    norm_left = auto_amps[SwarmBaseline(baseline.left, baseline.left)]
-                    norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
-                    norm = sqrt(norm_left * norm_right)
-                norm = max(1.0, norm) # make sure it's not zero
-                logger.info(
-                    '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:>12.2e}, Phase(avg)={pha:>8.2f} deg, Corr.={corr:>8.2f}%'.format(
-                        baseline=baseline, chunk=chunk, sideband=sideband, 
-                        corr=100.0*abs(complex_data).mean()/norm,
-                        amp=abs(complex_data).mean(),
-                        pha=(180.0/pi)*angle(complex_data.mean()),
-                        )
-                    )
-
-    # Callback for VLBI calibration
-    def calibrate_vlbi(data):
-        chunk = 0
-        sideband = 'USB'
-        n_inputs = len(data.inputs)
-        corr_matrix = zeros([n_inputs, n_inputs], dtype=complex)
-        for baseline in data.baselines:
-            left_i = data.inputs.index(baseline.left)
-            right_i = data.inputs.index(baseline.right)
-            interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
-            complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-            p_visib = complex_data.mean()
-            corr_matrix[left_i][right_i] = p_visib
-            corr_matrix[right_i][left_i] = p_visib.conjugate()
-        corr_eig_val, corr_eig_vec = eigs(corr_matrix, k=1, which='LM')
-        gains = around(corr_eig_vec * sqrt(corr_eig_val[0]), 8).squeeze()
-        factor = gains[0].conj() / abs(gains[0])
-        gains *= factor
-        for i in range(n_inputs):
-            logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
-
-    # Callback for checking ramp
-    def check_ramp(rawdata):
-        ramp = empty(SWARM_VISIBS_ACC_SIZE)
-        for fid, datas in enumerate(rawdata):
-            raw = array(unpack('>%dI'%SWARM_VISIBS_ACC_SIZE, datas))
-            ramp[0::2] = raw[1::2]
-            ramp[1::2] = raw[0::2]
-            errors_ind = list(i for i, p in enumerate(ramp) if p !=i)
-            logger.info('Ramp errors for FID #%d: %d' % (fid, len(errors_ind)))
 
     # Parse the user's command line arguments
     parser = argparse.ArgumentParser(description='Catch and process visibility data from a set of SWARM ROACH2s')
