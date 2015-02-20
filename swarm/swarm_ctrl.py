@@ -3,8 +3,6 @@
 import logging, argparse
 
 from swarm import (
-    SWARM_XENG_SIDEBANDS,
-    SWARM_MAPPING_CHUNKS,
     SWARM_MAPPING,
     SwarmDataHandler,
     SwarmListener,
