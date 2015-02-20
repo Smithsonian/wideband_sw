@@ -61,7 +61,7 @@ def main():
                     norm = sqrt(norm_left * norm_right)
                 norm = max(1.0, norm) # make sure it's not zero
                 logger.info(
-                    '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:<08.2e}, Phase(avg)={pha:<06.2f} deg, Corr.={corr:<05.2f}%'.format(
+                    '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:>12.2e}, Phase(avg)={pha:>8.2f} deg, Corr.={corr:>8.2f}%'.format(
                         baseline=baseline, chunk=chunk, sideband=sideband, 
                         corr=100.0*abs(complex_data).mean()/norm,
                         amp=abs(complex_data).mean(),
