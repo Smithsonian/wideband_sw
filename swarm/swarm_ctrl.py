@@ -26,14 +26,11 @@ from swarm import (
     SwarmBaseline,
     Swarm,
     )
+from rawbacks.save_rawdata import *
 
 
 DEFAULT_BITCODE = 'sma_corr_2015_Feb_10_1113.bof.gz'
 
-
-def save_bin(filename, datas):
-    with open(filename, 'wb') as file_:
-        file_.write(datas)
 
 def main():
 
@@ -89,13 +86,6 @@ def main():
         gains *= factor
         for i in range(n_inputs):
             logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
-
-    # Callback for saving raw data
-    def save_rawdata(rawdata):
-        for fid, datas in enumerate(rawdata):
-            filename = 'fid%d.dat' % fid
-            save_bin(filename, datas)
-            logger.info('Data for FID #%d saved to %r' % (fid, filename))
 
     # Callback for checking ramp
     def check_ramp(rawdata):
