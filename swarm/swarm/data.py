@@ -92,7 +92,7 @@ class SwarmDataPackage:
             self.data[conj_baseline][chunk][sideband][slice_] = data.copy()
 
 
-class SwarmDataCallback:
+class SwarmDataCallback(object):
 
     def __init__(self, swarm):
         self.__log_name = "Callback:{0}".format(self.__class__.__name__)
