@@ -10,6 +10,7 @@ from data import (
     SwarmListener, 
     SwarmDataCatcher, 
     SwarmDataPackage, 
+    SwarmDataCallback,
     SwarmDataHandler,
     )
 

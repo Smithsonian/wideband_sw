@@ -87,18 +87,18 @@ def main():
         if args.log_stats:
 
             # Use a callback to show visibility stats
-            swarm_handler.add_callback(log_stats)
-            swarm_handler.add_callback(calibrate_vlbi)
+            swarm_handler.add_callback(LogStats)
+            swarm_handler.add_callback(CalibrateVLBI)
 
         if args.save_rawdata:
 
             # Give a rawback that saves the raw data
-            swarm_handler.add_rawback(save_rawdata)
+            swarm_handler.add_rawback(SaveRawData)
 
         if args.visibs_test:
 
             # Give a rawback that checks for ramp errors
-            swarm_handler.add_rawback(check_ramp)
+            swarm_handler.add_rawback(CheckRamp)
 
         # Start the main loop
         swarm_handler.loop()

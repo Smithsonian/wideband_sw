@@ -92,6 +92,17 @@ class SwarmDataPackage:
             self.data[conj_baseline][chunk][sideband][slice_] = data.copy()
 
 
+class SwarmDataCallback:
+
+    def __init__(self, swarm):
+        self.__log_name = "Callback:{0}".format(self.__class__.__name__)
+        self.logger = logging.getLogger(self.__log_name)
+        self.swarm = swarm
+
+    def __call__(self, data):
+        pass
+
+
 class SwarmListener:
 
     def __init__(self, interface, port=4100):
@@ -213,11 +224,13 @@ class SwarmDataHandler:
         self.catcher.setDaemon(True)
         self.catcher.start()
 
-    def add_rawback(self, func):
-        self.rawbacks.append(func)
+    def add_rawback(self, callback, *args, **kwargs):
+        inst = callback(self.swarm, *args, **kwargs)
+        self.rawbacks.append(inst)
 
-    def add_callback(self, func):
-        self.callbacks.append(func)
+    def add_callback(self, callback, *args, **kwargs):
+        inst = callback(self.swarm, *args, **kwargs)
+        self.callbacks.append(inst)
 
     def _reorder_data(self, datas_list, int_time, int_length):
 
