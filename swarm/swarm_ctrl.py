@@ -8,9 +8,9 @@ from swarm import (
     SwarmListener,
     Swarm,
     )
+from rawbacks.check_ramp import *
 from rawbacks.save_rawdata import *
 from callbacks.calibrate_vlbi import *
-from callbacks.check_ramp import *
 from callbacks.log_stats import *
 
 
