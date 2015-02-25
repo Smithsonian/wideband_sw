@@ -312,6 +312,9 @@ class SwarmDataHandler:
                     for callback in self.callbacks:
                         callback(data)
 
+                    # Log that we're done with callbacks
+                    self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
+
         except KeyboardInterrupt:
 
             # User wants to quit
