@@ -13,7 +13,7 @@ from socket import (
 
 from numpy import array, nan
 
-from pysendint import send_sync, send_integration
+from pysendint import send_sync
 from defines import *
 from xeng import (
     SwarmBaseline, 
@@ -256,48 +256,6 @@ class SwarmDataHandler:
         # Return the (hopefully) complete data packages
         return data_pkg
 
-    def _handle_data(self, data):
-
-        # Send data to dataCatcher/corrSaver
-        for baseline in data.baselines:
-
-            # Get our data arrays
-            baseline_data = data[baseline]
-
-            # Send the appropriate chunk
-            if baseline.is_valid():
-
-                # Get baseline antennas
-                ant_left = baseline.left._ant
-                ant_right = baseline.right._ant
-
-                # Get the chunk
-                chunk = baseline.left._chk
-
-                # Get baseline polarizations
-                pol_left = baseline.left._pol
-                pol_right = baseline.right._pol
-
-                # Get each sidebands data
-                usb_data = baseline_data[chunk]['USB']
-                if baseline.is_auto():
-                    lsb_data = usb_data.copy()
-                else:
-                    lsb_data = baseline_data[chunk]['LSB']
-
-                # Send our integration
-                send_integration(data.int_time - (data.int_length/2.0), 
-                                 data.int_length, chunk,
-                                 ant_left, pol_left, 
-                                 ant_right, pol_right, 
-                                 lsb_data, usb_data, 0)
-
-            # Debug log this baseline
-            self.logger.debug("Processed baseline: {!s}".format(baseline))
-
-        # Info log the set
-        self.logger.info("Processed all baselines")
-
     def loop(self):
 
         try:
@@ -354,9 +312,6 @@ class SwarmDataHandler:
                     for callback in self.callbacks:
                         callback(data)
 
-                    # Handle the baseline data
-                    self._handle_data(data)
-                
         except KeyboardInterrupt:
 
             # User wants to quit

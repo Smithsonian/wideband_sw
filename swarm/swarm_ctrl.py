@@ -12,6 +12,7 @@ from rawbacks.check_ramp import *
 from rawbacks.save_rawdata import *
 from callbacks.calibrate_vlbi import *
 from callbacks.log_stats import *
+from callbacks.sma_data import *
 
 
 DEFAULT_BITCODE = 'sma_corr_2015_Feb_10_1113.bof.gz'
@@ -40,6 +41,8 @@ def main():
                         help='only program and setup the board; do not wait for data')
     parser.add_argument('--listen-only', dest='listen_only', action='store_true',
                         help='do NOT setup the board; only wait for data')
+    parser.add_argument('--no-data-catcher', dest='disable_data_catcher', action='store_true',
+                        help='do NOT send data to the SMAs dataCatcher and corrSaver servers')
     parser.add_argument('--visibs-test', dest='visibs_test', action='store_true',
                         help='enable the DDR3 visibility ramp test')
     parser.add_argument('--save-raw-data', dest='save_rawdata', action='store_true',
@@ -85,6 +88,11 @@ def main():
 
         # Create the data handler 
         swarm_handler = SwarmDataHandler(swarm, listener)
+
+        if not args.disable_data_catcher:
+
+            # Use a callback to send data to dataCatcher/corrSaver
+            swarm_handler.add_callback(SMAData)
 
         if args.log_stats:
 
