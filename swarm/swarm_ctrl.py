@@ -4,8 +4,8 @@ import logging, argparse
 
 from swarm import (
     SWARM_MAPPING,
+    SwarmDataCatcher,
     SwarmDataHandler,
-    SwarmListener,
     Swarm,
     )
 from rawbacks.check_ramp import *
@@ -63,8 +63,8 @@ def main():
     katcp_logger = logging.getLogger('katcp')
     katcp_logger.setLevel(logging.WARNING)
 
-    # Setup the listener class
-    listener = SwarmListener(args.interface)
+    # Setup the data catcher class
+    swarm_catcher = SwarmDataCatcher(args.interface)
 
     # Create our SWARM instance
     swarm = Swarm()
@@ -72,7 +72,7 @@ def main():
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup(args.bitcode, args.itime, listener)
+        swarm.setup(args.bitcode, args.itime, swarm_catcher)
 
     if args.visibs_test:
 
@@ -86,8 +86,8 @@ def main():
 
     if not args.setup_only:
 
-        # Create the data handler 
-        swarm_handler = SwarmDataHandler(swarm, listener)
+        # Create the data handler
+        swarm_handler = SwarmDataHandler(swarm, swarm_catcher.queue)
 
         if not args.disable_data_catcher:
 
@@ -114,9 +114,14 @@ def main():
             # Give a rawback that checks for ramp errors
             swarm_handler.add_rawback(CheckRamp)
 
+        # Start the data catcher
+        swarm_catcher.start()
+
         # Start the main loop
         swarm_handler.loop()
 
+        # Stop the data catcher
+        swarm_catcher.stop()
 
 
 # Do main if not imported

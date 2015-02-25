@@ -103,10 +103,10 @@ class SwarmDataCallback(object):
         pass
 
 
-class SwarmListener:
+class SwarmListener(object):
 
     def __init__(self, interface, port=4100):
-        self.logger = logging.getLogger('SwarmListener')
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.interface = interface
         self._set_netinfo(port)
 
@@ -121,26 +121,29 @@ class SwarmListener:
         s.close()
 
 
-class SwarmDataCatcher(Thread):
+class SwarmDataCatcher(SwarmListener, Thread):
 
-    def __init__(self, queue, stopevent,
-                 listen_host, listen_port):
-        self.queue = queue
-        self.stopevent = stopevent
-        self.listen_on = (listen_host, listen_port)
-        self.logger = logging.getLogger('SwarmDataCatcher')
+    def __init__(self, interface, port=4100):
+        self.queue = Queue()
         Thread.__init__(self)
+        SwarmListener.__init__(self, interface, port)
 
     def _create_socket(self):
         self.udp_sock = socket(AF_INET, SOCK_DGRAM)
-        self.udp_sock.bind(self.listen_on)
+        self.udp_sock.bind((self.host, self.port))
         self.udp_sock.settimeout(2.0)
 
     def _close_socket(self):
         self.udp_sock.close()
 
+    def stop(self):
+        self.logger.debug('Thread will be stopped')
+        self.stopevent.set()
+        self.join()
+
     def run(self):
-        self.logger.info('SwarmDataCatcher has started')
+        self.logger.debug('Thread will be started')
+        self.stopevent = Event()
         self._create_socket()
 
         data = {}
@@ -197,32 +200,20 @@ class SwarmDataCatcher(Thread):
                 # Set the last acc time
                 last_acc[fid] = time()
 
-        self.logger.info('SwarmDataCatcher has stopped')
         self._close_socket()
 
 
 class SwarmDataHandler:
 
-    def __init__(self, swarm, listener):
+    def __init__(self, swarm, queue):
 
         # Create initial member variables
         self.logger = logging.getLogger('SwarmDataHandler')
         self.xengine = SwarmXengine(swarm)
-        self.stopper = Event()
-        self.queue = Queue()
         self.callbacks = []
         self.rawbacks = []
         self.swarm = swarm
-
-        # Print out receive side (i.e. listener) network information
-        self.logger.info('Listening for data on %s:%d' % (listener.host, listener.port))
-
-        # Start the listening queue
-        self.catcher = SwarmDataCatcher(
-            self.queue, self.stopper, 
-            listener.host, listener.port)
-        self.catcher.setDaemon(True)
-        self.catcher.start()
+        self.queue = queue
 
     def add_rawback(self, callback, *args, **kwargs):
         inst = callback(self.swarm, *args, **kwargs)
@@ -297,7 +288,7 @@ class SwarmDataHandler:
 
                     # We have all data for this accumulation, log it
                     self.logger.info("Received full accumulation #{:<4}".format(acc_n))
-                    self.catcher.acc_done = True
+                    #self.catcher.acc_done = True
 
                     # Do user rawbacks first
                     rawdata = acc.pop(acc_n)
@@ -318,5 +309,4 @@ class SwarmDataHandler:
         except KeyboardInterrupt:
 
             # User wants to quit
-            self.stopper.set()
-            self.catcher.join()
+            self.logger.info("Ctrl-C detected. Quitting loop.")
