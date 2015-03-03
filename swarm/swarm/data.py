@@ -123,7 +123,8 @@ class SwarmListener(object):
 
 class SwarmDataCatcher(SwarmListener, Thread):
 
-    def __init__(self, interface, port=4100):
+    def __init__(self, swarm, interface, port=4100):
+        self.swarm = swarm
         self.queue = Queue()
         Thread.__init__(self)
         SwarmListener.__init__(self, interface, port)

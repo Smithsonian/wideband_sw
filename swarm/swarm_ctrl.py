@@ -84,7 +84,7 @@ def main():
     if not args.setup_only:
 
         # Setup the data catcher class
-        swarm_catcher = SwarmDataCatcher(args.interface)
+        swarm_catcher = SwarmDataCatcher(swarm, args.interface)
 
         # Create the data handler
         swarm_handler = SwarmDataHandler(swarm, swarm_catcher.queue)
