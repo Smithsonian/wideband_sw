@@ -17,7 +17,7 @@
 
 #define TRUE 1
 #define FALSE 0
-#define FAIL -1
+#define FAIL 1
 
 #define SCOPE_0_DATA "scope_snap0_bram"
 #define SCOPE_0_CTRL "scope_snap0_ctrl"
@@ -26,7 +26,7 @@
 #define SCOPE_1_CTRL "scope_snap1_ctrl"
 #define SCOPE_1_STATUS "scope_snap1_status"
 
-#define UPDATE_FROM_SAVED_OGP 1
+#define EXPECT_READBACK_ERRORS 1
 
 /* pointers for controlling and accessing the snapshot */
 static int *ctrl_p[2], *stat_p[2];
@@ -216,9 +216,12 @@ void set_ogp_registers(float *offs, float *gains, float *phases) {
 }
 
 int read_adc_calibrations(void) {
+   int i;
   if(!adc_cal_valid) {
-    if(dsm_read("obscon",DSM_CAL_STRUCT,&dsm_adc_cal, NULL) != DSM_SUCCESS){
+    if((i = dsm_read("obscon", "SWARM_SAMPLER_CALIBRATIONS_X",
+        &dsm_adc_cal, NULL)) != DSM_SUCCESS){
       CMD_STATUS = DSM_READ;
+      adc_cmd_rtn[2] = i;
       return FAIL;
     }
     adc_cal_valid = TRUE;
@@ -231,7 +234,8 @@ int write_adc_calibrations(void) {
     CMD_STATUS = DSM_WRITE;
     return FAIL;
   }
-  if(dsm_write(DSM_MONITOR_CLASS,DSM_CAL_STRUCT,&dsm_adc_cal) != DSM_SUCCESS){
+  if(dsm_write("SWARM_MONITOR_AND_HAL", "SWARM_SAMPLER_CALIBRATIONS_X",
+      &dsm_adc_cal) != DSM_SUCCESS){
     CMD_STATUS = DSM_WRITE;
     return FAIL;
   }
@@ -398,9 +402,10 @@ void *monitor_adc(void *tr) {
       loading_factor[zdok] =
            -20*log10f((float)(128/sqrt((double)ssq/len - avg*avg)));
     }
-    status = dsm_write(DSM_MONITOR_CLASS, DSM_ADC_LOADING, loading_factor);
+    status = dsm_write("SWARM_MONITOR", "SWARM_LOADING_FACTOR_V2_F",
+        loading_factor);
     if(++hist_cnt >= NHIST) {
-      status |= dsm_write("obscon", DSM_ADC_HIST, hist);
+      status |= dsm_write("obscon", "SWARM_SAMPLER_HIST_V2_V256_L", hist);
       hist_cnt = 0;
       bzero(&hist, sizeof(hist));
     }
@@ -558,6 +563,7 @@ int get_ogp_cmd(int zdok){
 
   i = read_adc_calibrations();
   if(i != OK) return(i);
+#if EXPECT_READBACK_ERRORS  
   dsm_structure_get_element(&dsm_adc_cal, A_OFFS, offs); 
   dsm_structure_get_element(&dsm_adc_cal, A_GAINS, gains); 
   dsm_structure_get_element(&dsm_adc_cal, A_PHASES, phases); 
@@ -565,6 +571,15 @@ int get_ogp_cmd(int zdok){
   dsm_structure_set_element(&dsm_adc_cal, A_OFFS, offs); 
   dsm_structure_set_element(&dsm_adc_cal, A_GAINS, gains); 
   dsm_structure_set_element(&dsm_adc_cal, A_PHASES, phases); 
+#else
+  dsm_structure_get_element(&dsm_adc_cal, SV_OFFS, offs); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, gains); 
+  dsm_structure_get_element(&dsm_adc_cal, SV_PHASES, phases); 
+  get_ogp_registers(offs[zdok], gains[zdok], phases[zdok]);
+  dsm_structure_set_element(&dsm_adc_cal, SV_OFFS, offs); 
+  dsm_structure_set_element(&dsm_adc_cal, SV_GAINS, gains); 
+  dsm_structure_set_element(&dsm_adc_cal, SV_PHASES, phases); 
+#endif
   return(write_adc_calibrations());
 }
 
@@ -577,7 +592,7 @@ int update_ogp_cmd(int zdok){
   if(i != OK)  return(3);
   dsm_structure_get_element(&dsm_adc_cal, DEL_OFFS, del_offs); 
   dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, del_gains); 
-#if UPDATE_FROM_SAVED_OGP 
+#if EXPECT_READBACK_ERRORS 
   dsm_structure_get_element(&dsm_adc_cal, SV_OFFS, cur_offs); 
   dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, cur_gains); 
   dsm_structure_get_element(&dsm_adc_cal, SV_GAINS, cur_phases); 
@@ -724,7 +739,7 @@ void *cmd_monitor(void *tr) {
       }
     }
     usleep(40000);
-    dsm_write_notify(HAL, DSM_CMD_RTN, &adc_cmd_rtn);
+    dsm_write_notify("hal9000", "SWARM_ADC_CMD_RETURN_V3_L", &adc_cmd_rtn);
   }
   return (void *)0;
 }
@@ -739,12 +754,12 @@ int start_cmd_monitor_cmd(struct katcp_dispatch *d, int argc){
   set_snapshot_pointers(tr);
   /* Set flag run adc monitoring of input level and histogram */
   run_cmd_monitor = TRUE;
-  status = dsm_structure_init(&dsm_adc_cal, DSM_CAL_STRUCT );
+  status = dsm_structure_init(&dsm_adc_cal,"SWARM_SAMPLER_CALIBRATIONS_X" );
   if (status != DSM_SUCCESS) {
     CMD_STATUS = STRUCT_INIT;
     return(KATCP_RESULT_FAIL);
   }
-  if(dsm_monitor(HAL, DSM_CMD) != DSM_SUCCESS) {
+  if(dsm_monitor("hal9000", "SWARM_ADC_CMD_V3_L") != DSM_SUCCESS) {
     log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
                 "Error setting up monitoring of dsm command.");
     return KATCP_RESULT_FAIL;
