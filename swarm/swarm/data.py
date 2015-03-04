@@ -335,7 +335,11 @@ class SwarmDataCatcher(SwarmListener):
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
-                    rawback(data)
+
+                    try: # catch callback error
+                        rawback(data)
+                    except: # and log if needed
+                        self.logger.exception("Exception from rawback: {}".format(rawback))
 
                 # Log that we're done with rawbacks
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
@@ -377,7 +381,10 @@ class SwarmDataHandler:
 
                 # Finally, do user callbacks
                 for callback in self.callbacks:
-                    callback(data)
+                    try: # catch callback error
+                        callback(data)
+                    except: # and log if needed
+                        self.logger.exception("Exception from callback: {}".format(callback))
 
                 # Log that we're done with callbacks
                 self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
