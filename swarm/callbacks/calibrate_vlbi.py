@@ -1,14 +1,31 @@
-from scipy.sparse.linalg import eigs
+from functools import partial
+from itertools import combinations_with_replacement as combos
+from numpy.linalg import eig as eig
 from numpy import (
+    complex128,
     array,
     zeros,
     around,
     angle,
     isnan,
     sqrt,
+    sum,
     pi,
     )
-from swarm import SwarmDataCallback
+from swarm import (
+    SwarmDataCallback,
+    SwarmBaseline,
+    SWARM_CHANNELS,
+)
+
+def solve_cgains(mat, ref=0):
+    vals, vecs = eig(mat)
+    max_val = vals.real.max()
+    max_vec = vecs[:, vals.real.argmax()]
+    raw_gains = max_vec * sqrt(max_val).squeeze()
+    ref_gain = raw_gains[ref]
+    factor = ref_gain.conj() / abs(ref_gain)
+    return raw_gains * factor
 
 class CalibrateVLBI(SwarmDataCallback):
 
@@ -18,22 +35,21 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        chunk = 0
-        sideband = 'USB'
-        n_inputs = len(data.inputs)
-        corr_matrix = zeros([n_inputs, n_inputs], dtype=complex)
-        for baseline in data.baselines:
-            left_i = data.inputs.index(baseline.left)
-            right_i = data.inputs.index(baseline.right)
-            interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
+        solve_chunk = 0
+        solve_sideband = 'USB'
+        inputs = list(inp for inp in data.inputs if inp._chk==solve_chunk)
+        baselines = list(SwarmBaseline(i, j) for i, j in combos(inputs, r=2))
+        corr_matrix = zeros([SWARM_CHANNELS, len(inputs), len(inputs)], dtype=complex128)
+        for baseline in baselines:
+            left_i = inputs.index(baseline.left)
+            right_i = inputs.index(baseline.right)
+            baseline_data = data[baseline][solve_chunk][solve_sideband]
+            interleaved = baseline_data[~isnan(baseline_data)]
             complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-            p_visib = complex_data.mean()
-            corr_matrix[left_i][right_i] = p_visib
-            corr_matrix[right_i][left_i] = p_visib.conjugate()
-        corr_eig_val, corr_eig_vec = eigs(corr_matrix, k=1, which='LM')
-        gains = around(corr_eig_vec * sqrt(corr_eig_val[0]), 8).squeeze()
-        reference_gain = gains[data.inputs.index(self.reference)]
-        factor = reference_gain.conj() / abs(reference_gain)
-        gains *= factor
-        for i in range(n_inputs):
-            self.logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
+            corr_matrix[:, left_i, right_i] = complex_data
+            corr_matrix[:, right_i, left_i] = complex_data.conj()
+        referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
+        full_spec_gains = array(map(referenced_solver, corr_matrix))
+        gains = full_spec_gains.mean(axis=0)
+        for i in range(len(inputs)):
+            self.logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
