@@ -623,7 +623,6 @@ int get_ogp_cmd(struct katcp_dispatch *d, int argc){
   int zdok = 0;
   struct tbs_raw *tr;
   float ogp[12];
-  int errCnt;
 
   /* Grab the mode pointer */
   if((tr = get_mode_pointer(d)) == NULL)
