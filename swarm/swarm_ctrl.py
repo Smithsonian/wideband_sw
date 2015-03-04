@@ -64,7 +64,7 @@ def main():
     katcp_logger.setLevel(logging.WARNING)
 
     # Create our SWARM instance
-    swarm = Swarm()
+    swarm = Swarm(map_filename=args.swarm_mapping)
 
     if not args.listen_only:
 
