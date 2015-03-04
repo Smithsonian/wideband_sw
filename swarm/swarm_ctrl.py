@@ -1,39 +1,22 @@
 #!/usr/bin/env python2.7
 
 import logging, argparse
-from struct import unpack
-from scipy.sparse.linalg import eigs
-from numpy import (
-    array, 
-    around,
-    zeros,
-    empty, 
-    isnan,
-    angle, 
-    log10,
-    sqrt,
-    abs,
-    pi,
-)
 
 from swarm import (
-    SWARM_VISIBS_ACC_SIZE,
-    SWARM_XENG_SIDEBANDS,
-    SWARM_MAPPING_CHUNKS,
     SWARM_MAPPING,
+    SwarmDataCatcher,
     SwarmDataHandler,
-    SwarmListener,
-    SwarmBaseline,
     Swarm,
     )
+from rawbacks.check_ramp import *
+from rawbacks.save_rawdata import *
+from callbacks.calibrate_vlbi import *
+from callbacks.log_stats import *
+from callbacks.sma_data import *
 
 
 DEFAULT_BITCODE = 'sma_corr_2015_Feb_10_1113.bof.gz'
 
-
-def save_bin(filename, datas):
-    with open(filename, 'wb') as file_:
-        file_.write(datas)
 
 def main():
 
@@ -42,70 +25,6 @@ def main():
     formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
     logger = logging.getLogger()
     logger.handlers[0].setFormatter(formatter)
-
-    # Callback for showing statistics
-    def log_stats(data):
-        sideband = 'USB'
-        auto_amps = {}
-        for baseline in data.baselines:
-            if baseline.is_valid():
-                chunk = baseline.left._chk
-                interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
-                complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-                if baseline.is_auto():
-                    auto_amps[baseline] = abs(complex_data).mean()
-                    norm = auto_amps[baseline]
-                else:
-                    norm_left = auto_amps[SwarmBaseline(baseline.left, baseline.left)]
-                    norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
-                    norm = sqrt(norm_left * norm_right)
-                norm = max(1.0, norm) # make sure it's not zero
-                logger.info(
-                    '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:>12.2e}, Phase(avg)={pha:>8.2f} deg, Corr.={corr:>8.2f}%'.format(
-                        baseline=baseline, chunk=chunk, sideband=sideband, 
-                        corr=100.0*abs(complex_data).mean()/norm,
-                        amp=abs(complex_data).mean(),
-                        pha=(180.0/pi)*angle(complex_data.mean()),
-                        )
-                    )
-
-    # Callback for VLBI calibration
-    def calibrate_vlbi(data):
-        chunk = 0
-        sideband = 'USB'
-        n_inputs = len(data.inputs)
-        corr_matrix = zeros([n_inputs, n_inputs], dtype=complex)
-        for baseline in data.baselines:
-            left_i = data.inputs.index(baseline.left)
-            right_i = data.inputs.index(baseline.right)
-            interleaved = array(list(p for p in data[baseline][chunk][sideband] if not isnan(p)))
-            complex_data = interleaved[0::2] + 1j * interleaved[1::2]
-            p_visib = complex_data.mean()
-            corr_matrix[left_i][right_i] = p_visib
-            corr_matrix[right_i][left_i] = p_visib.conjugate()
-        corr_eig_val, corr_eig_vec = eigs(corr_matrix, k=1, which='LM')
-        gains = around(corr_eig_vec * sqrt(corr_eig_val[0]), 8).squeeze()
-        factor = gains[0].conj() / abs(gains[0])
-        gains *= factor
-        for i in range(n_inputs):
-            logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(data.inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
-
-    # Callback for saving raw data
-    def save_rawdata(rawdata):
-        for fid, datas in enumerate(rawdata):
-            filename = 'fid%d.dat' % fid
-            save_bin(filename, datas)
-            logger.info('Data for FID #%d saved to %r' % (fid, filename))
-
-    # Callback for checking ramp
-    def check_ramp(rawdata):
-        ramp = empty(SWARM_VISIBS_ACC_SIZE)
-        for fid, datas in enumerate(rawdata):
-            raw = array(unpack('>%dI'%SWARM_VISIBS_ACC_SIZE, datas))
-            ramp[0::2] = raw[1::2]
-            ramp[1::2] = raw[0::2]
-            errors_ind = list(i for i, p in enumerate(ramp) if p !=i)
-            logger.info('Ramp errors for FID #%d: %d' % (fid, len(errors_ind)))
 
     # Parse the user's command line arguments
     parser = argparse.ArgumentParser(description='Catch and process visibility data from a set of SWARM ROACH2s')
@@ -122,12 +41,16 @@ def main():
                         help='only program and setup the board; do not wait for data')
     parser.add_argument('--listen-only', dest='listen_only', action='store_true',
                         help='do NOT setup the board; only wait for data')
+    parser.add_argument('--no-data-catcher', dest='disable_data_catcher', action='store_true',
+                        help='do NOT send data to the SMAs dataCatcher and corrSaver servers')
     parser.add_argument('--visibs-test', dest='visibs_test', action='store_true',
                         help='enable the DDR3 visibility ramp test')
     parser.add_argument('--save-raw-data', dest='save_rawdata', action='store_true',
                         help='Save raw data from each FID to file')
     parser.add_argument('--log-stats', dest='log_stats', action='store_true',
                         help='Print out some baselines statistics (NOTE: very slow!)')
+    parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', action='store_true',
+                        help='Solve for per-antenna complex gains to calibrate the phased sum')
     args = parser.parse_args()
 
     # Set logging level given verbosity
@@ -140,16 +63,13 @@ def main():
     katcp_logger = logging.getLogger('katcp')
     katcp_logger.setLevel(logging.WARNING)
 
-    # Setup the listener class
-    listener = SwarmListener(args.interface)
-
     # Create our SWARM instance
     swarm = Swarm()
 
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup(args.bitcode, args.itime, listener)
+        swarm.setup(args.bitcode, args.itime, swarm_catcher)
 
     if args.visibs_test:
 
@@ -163,28 +83,45 @@ def main():
 
     if not args.setup_only:
 
-        # Create the data handler 
-        swarm_handler = SwarmDataHandler(swarm, listener)
+        # Setup the data catcher class
+        swarm_catcher = SwarmDataCatcher(swarm, args.interface)
+
+        # Create the data handler
+        swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
+
+        if not args.disable_data_catcher:
+
+            # Use a callback to send data to dataCatcher/corrSaver
+            swarm_handler.add_callback(SMAData)
 
         if args.log_stats:
 
             # Use a callback to show visibility stats
-            swarm_handler.add_callback(log_stats)
-            swarm_handler.add_callback(calibrate_vlbi)
+            swarm_handler.add_callback(LogStats)
+
+        if args.calibrate_vlbi:
+
+            # Use a callback to calibrate fringes for VLBI
+            swarm_handler.add_callback(CalibrateVLBI)
 
         if args.save_rawdata:
 
             # Give a rawback that saves the raw data
-            swarm_handler.add_rawback(save_rawdata)
+            swarm_catcher.add_rawback(SaveRawData)
 
         if args.visibs_test:
 
             # Give a rawback that checks for ramp errors
-            swarm_handler.add_rawback(check_ramp)
+            swarm_catcher.add_rawback(CheckRamp)
+
+        # Start the data catcher
+        swarm_catcher.start()
 
         # Start the main loop
         swarm_handler.loop()
 
+        # Stop the data catcher
+        swarm_catcher.stop()
 
 
 # Do main if not imported
