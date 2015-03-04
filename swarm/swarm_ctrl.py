@@ -87,7 +87,7 @@ def main():
         swarm_catcher = SwarmDataCatcher(swarm, args.interface)
 
         # Create the data handler
-        swarm_handler = SwarmDataHandler(swarm, swarm_catcher.queue)
+        swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
 
         if not args.disable_data_catcher:
 
@@ -107,12 +107,12 @@ def main():
         if args.save_rawdata:
 
             # Give a rawback that saves the raw data
-            swarm_handler.add_rawback(SaveRawData)
+            swarm_catcher.add_rawback(SaveRawData)
 
         if args.visibs_test:
 
             # Give a rawback that checks for ramp errors
-            swarm_handler.add_rawback(CheckRamp)
+            swarm_catcher.add_rawback(CheckRamp)
 
         # Start the data catcher
         swarm_catcher.start()

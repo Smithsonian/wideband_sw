@@ -121,47 +121,114 @@ class SwarmListener(object):
         s.close()
 
 
-class SwarmDataCatcher(SwarmListener, Thread):
+def has_none(obj):
+    try:
+        for sub in obj:
+            if not isinstance(sub, basestring):
+                if has_none(sub):
+                    return True
+    except TypeError:
+        if obj == None:
+            return True
+    return False
+
+
+class SwarmDataCatcher(SwarmListener):
 
     def __init__(self, swarm, interface, port=4100):
         self.swarm = swarm
-        self.queue = Queue()
-        Thread.__init__(self)
+        self.rawbacks = []
+        self.xengine = SwarmXengine(swarm)
+
+        # Catch thread objects
+        self.catch_thread = None
+        self.catch_queue = Queue()
+        self.catch_stop = Event()
+
+        # Ordering thread objects
+        self.order_thread = None
+        self.order_queue = Queue()
+        self.order_stop = Event()
+
+        # Interthread signals
+        self.new_acc = Event()
+        self.new_acc.set()
+
         SwarmListener.__init__(self, interface, port)
 
-    def _create_socket(self):
-        self.udp_sock = socket(AF_INET, SOCK_DGRAM)
-        self.udp_sock.bind((self.host, self.port))
-        self.udp_sock.settimeout(2.0)
+    def get_queue(self):
+        return self.order_queue
 
-    def _close_socket(self):
-        self.udp_sock.close()
+    def _create_socket(self):
+        udp_sock = socket(AF_INET, SOCK_DGRAM)
+        udp_sock.bind((self.host, self.port))
+        udp_sock.settimeout(2.0)
+        return udp_sock
+
+    def start_catch(self):
+        if not self.catch_thread:
+            self.catch_thread = Thread(target=self.catch, 
+                                       args=(self.catch_stop,
+                                             self.new_acc, 
+                                             None,
+                                             self.catch_queue))
+            self.catch_thread.start()
+            self.logger.info('Catching thread has started')
+        else:
+            self.logger.error('Catch thread has not been started!')
+
+    def start_order(self):
+        if not self.order_thread:
+            self.order_thread = Thread(target=self.order, 
+                                       args=(self.order_stop, 
+                                             self.new_acc, 
+                                             self.catch_queue,
+                                             self.order_queue))
+            self.order_thread.start()
+            self.logger.info('Ordering thread has started')
+        else:
+            self.logger.error('Order thread has not been started!')
+
+    def start(self):
+        self.start_catch()
+        self.start_order()
+
+    def stop_catch(self):
+        if self.catch_thread:
+            self.catch_stop.set()
+            self.catch_thread.join()
+            self.logger.info('Catch thread has stopped')
+        else:
+            self.logger.error('Catch thread has not been started!')
+
+    def stop_order(self):
+        if self.order_thread:
+            self.order_stop.set()
+            self.order_thread.join()
+            self.logger.info('Order thread has stopped')
+        else:
+            self.logger.error('Order thread has not been started!')
 
     def stop(self):
-        self.logger.debug('Thread will be stopped')
-        self.stopevent.set()
-        self.join()
+        self.stop_catch()
+        self.stop_order()
 
-    def run(self):
-        self.logger.debug('Thread will be started')
-        self.stopevent = Event()
-        self._create_socket()
+    def catch(self, stop, new_acc, in_queue, out_queue):
 
         data = {}
-        last_acc = {}
-        self.acc_done = True
-        while not self.stopevent.isSet():
+        udp_sock = self._create_socket()
+        while not stop.is_set():
 
             # Receive a packet and get host info
             try:
-                datar, addr = self.udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
+                datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
             except timeout:
                 continue
 
             # Send sync if this is the first packet of the next accumulation
-            if self.acc_done:
-                self.logger.info("First packet received")
-                self.acc_done = False
+            if new_acc.is_set():
+                self.logger.info("First packet of new accumulation received")
+                new_acc.clear()
                 send_sync()
 
             # Determine the FID from addr
@@ -176,53 +243,29 @@ class SwarmDataCatcher(SwarmListener, Thread):
                 self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
 		continue
 
-            # Initialize fid data buffer, if necessary 
+	    # Initialize fid data buffer, if necessary
             if not data.has_key(fid):
                 data[fid] = {}
 
 	    # Initialize acc_n data buffer, if necessary
             if not data[fid].has_key(acc_n):
-                data[fid][acc_n] = [None]*SWARM_VISIBS_N_PKTS
-
-            # Initialize last_acc tracker, if necessary 
-            if not last_acc.has_key(fid):
-                last_acc[fid] = float('nan')
+                data[fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
 
             # Then store data in it
             data[fid][acc_n][pkt_n] = datar[8:]
 
-	    # If we've gotten all pkts for acc_n for this fid
-            if data[fid][acc_n].count(None)==0:
+            # If we've gotten all pkts for this acc_n from this FID
+            if not has_none(data[fid][acc_n]):
 
-		# Put data onto queue
-                temp_data = ''.join(data[fid].pop(acc_n))
-		self.queue.put([fid, acc_n, time() - last_acc[fid], temp_data])
+                # Put data onto the queue
+                datas = ''.join(data[fid].pop(acc_n))
+                out_queue.put((fid, acc_n, datas))
 
-                # Set the last acc time
-                last_acc[fid] = time()
-
-        self._close_socket()
-
-
-class SwarmDataHandler:
-
-    def __init__(self, swarm, queue):
-
-        # Create initial member variables
-        self.logger = logging.getLogger('SwarmDataHandler')
-        self.xengine = SwarmXengine(swarm)
-        self.callbacks = []
-        self.rawbacks = []
-        self.swarm = swarm
-        self.queue = queue
+        udp_sock.close()
 
     def add_rawback(self, callback, *args, **kwargs):
         inst = callback(self.swarm, *args, **kwargs)
         self.rawbacks.append(inst)
-
-    def add_callback(self, callback, *args, **kwargs):
-        inst = callback(self.swarm, *args, **kwargs)
-        self.callbacks.append(inst)
 
     def _reorder_data(self, datas_list, int_time, int_length):
 
@@ -248,64 +291,96 @@ class SwarmDataHandler:
         # Return the (hopefully) complete data packages
         return data_pkg
 
+    def order(self, stop, new_acc, in_queue, out_queue):
+
+        data = {}
+        last_acc = list(None for x in range(self.swarm.fids_expected))
+        while not stop.is_set():
+
+            # Receive a set of data
+            try:
+                fid, acc_n, datas = in_queue.get_nowait()
+            except Empty:
+                sleep(0.01)
+                continue
+
+            # Initialize acc_n data buffer, if necessary
+            if not data.has_key(acc_n):
+                data[acc_n] = list(None for fid in range(self.swarm.fids_expected))
+
+            # Populate this data
+            data[acc_n][fid] = datas
+
+            # Get the member/fid this set is from
+            member = self.swarm[fid]
+
+            # Log the fact
+            suffix = "({:.4f} secs since last)".format(time() - last_acc[fid]) if last_acc[fid] else ""
+            self.logger.info("Received full accumulation #{:<4} from fid #{}: {} {}".format(acc_n, fid, member, suffix))
+
+            # Set the last acc time
+            last_acc[fid] = time()
+
+	    # If we've gotten all pkts for this acc_n from all FIDs
+            if not has_none(data[acc_n]):
+
+                # Flag this accumulation as done
+                new_acc.set()
+
+                # Get integration time
+                int_time = time()
+
+                # We have all data for this accumulation, log it
+                self.logger.info("Received full accumulation #{:<4}".format(acc_n))
+
+                # Do user rawbacks first
+                for rawback in self.rawbacks:
+                    rawback(data)
+
+                # Log that we're done with rawbacks
+                self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
+
+                # Reorder the xengine data
+                data_pkg = self._reorder_data(data.pop(acc_n), int_time, self.swarm.get_itime())
+                self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
+
+		# Put data onto queue
+                out_queue.put((acc_n, data_pkg))
+
+
+class SwarmDataHandler:
+
+    def __init__(self, swarm, queue):
+
+        # Create initial member variables
+        self.logger = logging.getLogger('SwarmDataHandler')
+        self.callbacks = []
+        self.swarm = swarm
+        self.queue = queue
+
+    def add_callback(self, callback, *args, **kwargs):
+        inst = callback(self.swarm, *args, **kwargs)
+        self.callbacks.append(inst)
+
     def loop(self):
 
         try:
-
-            acc = {}
 
             # Loop until user quits
             while True:
 
                 try: # to check for data
-                    recv_fid, acc_n, last_acc, datas = self.queue.get_nowait()
-                    sleep(0.01)
+                    acc_n, data = self.queue.get_nowait()
                 except Empty: # none available
+                    sleep(0.01)
                     continue
 
-                # Get the member/fid this set is from
-                recv_member = self.swarm[recv_fid]
+                # Finally, do user callbacks
+                for callback in self.callbacks:
+                    callback(data)
 
-                # Get the host name from member
-                recv_host = recv_member.roach2_host
-
-                # Log this accumulation
-                if not math.isnan(last_acc):
-                    self.logger.info("Received full accumulation #{:<4} from fid #{}: {} ({:.4f} secs since last)".format(acc_n, recv_fid, recv_member, last_acc))
-                else:
-                    self.logger.info("Received full accumulation #{:<4} from fid #{}: {}".format(acc_n, recv_fid, recv_member))
-
-                # New accumulation, track it
-                if not acc.has_key(acc_n):
-                    acc[acc_n] = [None,] * self.swarm.fids_expected
-
-                # Add this FID's data to accumulation
-                acc[acc_n][recv_fid] = datas
-
-                if acc[acc_n].count(None) == 0:
-
-                    # Get integration time and length
-                    int_time = time()
-
-                    # We have all data for this accumulation, log it
-                    self.logger.info("Received full accumulation #{:<4}".format(acc_n))
-                    #self.catcher.acc_done = True
-
-                    # Do user rawbacks first
-                    rawdata = acc.pop(acc_n)
-                    for rawback in self.rawbacks:
-                        rawback(rawdata)
-
-                    # Reorder the xengine data
-                    data = self._reorder_data(rawdata, int_time, self.swarm.get_itime())
-                    self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
-
-                    # Finally, do user callbacks
-                    for callback in self.callbacks:
-                        callback(data)
-
-                    # Log that we're done with callbacks
-                    self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
+                # Log that we're done with callbacks
+                self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
 
         except KeyboardInterrupt:
 
