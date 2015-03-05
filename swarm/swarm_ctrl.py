@@ -63,6 +63,9 @@ def main():
     katcp_logger = logging.getLogger('katcp')
     katcp_logger.setLevel(logging.WARNING)
 
+    # Setup the data catcher class
+    swarm_catcher = SwarmDataCatcher(args.interface)
+
     # Create our SWARM instance
     swarm = Swarm(map_filename=args.swarm_mapping)
 
@@ -82,9 +85,6 @@ def main():
         swarm.members_do(lambda fid, member: member.visibs_delay(delay_test=False))
 
     if not args.setup_only:
-
-        # Setup the data catcher class
-        swarm_catcher = SwarmDataCatcher(swarm, args.interface)
 
         # Create the data handler
         swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
