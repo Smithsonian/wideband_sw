@@ -1,6 +1,7 @@
 from functools import partial
 from itertools import combinations_with_replacement as combos
 from numpy.linalg import eig as eig
+from numpy.fft import ifft, fftfreq
 from numpy import (
     complex128,
     array,
@@ -16,6 +17,7 @@ from swarm import (
     SwarmDataCallback,
     SwarmBaseline,
     SWARM_CHANNELS,
+    SWARM_CLOCK_RATE,
 )
 
 def solve_cgains(mat, ref=0):
@@ -26,6 +28,13 @@ def solve_cgains(mat, ref=0):
     ref_gain = raw_gains[ref]
     factor = ref_gain.conj() / abs(ref_gain)
     return raw_gains * factor
+
+def solve_delay_phase(gains, chan_axis=0, pad_by=16):
+    samp_time_ns = 1e9 / (SWARM_CLOCK_RATE * 8.0)
+    fft_size = pad_by * gains.shape[chan_axis]
+    lags = ifft(gains, n=fft_size, axis=chan_axis)
+    peaks = lags.real.argmax(axis=chan_axis)
+    return (1.0/pad_by) * peaks * samp_time_ns
 
 class CalibrateVLBI(SwarmDataCallback):
 
@@ -50,6 +59,7 @@ class CalibrateVLBI(SwarmDataCallback):
             corr_matrix[:, right_i, left_i] = complex_data.conj()
         referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
         full_spec_gains = array(map(referenced_solver, corr_matrix))
-        gains = full_spec_gains.mean(axis=0)
+        delays = solve_delay_phase(full_spec_gains)
+        avg_gains = full_spec_gains.mean(axis=0)
         for i in range(len(inputs)):
-            self.logger.info('{} : Amp={:>12.2e}, Phase={:>8.2f} deg'.format(inputs[i], abs(gains[i]), (180.0/pi)*angle(gains[i])))
+            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], abs(avg_gains[i]), delays[i], (180.0/pi)*angle(avg_gains[i])))
