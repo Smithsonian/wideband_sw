@@ -3,6 +3,7 @@ from itertools import combinations_with_replacement as combos
 from numpy.linalg import eig as eig
 from numpy.fft import ifft, fftfreq
 from numpy import (
+    nan_to_num,
     complex128,
     array,
     zeros,
@@ -26,8 +27,8 @@ def solve_cgains(mat, ref=0):
     max_vec = vecs[:, vals.real.argmax()]
     raw_gains = max_vec * sqrt(max_val).squeeze()
     ref_gain = raw_gains[ref]
-    factor = ref_gain.conj() / abs(ref_gain)
-    return raw_gains * factor
+    factor = ref_gain.conj() / abs(ref_gain + 1.0)
+    return raw_gains * nan_to_num(factor)
 
 def solve_delay_phase(gains, chan_axis=0, pad_by=16):
     samp_time_ns = 1e9 / (SWARM_CLOCK_RATE * 8.0)
