@@ -220,27 +220,13 @@ class SwarmMember:
         self.roach2.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
 
 
-    def set_bengine_gains(self, fid_gain_dict):
+    def set_bengine_gains(self, psum_gain_0, psum_gain_1):
 
-        # Go through each requested gain setting
-        for fid, gain in fid_gain_dict.iteritems():
+        # Scale the user value by the fractional bits and concatenate
+        psum_reg = (int(round(psum_gain_1 * 16)) << 8) + int(round(psum_gain_0 * 16))
 
-            # Format gain value correctly
-            gain_u16_8 = int(gain * 2**8) # 8-bits fractional
-
-            # Find the register we need to write to
-            beng_gain_reg = SWARM_BENGINE_GAIN % (fid >> 1)
-
-            # Get its current value
-            current = self.roach2.read_uint(beng_gain_reg)
-
-            # Mask in our new gain
-            shift_by = 16 - 16 * (fid & 1)
-            mask = 0xffff << shift_by
-            new = (current & ~mask) | (gain_u16_8 << shift_by)
-
-            # Finally write it back
-            self.roach2.write(beng_gain_reg, pack(SWARM_REG_FMT, new))
+        # Write value to the register
+        self.roach2.write_int(SWARM_BENGINE_GAIN, psum_reg)
 
     def reset_xeng(self):
 
@@ -570,6 +556,20 @@ class Swarm:
 
     def __getitem__(self, fid):
         return self.members.values()[fid]
+
+    def __getattr__(self, attr):
+
+        # See if the non-Swarm attribute is a SwarmMember method
+        if callable(getattr(SwarmMember, attr, None)):
+
+            # If so, return a callable that passes the users args and kwargs
+            # to the appropriate method on all members
+            self.logger.info("The {0} is not a Swarm method but it is a SwarmMember method; "
+                             "calling on all members!".format(attr))
+            return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
+
+        else: # Remember to raise an error if nothing is found
+            raise AttributeError("{0} not an attribute of Swarm or SwarmMember".format(attr))
 
     def load_mapping(self, map_filename):
 

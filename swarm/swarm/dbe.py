@@ -9,7 +9,7 @@ from socket import (
 from Queue import Queue, Empty
 from threading import Thread, Event
 
-from numpy import nan, array, empty
+from numpy import nan, array, empty, uint8, complex128
 
 from defines import *
 
@@ -43,14 +43,16 @@ class DBEImposter:
         s.close()
 
 
-class DBEDataCatcher(Thread):
+class BengineDataCatcher(Thread):
 
     def __init__(self, queue, stopevent,
-                 listen_host, listen_port):
+                 listen_host, listen_port,
+                 pkt_size = SWARM_BENGINE_PKT_SIZE):
         self.queue = queue
+        self.pkt_size = pkt_size
         self.stopevent = stopevent
         self.listen_on = (listen_host, listen_port)
-        self.logger = logging.getLogger('DBEDataCatcher')
+        self.logger = logging.getLogger(self.__class__.__name__)
         Thread.__init__(self)
 
     def _create_socket(self):
@@ -61,22 +63,7 @@ class DBEDataCatcher(Thread):
     def _close_socket(self):
         self.udp_sock.close()
 
-    def run(self):
-        self.logger.info('DBEDataCatcher has started')
-        self._create_socket()
-
-        while not self.stopevent.isSet():
-
-            # Receive a packet and get host info
-            try:
-                datar, addr = self.udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-            except timeout:
-                continue
-
-            # Check if packet is wrong size
-            if len(datar) <> SWARM_BENGINE_PKT_SIZE:
-                self.logger.error("Received packet is of wrong size, %d bytes" %(len(datar)))
-		continue
+    def _unpack_pkt(self, datar):
 
 	    # Unpack it to get bcount, fid, and chan id
             bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
@@ -85,32 +72,97 @@ class DBEDataCatcher(Thread):
             # Grab the payload
             payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
 
-            # Put header onto queue
-            self.queue.put([bcount_msb, bcount_lsb, fid, chan_id, payload_bin])
+            # Get the real "bcount"
+            bcount = (bcount_msb << 32) | (bcount_lsb)
 
-        self.logger.info('DBEDataCatcher has stopped')
+            return bcount, fid, chan_id, payload_bin
+
+    def run(self):
+        self.logger.info('Catching loop has started')
+        self._create_socket()
+
+        while not self.stopevent.isSet():
+
+            # Receive a packet and get host info
+            try:
+                datar, addr = self.udp_sock.recvfrom(self.pkt_size)
+            except timeout:
+                continue
+
+            # Check if packet is wrong size
+            if len(datar) <> self.pkt_size:
+                self.logger.error("Received packet is of wrong size, %d bytes" %(len(datar)))
+		continue
+
+            # Unpack and put header onto queue
+            self.queue.put(self._unpack_pkt(datar))
+
+        self.logger.info('Catching loop has stopped')
         self._close_socket()
 
 
+class DBEDataCatcher(BengineDataCatcher):
+
+    def _unpack_pkt(self, datar):
+
+        # Coming out of the DBE we have VDIF packets, 
+        # so we need to offset into the VDIF packet to get 
+        # the underlying Bengine packet
+        beng_hdr_offset = 24 # bytes
+        beng_data_offset = 40 # bytes
+
+        # Unpack it to get bcount, fid, and chan id
+        beng_hdr_bin = datar[beng_hdr_offset:beng_hdr_offset + SWARM_BENGINE_HEADER_SIZE]
+        bcount_msb, chan_id, fid, bcount_lsb = unpack('<IHBB', beng_hdr_bin)
+        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+
+        # Grab the payload
+        payload_bin = datar[beng_data_offset:]
+
+        # Get the real "bcount"
+        bcount = (bcount_msb << 8) | (bcount_lsb)
+
+        return bcount, fid, chan_id, payload_bin
+
+
 def convert_to_signed_complex_4bit(in_unsigned_8bit):
-    unsigned_real = in_unsigned_8bit >> 4
-    unsigned_imag = in_unsigned_8bit & 0xf
+    unsigned_real = (in_unsigned_8bit >> 4) & 0xf
+    unsigned_imag = (in_unsigned_8bit >> 0) & 0xf
     real = array([r if r<8 else r-16 for r in unsigned_real])
     imag = array([i if i<8 else i-16 for i in unsigned_imag])
     return real + 1j * imag
 
 
-class DBEDataHandler:
+def convert_to_signed_complex_2bit(in_unsigned_8bit):
+    trans_2bit = [-3., -1., 1., 3.]
+    unsigned_real = (in_unsigned_8bit >> 4) & 0x3
+    unsigned_imag = (in_unsigned_8bit >> 0) & 0x3
+    real = array([trans_2bit[r] for r in unsigned_real])
+    imag = array([trans_2bit[i] for i in unsigned_imag])
+    return real + 1j * imag
 
-    def __init__(self, swarm, listener):
+
+class BengineDataHandler:
+
+    def __init__(self, swarm, listener, 
+                 catcher=BengineDataCatcher,
+                 pkt_size = SWARM_BENGINE_PKT_SIZE,
+                 data_converter = convert_to_signed_complex_4bit):
 
         # Create initial member variables
-        self.logger = logging.getLogger('DBEDataHandler')
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.data_converter = data_converter
+        self.pkt_size = pkt_size
         self.listener = listener
+        self.catcher = catcher
         self.swarm = swarm
 
         # Print out receive side (i.e. listener) network information
         self.logger.info('Listening for data on %s:%d' % (listener.host, listener.port))
+
+    def _unpack_payload(self, payload_bin):
+        payload = array(unpack('>%dB' % SWARM_BENGINE_PAYLOAD_SIZE, payload_bin))
+        return payload
 
     def grab_segment(self):
 
@@ -119,8 +171,8 @@ class DBEDataHandler:
                 SWARM_N_INPUTS,
                 SWARM_TRANSPOSE_SIZE,
                 SWARM_CHANNELS,
-                ], dtype=complex)
-        data[:] = nan
+                ], dtype=complex128)
+        data[:] = 1j*nan
 
         # Initialize tracking variables
         valid_pkts = 0
@@ -131,8 +183,9 @@ class DBEDataHandler:
         queue = Queue()
 
         # Create the listening queue
-        catcher = DBEDataCatcher(queue, stopper, 
-            self.listener.host, self.listener.port)
+        catcher = self.catcher(queue, stopper, 
+            self.listener.host, self.listener.port,
+            self.pkt_size)
         catcher.setDaemon(True)
 
         # Start the data catching loop
@@ -142,12 +195,9 @@ class DBEDataHandler:
         while not segment_recvd:
 
             try: # to check for data
-                bcount_msb, bcount_lsb, fid, chan_id, payload_bin = queue.get_nowait()
+                bcount, fid, chan_id, payload_bin = queue.get_nowait()
             except Empty: # none available
                 continue
-
-            # Get the real "bcount"
-            bcount = (bcount_msb << 32) | (bcount_lsb)
 
             if target_bcount is None: # then this is our first packet
 
@@ -157,7 +207,7 @@ class DBEDataHandler:
             elif bcount == target_bcount: # this is our target segment!
 
                 # Unpack the payload
-                payload = array(unpack('>%dB' % SWARM_BENGINE_PAYLOAD_SIZE, payload_bin))
+                payload = self._unpack_payload(payload_bin)
 
                 # Fill the data array using array slicing
                 start_chan = SWARM_XENG_PARALLEL_CHAN * (chan_id * SWARM_N_FIDS + fid)
@@ -166,7 +216,7 @@ class DBEDataHandler:
                     for j_spectrum in range(SWARM_TRANSPOSE_SIZE):
                         start_pkt = i_input + j_spectrum * SWARM_N_INPUTS * SWARM_XENG_PARALLEL_CHAN
                         stop_pkt  = start_pkt + SWARM_XENG_PARALLEL_CHAN * SWARM_N_INPUTS
-                        partial = convert_to_signed_complex_4bit(payload[start_pkt:stop_pkt:SWARM_N_INPUTS])
+                        partial = self.data_converter(payload[start_pkt:stop_pkt:SWARM_N_INPUTS])
                         data[i_input][j_spectrum][start_chan:stop_chan] = partial
 
                 # Increment the valid packet counter
@@ -178,3 +228,20 @@ class DBEDataHandler:
 
         stopper.set()
         return data
+
+
+class DBEDataHandler(BengineDataHandler):
+
+    def _reorder_payload(self, payload):
+        return (payload.reshape(payload.size/4, 4)[:, ::-1]).flatten()
+
+    def _unpack_payload(self, payload_bin):
+        payload = self._reorder_payload(array(unpack('%dB' % (SWARM_BENGINE_PAYLOAD_SIZE/2), payload_bin)))
+        fluffed = empty(payload.size * 2, dtype=uint8)
+        samp_3 = (payload >> 0) & 0x3
+        samp_2 = (payload >> 2) & 0x3
+        samp_1 = (payload >> 4) & 0x3
+        samp_0 = (payload >> 6) & 0x3
+        fluffed[0::2] = (samp_0 << 4) + samp_1
+        fluffed[1::2] = (samp_2 << 4) + samp_3
+        return fluffed
