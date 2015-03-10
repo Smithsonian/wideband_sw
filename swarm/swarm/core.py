@@ -571,6 +571,20 @@ class Swarm:
     def __getitem__(self, fid):
         return self.members.values()[fid]
 
+    def __getattr__(self, attr):
+
+        # See if the non-Swarm attribute is a SwarmMember method
+        if callable(getattr(SwarmMember, attr, None)):
+
+            # If so, return a callable that passes the users args and kwargs
+            # to the appropriate method on all members
+            self.logger.info("The {0} is not a Swarm method but it is a SwarmMember method; "
+                             "calling on all members!".format(attr))
+            return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
+
+        else: # Remember to raise an error if nothing is found
+            raise AttributeError("{0} not an attribute of Swarm or SwarmMember".format(attr))
+
     def load_mapping(self, map_filename):
 
         # Clear the members instance
