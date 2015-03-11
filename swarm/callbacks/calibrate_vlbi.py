@@ -1,12 +1,14 @@
 from functools import partial
 from itertools import combinations_with_replacement as combos
 from numpy.linalg import eig as eig
-from numpy.fft import ifft, fftshift
+from numpy.fft import fft, ifft, fftshift
 from numpy import (
     nan_to_num,
     complex128,
+    linspace,
     array,
     zeros,
+    empty,
     arange,
     around,
     angle,
@@ -31,14 +33,38 @@ def solve_cgains(mat, ref=0):
     factor = ref_gain.conj() / abs(ref_gain + 1.0)
     return raw_gains * nan_to_num(factor)
 
-def solve_delay_phase(gains, chan_axis=0, sub_fft_size=16):
+def slice_sub_lags(lags, peaks, axis, max_lags=16):
+    out_shape = array(lags.shape)
+    out_shape[axis] = max_lags * 2
+    out_array = empty(out_shape, dtype=lags.dtype)
+    for i, peak in enumerate(peaks):
+        indices = fftshift(range(peak-max_lags, peak+max_lags))
+        out_array.T[i] = lags.T[i].take(indices, mode='wrap')
+    return out_array
+
+def solve_delay_phase(gains, chan_axis=0, sub_max_lags=16):
+
+    # Get our nominal FFT size
     fft_size = gains.shape[chan_axis]
+
+    # First stage, find peak in lag-space
+    lags = ifft(gains, axis=chan_axis)
+    peaks = abs(lags).argmax(axis=chan_axis)
+
+    # Second stage, find peak in interpolated lag-space
+    sub_lags = slice_sub_lags(lags, peaks, axis=chan_axis, max_lags=sub_max_lags)
+    sub_fft = fft(sub_lags, axis=chan_axis)
+    interp_lags = ifft(sub_fft, axis=chan_axis, n=fft_size)
+    interp_peaks = abs(interp_lags).argmax(axis=chan_axis)
+
+    # Translate the two peaks to a delay
     samp_time_ns = 1e9 / (SWARM_CLOCK_RATE * 8.0)
-    lags = ifft(gains, n=fft_size, axis=chan_axis)
     bins = fftshift(arange(-fft_size/2, fft_size/2))
-    phases = angle(lags.max(axis=chan_axis))
-    peaks = lags.argmax(axis=chan_axis)
-    delays = -bins[peaks] * samp_time_ns
+    interp_bins = fftshift(linspace(-sub_max_lags, sub_max_lags, fft_size, endpoint=False))
+    delays = -samp_time_ns * (bins[peaks] + interp_bins[interp_peaks])
+
+    # Now find the phase at the interpolated lag peak
+    phases = angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
     return delays, phases
 
 class CalibrateVLBI(SwarmDataCallback):
