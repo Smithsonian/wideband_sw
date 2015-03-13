@@ -13,7 +13,7 @@
 #include <dsm.h>
 #include <pthread.h>
 #include <plugin.h>
-#include <sma_adc.h>
+#include "sma_adc.h"
 
 #define TRUE 1
 #define FALSE 0
