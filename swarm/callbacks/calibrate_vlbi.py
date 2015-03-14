@@ -139,3 +139,6 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
         self.accums += 1
+        hist_amplitudes, hist_delays, hist_phases = self.history.mean(axis=0)
+        for i in range(len(inputs)):
+            self.logger.info('{} : Hist. amp={:>12.2e}, Hist. delay={:>8.2f} ns, Hist. phase={:>8.2f} deg'.format(inputs[i], hist_amplitudes[i], hist_delays[i], (180.0/pi)*hist_phases[i]))
