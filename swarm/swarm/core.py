@@ -894,7 +894,7 @@ class Swarm:
         else:
             return delays_found
 
-    def set_delay(self, antenna, chunk=0, polarization=0, value=0.0):
+    def set_delay(self, antenna, value, chunk=0, polarization=0):
 
         # Create an input instance
         this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
