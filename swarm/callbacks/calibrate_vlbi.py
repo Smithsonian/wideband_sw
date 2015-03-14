@@ -8,6 +8,7 @@ from numpy import (
     nan_to_num,
     complex128,
     linspace,
+    vstack,
     array,
     zeros,
     empty,
@@ -129,10 +130,11 @@ class CalibrateVLBI(SwarmDataCallback):
         full_spec_gains = array(self.map(referenced_solver, complex_nan_to_num(corr_matrix)))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
+        cal_solution = vstack([amplitudes, delays, phases])
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], (180.0/pi)*phases[i]))
         if self.accums == 0:
-            self.init_history(full_spec_gains)
+            self.init_history(cal_solution)
         else:
-            self.append_history(full_spec_gains)
+            self.append_history(cal_solution)
         self.accums += 1
