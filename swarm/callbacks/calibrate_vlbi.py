@@ -1,4 +1,6 @@
 from functools import partial
+from signal import signal, SIGINT, SIG_IGN
+from multiprocessing import Pool, cpu_count
 from itertools import combinations_with_replacement as combos
 from numpy.linalg import eig as eig
 from numpy.fft import fft, ifft, fftshift
@@ -77,6 +79,24 @@ class CalibrateVLBI(SwarmDataCallback):
     def __init__(self, swarm, reference=None):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
+        self.init_pool()
+
+    def __del__(self):
+        self.term_pool()
+
+    def init_pool(self, cpus = cpu_count()):
+        self.logger.info("Starting pool of {0} workers".format(cpus))
+        ignore_sigint = lambda: signal(SIGINT, SIG_IGN)
+        self.process_pool = Pool(cpus, ignore_sigint)
+
+    def term_pool(self):
+        self.logger.info("Terminating the process pool")
+        self.process_pool.close()
+        self.process_pool.join()
+
+    def map(self, function, iterable):
+        async_reply = self.process_pool.map_async(function, iterable)
+        return async_reply.get(0xffff)
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
@@ -93,7 +113,7 @@ class CalibrateVLBI(SwarmDataCallback):
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
         referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
-        full_spec_gains = array(map(referenced_solver, complex_nan_to_num(corr_matrix)))
+        full_spec_gains = array(self.map(referenced_solver, complex_nan_to_num(corr_matrix)))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
         for i in range(len(inputs)):
