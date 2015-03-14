@@ -899,10 +899,11 @@ class Swarm:
         for fid, member in enumerate(valid_members):
             member.reset_digital_noise()
 
-    def get_delay(self, antenna, chunk=0, polarization=0):
+    def get_delay(self, this_input):
 
-        # Create an input instance
-        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -929,10 +930,11 @@ class Swarm:
         else:
             return delays_found
 
-    def set_delay(self, antenna, value, chunk=0, polarization=0):
+    def set_delay(self, this_input, value):
 
-        # Create an input instance
-        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -953,10 +955,11 @@ class Swarm:
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
 
-    def get_phase(self, antenna, chunk=0, polarization=0):
+    def get_phase(self, this_input):
 
-        # Create an input instance
-        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -983,10 +986,11 @@ class Swarm:
         else:
             return phases_found
 
-    def set_phase(self, antenna, value, chunk=0, polarization=0):
+    def set_phase(self, this_input, value):
 
-        # Create an input instance
-        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
