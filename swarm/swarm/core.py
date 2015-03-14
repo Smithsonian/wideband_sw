@@ -19,6 +19,8 @@ from adc5g import (
     sync_adc,
     )
 
+import pydsm
+
 from defines import *
 from xeng import SwarmXengine
 
@@ -516,21 +518,38 @@ class SwarmMember:
 
     def get_delay(self, input_n):
 
-        # Get the delay value in ns
-        message = Message.request(SWARM_DELAY_GET_CMD, str(input_n))
-        reply, informs = self.roach2.blocking_request(message, timeout=60)
-        if not reply.reply_ok():
-            self.logger.error("Getting the delay failed!")
-        else:
-            return float(reply.arguments[1])
+        # Get the DSM response
+        try:
+            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+        except:
+            self.logger.exception("DSM read failed")
+            return None
+
+        # Grab the requested delay
+        delay = dsm_reply[SWARM_FIXED_OFFSETS_DELAY][0][input_n]
+        return delay
 
     def set_delay(self, input_n, value):
 
-        # Set the delay value in ns
-        message = Message.request(SWARM_DELAY_SET_CMD, str(input_n), str(value))
-        reply, informs = self.roach2.blocking_request(message, timeout=60)
-        if not reply.reply_ok():
-            self.logger.error("Setting the delay failed!")
+        # Get the DSM response first
+        try:
+            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+        except:
+            self.logger.exception("DSM read failed")
+            return None
+
+        # Write in our new value
+        dsm_reply_back = {
+            SWARM_FIXED_OFFSETS_DELAY: list(dsm_reply[SWARM_FIXED_OFFSETS_DELAY][0]),
+            SWARM_FIXED_OFFSETS_PHASE: list(dsm_reply[SWARM_FIXED_OFFSETS_PHASE][0]),
+            }
+        dsm_reply_back[SWARM_FIXED_OFFSETS_DELAY][input_n] = value
+
+        # Send our modified DSM request back
+        try:
+            pydsm.write(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
+        except:
+            self.logger.exception("DSM read failed")
 
 
 EMPTY_MEMBER = SwarmMember(None)
