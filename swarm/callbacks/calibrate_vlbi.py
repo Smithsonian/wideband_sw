@@ -87,6 +87,7 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def init_history(self, first, length=8):
         hist_shape = [length,] + list(first.shape)
+        self.logger.info("Initializing history to shape {0}".format(hist_shape))
         self.history = empty(hist_shape, dtype=first.dtype)
         self.history[:] = nan
         self.history[0] = first
