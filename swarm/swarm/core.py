@@ -551,6 +551,41 @@ class SwarmMember:
         except:
             self.logger.exception("DSM read failed")
 
+    def get_phase(self, input_n):
+
+        # Get the DSM response
+        try:
+            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+        except:
+            self.logger.exception("DSM read failed")
+            return None
+
+        # Grab the requested phase
+        phase = dsm_reply[SWARM_FIXED_OFFSETS_PHASE][0][input_n]
+        return phase
+
+    def set_phase(self, input_n, value):
+
+        # Get the DSM response first
+        try:
+            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+        except:
+            self.logger.exception("DSM read failed")
+            return None
+
+        # Write in our new value
+        dsm_reply_back = {
+            SWARM_FIXED_OFFSETS_PHASE: list(dsm_reply[SWARM_FIXED_OFFSETS_PHASE][0]),
+            SWARM_FIXED_OFFSETS_PHASE: list(dsm_reply[SWARM_FIXED_OFFSETS_PHASE][0]),
+            }
+        dsm_reply_back[SWARM_FIXED_OFFSETS_PHASE][input_n] = value
+
+        # Send our modified DSM request back
+        try:
+            pydsm.write(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
+        except:
+            self.logger.exception("DSM read failed")
+
 
 EMPTY_MEMBER = SwarmMember(None)
 
@@ -912,6 +947,60 @@ class Swarm:
                 # Does this one have it?
                 if this_input == input_inst:
                     member.set_delay(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+
+    def get_phase(self, antenna, chunk=0, polarization=0):
+
+        # Create an input instance
+        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Loop through each valid member
+        phases_found = []
+        members_found = 0
+        for fid, member in enumerate(valid_members):
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    phases_found.append(member.get_phase(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return phases_found[0]
+        else:
+            return phases_found
+
+    def set_phase(self, antenna, value, chunk=0, polarization=0):
+
+        # Create an input instance
+        this_input = SwarmInput(antenna=antenna, chunk=chunk, polarization=polarization)
+
+        # Create list of valid members
+        valid_members = list(self[fid] for fid in range(self.fids_expected))
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in enumerate(valid_members):
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_phase(input_n, value)
                     members_found += 1
 
         # Return different values depending on how many instances found
