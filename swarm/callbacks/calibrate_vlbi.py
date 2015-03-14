@@ -14,7 +14,9 @@ from numpy import (
     angle,
     isnan,
     sqrt,
+    roll,
     sum,
+    nan,
     pi,
     )
 from swarm import (
@@ -77,6 +79,17 @@ class CalibrateVLBI(SwarmDataCallback):
     def __init__(self, swarm, reference=None):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
+        self.accums = 0
+
+    def init_history(self, first, length=8):
+        hist_shape = [length,] + list(first.shape)
+        self.history = empty(hist_shape, dtype=first.dtype)
+        self.history[:] = nan
+        self.history[0] = first
+
+    def append_history(self, point):
+        self.history = roll(self.history, 1)
+        self.history[0] = point
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
@@ -98,3 +111,8 @@ class CalibrateVLBI(SwarmDataCallback):
         amplitudes = abs(full_spec_gains).mean(axis=0)
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], (180.0/pi)*phases[i]))
+        if self.accums == 0:
+            self.init_history(full_spec_gains)
+        else:
+            self.append_history(full_spec_gains)
+        self.accums += 1
