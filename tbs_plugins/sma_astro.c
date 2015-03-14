@@ -1,6 +1,7 @@
 #include <math.h>
 #include <time.h>
 #include <unistd.h> // only for usleep
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <katcp.h>
@@ -26,19 +27,20 @@
 #define SAMPLE_FREQ 2.496 // sample rate in GHz
 #define FSTOP_UPDATE 100
 #define PI 3.14159265
-#define DDS_HOST "newdds"
 #define DSM_GEOM_VAR "SWARM_SOURCE_GEOM_X"
 #define DSM_GEOM_RA "SOURCE_RA_D"
 #define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
 #define DSM_GEOM_B "GEOM_DELAY_B_V2_D"
 #define DSM_GEOM_C "GEOM_DELAY_C_V2_D"
-#define OBS_HOST "obscon"
 #define DSM_FOFF_VAR "SWARM_FIXED_OFFSETS_X"
 #define DSM_DEL_OFF "DELAY_V2_D"
 #define DSM_PHA_OFF "PHASE_V2_D"
-#define OBS_MONITOR "obscon"
 #define DSM_FSTATS_VAR "SWARM_FSTOP_STATS_X"
 #define DSM_FSTOP_DEL "FSTOP_DELAY_V2_D"
+
+/* DSM host names, may be changed by user */
+volatile char dds_host[DSM_NAME_LENGTH] = "newdds";
+volatile char obs_host[DSM_NAME_LENGTH] = "obscon";
 
 /* These are the constant, user-programmable delays and phases */
 volatile double delays[N_INPUTS];
@@ -192,7 +194,7 @@ int update_vars() {
   }
 
   /* Read the structure over DSM */
-  s = dsm_read(DDS_HOST, DSM_GEOM_VAR, &structure, &timeStamp);
+  s = dsm_read((char *)dds_host, DSM_GEOM_VAR, &structure, &timeStamp);
   if (s != DSM_SUCCESS) {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_read()");
@@ -242,7 +244,7 @@ int update_vars() {
   }
 
   /* Read the structure over DSM */
-  s = dsm_read(OBS_HOST, DSM_FOFF_VAR, &structure, &timeStamp);
+  s = dsm_read((char *)obs_host, DSM_FOFF_VAR, &structure, &timeStamp);
   if (s != DSM_SUCCESS) {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_read()");
@@ -301,7 +303,7 @@ int update_vars() {
   }
 
   /* Then write it to the monitor class */
-  s = dsm_write(OBS_MONITOR, DSM_FSTATS_VAR, &structure);
+  s = dsm_write((char *)obs_host, DSM_FSTATS_VAR, &structure);
   if (s != DSM_SUCCESS) {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_write()");
@@ -500,6 +502,33 @@ void * fringe_stop(void * tr){
   return tr;
 }
 
+int set_hosts_cmd(struct katcp_dispatch *d, int argc){
+  char *dds_host_arg, *obs_host_arg;
+
+  /* Grab the first argument, the hostname of the DDS server */
+  dds_host_arg = arg_string_katcp(d, 1);
+  if (dds_host_arg == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* Grab the second argument, the hostname of the OBSCON/MONITOR server */
+  obs_host_arg = arg_string_katcp(d, 2);
+  if (obs_host_arg == NULL){
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to parse first command line argument");
+    return KATCP_RESULT_FAIL;
+  }
+
+  /* Copy the host names over to our volatile variables */
+  pthread_mutex_lock(&fstop_mutex);
+  strcpy((char *)dds_host, dds_host_arg);
+  strcpy((char *)obs_host, obs_host_arg);
+  pthread_mutex_unlock(&fstop_mutex);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "dds_host=%s, obs_host=%s", dds_host, obs_host);
+  return KATCP_RESULT_OK;
+}
+
 int set_fstop_cmd(struct katcp_dispatch *d, int argc){
   int del_en, pha_en;
   char *fstopstr_0, *fstopstr_1, *longitudestr;
@@ -605,6 +634,9 @@ int stop_fstop_cmd(struct katcp_dispatch *d, int argc){
 
 int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DDS:%s",    dds_host);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "OBSCON:%s", obs_host);
+
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[0]:%f", fstop_freq[0]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[1]:%f", fstop_freq[1]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
@@ -624,11 +656,16 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
 }
 
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 4,
+  .n_cmds = 5,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .uninit = stop_fstop_cmd,
   .cmd_array = {
+    { // 0
+      .name = "?sma-astro-hosts-set",
+      .desc = "set the DSM hostnames from which variables are read (?sma-astro-hosts-set dds_host obs_host)",
+      .cmd = set_hosts_cmd
+    },
     { // 1
       .name = "?sma-astro-fstop-set", 
       .desc = "set various fringe-stopping parameters (?sma-astro-fstop-set fstop_0 fstop_1 longitude del_en pha_en)",
