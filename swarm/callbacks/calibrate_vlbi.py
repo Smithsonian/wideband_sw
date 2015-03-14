@@ -93,7 +93,7 @@ class CalibrateVLBI(SwarmDataCallback):
         self.history[0] = first
 
     def append_history(self, point):
-        self.history = roll(self.history, 1)
+        self.history = roll(self.history, 1, axis=0)
         self.history[0] = point
 
     def __del__(self):
