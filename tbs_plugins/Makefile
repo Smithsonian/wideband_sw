@@ -38,7 +38,7 @@ $(ARCHDIR)/%.o: %.c
 .INTERMEDIATE: $(ARCHDIR)/lst.o
 $(ARCHDIR)/sma_astro.so: $(ARCHDIR)/lst.o
 $(ARCHDIR)/%.so: $(ARCHDIR)/%.o
-	$(CROSS_COMPILE)ld -o $@ $^ -shared $(LDLIBS)
+	$(CROSS_COMPILE)gcc -o $@ $^ -shared $(LDLIBS)
 
 clean:
 	rm -rf $(OBJDIR)
