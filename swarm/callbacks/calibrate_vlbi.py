@@ -67,6 +67,11 @@ def solve_delay_phase(gains, chan_axis=0, sub_max_lags=16):
     phases = angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
     return delays, phases
 
+def complex_nan_to_num(arr):
+    out_arr = arr.copy()
+    out_arr[isnan(out_arr)] = 0.0j
+    return out_arr
+
 class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None):
@@ -84,12 +89,11 @@ class CalibrateVLBI(SwarmDataCallback):
             left_i = inputs.index(baseline.left)
             right_i = inputs.index(baseline.right)
             baseline_data = data[baseline][solve_chunk][solve_sideband]
-            interleaved = baseline_data[~isnan(baseline_data)]
-            complex_data = interleaved[0::2] + 1j * interleaved[1::2]
+            complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
         referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
-        full_spec_gains = array(map(referenced_solver, corr_matrix))
+        full_spec_gains = array(map(referenced_solver, complex_nan_to_num(corr_matrix)))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
         for i in range(len(inputs)):
