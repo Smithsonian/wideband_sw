@@ -68,8 +68,8 @@ def solve_delay_phase(gains, chan_axis=0, sub_max_lags=16):
     interp_bins = fftshift(linspace(-sub_max_lags, sub_max_lags, fft_size, endpoint=False))
     delays = -samp_time_ns * (bins[peaks] + interp_bins[interp_peaks])
 
-    # Now find the phase at the interpolated lag peak
-    phases = angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
+    # Now find the phase at the interpolated lag peak (in degrees)
+    phases = (180.0/pi) * angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
     return delays, phases
 
 def complex_nan_to_num(arr):
@@ -159,7 +159,7 @@ class CalibrateVLBI(SwarmDataCallback):
         amplitudes = abs(full_spec_gains).mean(axis=0)
         cal_solution = vstack([amplitudes, delays, phases])
         for i in range(len(inputs)):
-            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], (180.0/pi)*phases[i]))
+            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         if self.accums == 0:
             self.init_history(cal_solution, length=self.history_size)
         else:
