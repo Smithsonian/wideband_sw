@@ -109,8 +109,8 @@ class CalibrateVLBI(SwarmDataCallback):
         self.process_pool.close()
         self.process_pool.join()
 
-    def map(self, function, iterable):
-        async_reply = self.process_pool.map_async(function, iterable)
+    def map(self, function, iterable, *args, **kwargs):
+        async_reply = self.process_pool.map_async(function, iterable, *args, **kwargs)
         return async_reply.get(0xffff)
 
     def __call__(self, data):
