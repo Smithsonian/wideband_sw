@@ -8,6 +8,7 @@ from numpy import (
     nan_to_num,
     complex128,
     linspace,
+    vstack,
     array,
     zeros,
     empty,
@@ -16,7 +17,9 @@ from numpy import (
     angle,
     isnan,
     sqrt,
+    roll,
     sum,
+    nan,
     pi,
     )
 from swarm import (
@@ -65,8 +68,8 @@ def solve_delay_phase(gains, chan_axis=0, sub_max_lags=16):
     interp_bins = fftshift(linspace(-sub_max_lags, sub_max_lags, fft_size, endpoint=False))
     delays = -samp_time_ns * (bins[peaks] + interp_bins[interp_peaks])
 
-    # Now find the phase at the interpolated lag peak
-    phases = angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
+    # Now find the phase at the interpolated lag peak (in degrees)
+    phases = (180.0/pi) * angle(interp_lags.take(interp_peaks, axis=chan_axis)).diagonal()
     return delays, phases
 
 def complex_nan_to_num(arr):
@@ -76,10 +79,25 @@ def complex_nan_to_num(arr):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None):
+    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.85, 0.15, 0.0)):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
+        self.skip_next = zeros(2, dtype=bool)
+        self.history_size = history_size
+        self.PID_coeffs = PID_coeffs
         self.init_pool()
+        self.accums = 0
+
+    def init_history(self, first, length=8):
+        hist_shape = [length,] + list(first.shape)
+        self.logger.info("Initializing history to shape {0}".format(hist_shape))
+        self.history = empty(hist_shape, dtype=first.dtype)
+        self.history[:] = nan
+        self.history[0] = first
+
+    def append_history(self, point):
+        self.history = roll(self.history, 1, axis=0)
+        self.history[0] = point
 
     def __del__(self):
         self.term_pool()
@@ -94,9 +112,37 @@ class CalibrateVLBI(SwarmDataCallback):
         self.process_pool.close()
         self.process_pool.join()
 
-    def map(self, function, iterable):
-        async_reply = self.process_pool.map_async(function, iterable)
+    def map(self, function, iterable, *args, **kwargs):
+        async_reply = self.process_pool.map_async(function, iterable, *args, **kwargs)
         return async_reply.get(0xffff)
+
+    def feedback_delay(self, this_input, feedback_delay):
+        current_delay = self.swarm.get_delay(this_input)
+        updated_delay = current_delay + feedback_delay
+        if feedback_delay > 1.0:
+            self.skip_next[:] = True
+        if not this_input==self.reference:
+            self.swarm.set_delay(this_input, updated_delay)
+            self.logger.info('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
+
+    def feedback_phase(self, this_input, feedback_phase):
+        current_phase = self.swarm.get_phase(this_input)
+        updated_phase = current_phase + feedback_phase
+        if not this_input==self.reference:
+            self.swarm.set_phase(this_input, updated_phase)
+            self.logger.info('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
+
+    def pid_servo(self, inputs):
+        p, i, d = self.PID_coeffs
+        p_amplitudes, p_delays, p_phases = self.history[0]
+        i_amplitudes, i_delays, i_phases = self.history.sum(axis=0)
+        d_amplitudes, d_delays, d_phases = self.history[0] - self.history[1]
+        pid_delays = p * p_delays + i * i_delays + d * d_delays
+        pid_phases = p * p_phases + i * i_phases + d * d_phases
+        if not isnan(pid_delays).any():
+            map(self.feedback_delay, inputs, pid_delays)
+        if not isnan(pid_phases).any():
+            map(self.feedback_phase, inputs, pid_phases)
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
@@ -116,5 +162,16 @@ class CalibrateVLBI(SwarmDataCallback):
         full_spec_gains = array(self.map(referenced_solver, complex_nan_to_num(corr_matrix)))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
+        cal_solution = vstack([amplitudes, delays, phases])
         for i in range(len(inputs)):
-            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], (180.0/pi)*phases[i]))
+            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
+        if self.accums == 0:
+            self.init_history(cal_solution, length=self.history_size)
+        elif self.skip_next[0]:
+            self.logger.info("Ignoring this integration for historical purposes")
+            self.skip_next[0] = False
+            self.skip_next = roll(self.skip_next, 1)
+        else:
+            self.append_history(cal_solution)
+            self.pid_servo(inputs)
+        self.accums += 1
