@@ -28,6 +28,7 @@ from swarm import (
     SWARM_CHANNELS,
     SWARM_CLOCK_RATE,
 )
+from json_file import JSONListFile
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -79,11 +80,12 @@ def complex_nan_to_num(arr):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.85, 0.15, 0.0)):
+    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.75, 0.05, 0.0), outfilename="vlbi_cal.json"):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = zeros(2, dtype=bool)
         self.history_size = history_size
+        self.outfilename = outfilename
         self.PID_coeffs = PID_coeffs
         self.init_pool()
         self.accums = 0
@@ -174,4 +176,11 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
             self.pid_servo(inputs)
+        with JSONListFile(self.outfilename) as jfile:
+            jfile.append({
+                    'int_time': data.int_time,
+                    'int_length': data.int_length,
+                    'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
+                    'cal_solution': cal_solution.tolist(),
+                    })
         self.accums += 1
