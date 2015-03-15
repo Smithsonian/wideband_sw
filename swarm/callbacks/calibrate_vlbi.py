@@ -16,6 +16,7 @@ from numpy import (
     arange,
     around,
     nanmean,
+    nanstd,
     angle,
     isnan,
     sqrt,
@@ -169,6 +170,8 @@ class CalibrateVLBI(SwarmDataCallback):
         cal_solution = vstack([amplitudes, delays, phases])
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
+        efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
+        self.logger.info('Avg. phasing efficiency across band={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency), nanstd(efficiency)))
         if self.accums == 0:
             self.init_history(cal_solution, length=self.history_size)
         elif self.skip_next[0]:
@@ -188,5 +191,6 @@ class CalibrateVLBI(SwarmDataCallback):
                     'corr_matrix_ca': vstack([corr_matrix_ca[newaxis].real, corr_matrix_ca[newaxis].imag]).tolist(),
                     'complex_gains_ca': vstack([complex_gains_ca[newaxis].real, complex_gains_ca[newaxis].imag]).tolist(),
                     'cal_solution': cal_solution.tolist(),
+                    'efficiency': nanmean(efficiency),
                     })
         self.accums += 1
