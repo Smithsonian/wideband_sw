@@ -79,7 +79,7 @@ def complex_nan_to_num(arr):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.6, 0.3, 0.1)):
+    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.85, 0.15, 0.0)):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = zeros(2, dtype=bool)
