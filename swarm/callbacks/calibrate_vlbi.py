@@ -8,12 +8,14 @@ from numpy import (
     nan_to_num,
     complex128,
     linspace,
+    newaxis,
     vstack,
     array,
     zeros,
     empty,
     arange,
     around,
+    nanmean,
     angle,
     isnan,
     sqrt,
@@ -176,11 +178,15 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
             self.pid_servo(inputs)
+        corr_matrix_ca = nanmean(corr_matrix.reshape([64, SWARM_CHANNELS/64, len(inputs), len(inputs)]), axis=1)
+        complex_gains_ca = nanmean(full_spec_gains.reshape([64, SWARM_CHANNELS/64, len(inputs)]), axis=1)
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
+                    'corr_matrix_ca': vstack([corr_matrix_ca[newaxis].real, corr_matrix_ca[newaxis].imag]).tolist(),
+                    'complex_gains_ca': vstack([complex_gains_ca[newaxis].real, complex_gains_ca[newaxis].imag]).tolist(),
                     'cal_solution': cal_solution.tolist(),
                     })
         self.accums += 1
