@@ -82,6 +82,7 @@ class CalibrateVLBI(SwarmDataCallback):
     def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.6, 0.3, 0.1)):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
+        self.skip_next = zeros(2, dtype=bool)
         self.history_size = history_size
         self.PID_coeffs = PID_coeffs
         self.init_pool()
@@ -118,6 +119,8 @@ class CalibrateVLBI(SwarmDataCallback):
     def feedback_delay(self, this_input, feedback_delay):
         current_delay = self.swarm.get_delay(this_input)
         updated_delay = current_delay + feedback_delay
+        if feedback_delay > 1.0:
+            self.skip_next[:] = True
         if not this_input==self.reference:
             self.swarm.set_delay(this_input, updated_delay)
             self.logger.info('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
@@ -164,7 +167,11 @@ class CalibrateVLBI(SwarmDataCallback):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         if self.accums == 0:
             self.init_history(cal_solution, length=self.history_size)
+        elif self.skip_next[0]:
+            self.logger.info("Ignoring this integration for historical purposes")
+            self.skip_next[0] = False
+            self.skip_next = roll(self.skip_next, 1)
         else:
             self.append_history(cal_solution)
-        self.pid_servo(inputs)
+            self.pid_servo(inputs)
         self.accums += 1
