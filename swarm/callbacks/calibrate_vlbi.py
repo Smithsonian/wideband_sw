@@ -79,9 +79,11 @@ def complex_nan_to_num(arr):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None):
+    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.6, 0.3, 0.1)):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
+        self.history_size = history_size
+        self.PID_coeffs = PID_coeffs
         self.init_pool()
         self.accums = 0
 
@@ -113,6 +115,30 @@ class CalibrateVLBI(SwarmDataCallback):
         async_reply = self.process_pool.map_async(function, iterable, *args, **kwargs)
         return async_reply.get(0xffff)
 
+    def feedback_delay(self, this_input, feedback_delay):
+        current_delay = self.swarm.get_delay(this_input)
+        updated_delay = current_delay + feedback_delay
+        self.swarm.set_delay(this_input, updated_delay)
+        self.logger.info('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
+
+    def feedback_phase(self, this_input, feedback_phase):
+        current_phase = self.swarm.get_phase(this_input)
+        updated_phase = current_phase + feedback_phase
+        self.swarm.set_phase(this_input, updated_phase)
+        self.logger.info('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
+
+    def pid_servo(self, inputs):
+        p, i, d = self.PID_coeffs
+        p_amplitudes, p_delays, p_phases = self.history[0]
+        i_amplitudes, i_delays, i_phases = self.history.sum(axis=0)
+        d_amplitudes, d_delays, d_phases = self.history[0] - self.history[1]
+        pid_delays = p * p_delays + i * i_delays + d * d_delays
+        pid_phases = p * p_phases + i * i_phases + d * d_phases
+        if not isnan(pid_delays).any():
+            map(self.feedback_delay, inputs, pid_delays)
+        if not isnan(pid_phases).any():
+            map(self.feedback_phase, inputs, pid_phases)
+
     def __call__(self, data):
         """ Callback for VLBI calibration """
         solve_chunk = 0
@@ -135,10 +161,8 @@ class CalibrateVLBI(SwarmDataCallback):
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], (180.0/pi)*phases[i]))
         if self.accums == 0:
-            self.init_history(cal_solution)
+            self.init_history(cal_solution, length=self.history_size)
         else:
             self.append_history(cal_solution)
+        self.pid_servo(inputs)
         self.accums += 1
-        hist_amplitudes, hist_delays, hist_phases = self.history.mean(axis=0)
-        for i in range(len(inputs)):
-            self.logger.info('{} : Hist. amp={:>12.2e}, Hist. delay={:>8.2f} ns, Hist. phase={:>8.2f} deg'.format(inputs[i], hist_amplitudes[i], hist_delays[i], (180.0/pi)*hist_phases[i]))
