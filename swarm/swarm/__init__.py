@@ -21,5 +21,10 @@ from xeng import (
 )
 
 from dbe import (
+    DBE,
     DBEImposter,
+    DBEDataCatcher,
+    DBEDataHandler,
+    BengineDataCatcher,
+    BengineDataHandler,
 )
