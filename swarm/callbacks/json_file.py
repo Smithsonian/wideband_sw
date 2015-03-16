@@ -26,7 +26,7 @@ class JSONListFile(object):
         self.file.write(self.footer)
 
     def __enter__(self):
-        self.file.seek(-len(self.footer), 2)
+        self.file.seek(-len(self.footer), os.SEEK_END)
         return self
 
     def append(self, obj):
