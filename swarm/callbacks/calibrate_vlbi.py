@@ -9,6 +9,7 @@ from numpy import (
     complex128,
     errstate,
     linspace,
+    float64,
     newaxis,
     vstack,
     array,
@@ -190,8 +191,8 @@ class CalibrateVLBI(SwarmDataCallback):
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
-                    'corr_matrix_ca': vstack([corr_matrix_ca[newaxis].real, corr_matrix_ca[newaxis].imag]).tolist(),
-                    'complex_gains_ca': vstack([complex_gains_ca[newaxis].real, complex_gains_ca[newaxis].imag]).tolist(),
+                    'corr_matrix_ca': corr_matrix_ca.view(float64).tolist(),
+                    'complex_gains_ca': complex_gains_ca.view(float64).tolist(),
                     'cal_solution': cal_solution.tolist(),
                     'efficiency': nanmean(efficiency),
                     })
