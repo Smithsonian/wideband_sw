@@ -30,7 +30,7 @@ class JSONListFile(object):
         return self
 
     def append(self, obj):
-        serial_obj = dumps(obj, indent=self.indent)
+        serial_obj = dumps(obj, indent=self.indent, sort_keys=True)
         indent_obj = ''.join(map(self.indent_line, serial_obj.splitlines(True)))
         if self.file.tell() != len(self.header):
             self.file.write(self.separator)
