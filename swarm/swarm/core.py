@@ -1,4 +1,4 @@
-import logging
+import logging, os
 from time import sleep
 from struct import pack, unpack
 from random import randint
@@ -610,6 +610,12 @@ class Swarm:
 
     def __getitem__(self, fid):
         return self.members.values()[fid]
+
+    def __repr__(self):
+        return 'Swarm(members=[{members}])'.format(members=self.members)
+
+    def __str__(self):
+        return os.linesep.join(str(v) for k,v in self.members.iteritems() if v != None)
 
     def __getattr__(self, attr):
 
