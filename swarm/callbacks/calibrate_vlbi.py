@@ -7,6 +7,7 @@ from numpy.fft import fft, ifft, fftshift
 from numpy import (
     nan_to_num,
     complex128,
+    errstate,
     linspace,
     newaxis,
     vstack,
@@ -170,7 +171,8 @@ class CalibrateVLBI(SwarmDataCallback):
         cal_solution = vstack([amplitudes, delays, phases])
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
-        efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
+        with errstate(invalid='ignore'):
+            efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
         self.logger.info('Avg. phasing efficiency across band={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency), nanstd(efficiency)))
         if self.accums == 0:
             self.init_history(cal_solution, length=self.history_size)
