@@ -166,7 +166,8 @@ class CalibrateVLBI(SwarmDataCallback):
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
         referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
-        full_spec_gains = array(self.map(referenced_solver, complex_nan_to_num(corr_matrix)))
+        norm_corr_matrix = complex_nan_to_num(corr_matrix / abs(corr_matrix))
+        full_spec_gains = array(self.map(referenced_solver, norm_corr_matrix))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
         cal_solution = vstack([amplitudes, delays, phases])
