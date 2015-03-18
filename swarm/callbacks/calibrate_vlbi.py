@@ -161,7 +161,7 @@ class CalibrateVLBI(SwarmDataCallback):
         for baseline in baselines:
             left_i = inputs.index(baseline.left)
             right_i = inputs.index(baseline.right)
-            baseline_data = data[baseline][solve_chunk][solve_sideband]
+            baseline_data = data[baseline][sideband]
             complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()

@@ -39,7 +39,7 @@ class SwarmDataPackage:
         self.int_time = time
         self.int_length = length
         self.inputs = list(self.swarm[i][j] for i in range(self.swarm.fids_expected) for j in SWARM_MAPPING_INPUTS)
-        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2) if i._chk==j._chk)
+        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
         self._init_data()
@@ -55,14 +55,10 @@ class SwarmDataPackage:
         # Initialize baselines
         for baseline in self.baselines:
             self.data[baseline] = {}
-            
-            # Initialize chunk
-            for chk in SWARM_MAPPING_CHUNKS:
-                self.data[baseline][chk] = {}
 
-                # Initialize sidebands
-                for sb in SWARM_XENG_SIDEBANDS:
-                    self.data[baseline][chk][sb] = EMPTY_DATA_ARRAY.copy()
+            # Initialize sidebands
+            for sb in SWARM_XENG_SIDEBANDS:
+                self.data[baseline][sb] = EMPTY_DATA_ARRAY.copy()
 
     def set_data(self, xeng_word, fid, data):
 
@@ -71,17 +67,16 @@ class SwarmDataPackage:
         imag_off = int(imag)
         baseline = xeng_word.baseline
         sideband = xeng_word.sideband
-        chunk = xeng_word.left._chk
 
         slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 2 + imag_off
         try: # normal conjugation first
 
             # Fill this baseline
-            self.data[baseline][chunk][sideband][slice_] = data.copy()
+            self.data[baseline][sideband][slice_] = data.copy()
 
             # Special case for autos, fill imag with zeros
             if baseline.is_auto():
-                self.data[baseline][chunk][sideband][slice_+1] = 0.0
+                self.data[baseline][sideband][slice_+1] = 0.0
 
         except KeyError:
 
@@ -89,7 +84,7 @@ class SwarmDataPackage:
             conj_baseline = SwarmBaseline(baseline.right, baseline.left)
 
             # Try the conjugated baseline
-            self.data[conj_baseline][chunk][sideband][slice_] = data.copy()
+            self.data[conj_baseline][sideband][slice_] = data.copy()
 
 
 class SwarmDataCallback(object):
@@ -283,10 +278,8 @@ class SwarmDataCatcher(SwarmListener):
 
             # Reorder by Xengine word (per channel)
             for offset, word in enumerate(order):
-
-                if word.baseline.is_valid():
-                    sub_data = data[offset::len(order)]
-                    data_pkg.set_data(word, fid, sub_data)
+                sub_data = data[offset::len(order)]
+                data_pkg.set_data(word, fid, sub_data)
 
         # Return the (hopefully) complete data packages
         return data_pkg
