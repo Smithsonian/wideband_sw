@@ -6,6 +6,7 @@ from swarm import (
     SWARM_MAPPING,
     SwarmDataCatcher,
     SwarmDataHandler,
+    SwarmInput,
     Swarm,
     )
 from rawbacks.check_ramp import *
@@ -37,6 +38,8 @@ def main():
                         help='program ROACH2s with BITCODE (default="%s")' % DEFAULT_BITCODE)
     parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
                         help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
+    parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
+                        help='use ANT,POL,CHUNK as a REFERENCE; POL and CHUNK are either 0 or 1 (default=2,0,0')
     parser.add_argument('--setup-only', dest='setup_only', action='store_true',
                         help='only program and setup the board; do not wait for data')
     parser.add_argument('--listen-only', dest='listen_only', action='store_true',
@@ -62,6 +65,12 @@ def main():
     # Silence katcp INFO messages
     katcp_logger = logging.getLogger('katcp')
     katcp_logger.setLevel(logging.WARNING)
+
+    # Construct our reference input
+    reference_args = [['antenna', 2], ['chunk', 0], ['polarization', 0]]
+    for i, a in enumerate(args.reference.split(',')):
+        reference_args[i][1] = int(a)
+    reference = SwarmInput(**dict(reference_args))
 
     # Create our SWARM instance
     swarm = Swarm(map_filename=args.swarm_mapping)
@@ -97,12 +106,12 @@ def main():
         if args.log_stats:
 
             # Use a callback to show visibility stats
-            swarm_handler.add_callback(LogStats)
+            swarm_handler.add_callback(LogStats, reference=reference)
 
         if args.calibrate_vlbi:
 
             # Use a callback to calibrate fringes for VLBI
-            swarm_handler.add_callback(CalibrateVLBI)
+            swarm_handler.add_callback(CalibrateVLBI, reference=reference)
 
         if args.save_rawdata:
 
