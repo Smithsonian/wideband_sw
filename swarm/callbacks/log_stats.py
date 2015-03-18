@@ -9,9 +9,14 @@ from numpy import (
 from swarm import (
     SwarmDataCallback,
     SwarmBaseline,
+    SwarmInput,
     )
 
 class LogStats(SwarmDataCallback):
+
+    def __init__(self, swarm, reference=None):
+        super(LogStats, self).__init__(swarm)
+        self.reference = reference if reference else SwarmInput(1, 0, 0)
 
     def __call__(self, data):
         """ Callback for showing statistics """
@@ -30,11 +35,12 @@ class LogStats(SwarmDataCallback):
                     norm_right = auto_amps[SwarmBaseline(baseline.right, baseline.right)]
                     norm = sqrt(norm_left * norm_right)
                 norm = max(1.0, norm) # make sure it's not zero
-                self.logger.info(
-                    '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:>12.2e}, Phase(avg)={pha:>8.2f} deg, Corr.={corr:>8.2f}%'.format(
-                        baseline=baseline, chunk=chunk, sideband=sideband, 
-                        corr=100.0*abs(complex_data).mean()/norm,
-                        amp=abs(complex_data).mean(),
-                        pha=(180.0/pi)*angle(complex_data.mean()),
+                if ((self.reference == baseline.left) or (self.reference == baseline.right)):
+                    self.logger.info(
+                        '{baseline!s}[chunk={chunk}].{sideband} : Amp(avg)={amp:>12.2e}, Phase(avg)={pha:>8.2f} deg, Corr.={corr:>8.2f}%'.format(
+                            baseline=baseline, chunk=chunk, sideband=sideband,
+                            corr=100.0*abs(complex_data).mean()/norm,
+                            amp=abs(complex_data).mean(),
+                            pha=(180.0/pi)*angle(complex_data.mean()),
+                            )
                         )
-                    )
