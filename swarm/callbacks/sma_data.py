@@ -27,11 +27,11 @@ class SMAData(SwarmDataCallback):
                 pol_right = baseline.right._pol
 
                 # Get each sidebands data
-                usb_data = baseline_data[chunk]['USB']
+                usb_data = baseline_data['USB']
                 if baseline.is_auto():
                     lsb_data = usb_data.copy()
                 else:
-                    lsb_data = baseline_data[chunk]['LSB']
+                    lsb_data = baseline_data['LSB']
 
                 # Send our integration
                 send_integration(data.int_time - (data.int_length/2.0), 
