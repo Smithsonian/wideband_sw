@@ -305,7 +305,7 @@ class SwarmMember:
         last_byte = (fid << 4) + 0b1100
         self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, 0xbea3, arp)
 
-        # Configure the visibility packet buffer
+        # Configure the B-engine destination IPs
         self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe.ip))
 
         # Reset the 10 GbE cores before enabling
