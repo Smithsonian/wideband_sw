@@ -2,6 +2,7 @@ from defines import *
 
 from core import (
     SwarmInput,
+    SwarmROACH,
     SwarmMember,
     Swarm,
 )

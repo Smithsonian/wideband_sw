@@ -59,13 +59,12 @@ class SwarmInput:
         return (self._ant != None) and (self._chk != None) and (self._pol != None)
 
 
-class SwarmMember:
+class SwarmROACH(object):
 
     def __init__(self, roach2_host):
 
         # Set all initial members
-        self.logger = logging.getLogger('SwarmMember')
-        self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.roach2_host = roach2_host
 
         # Connect to our ROACH2
@@ -83,6 +82,26 @@ class SwarmMember:
 
     def is_valid(self):
         return self.roach2_host is not None
+
+    def _connect(self, roach2_host):
+
+        # Connect and wait until ready
+        self.roach2 = FpgaClient(roach2_host)
+        if roach2_host:
+            self.roach2.wait_connected()
+
+    def _program(self, bitcode):
+
+        # Program with the bitcode
+        self._bitcode = bitcode
+        self.roach2.progdev(self._bitcode)
+
+
+class SwarmMember(SwarmROACH):
+
+    def __init__(self, roach2_host):
+        super(SwarmMember, self).__init__(roach2_host)
+        self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
 
     def __repr__(self):
         repr_str = 'SwarmMember(roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]' 
@@ -139,19 +158,6 @@ class SwarmMember:
 
         # Verify QDRs
         self.verify_qdr()
-
-    def _connect(self, roach2_host):
-
-        # Connect and wait until ready
-        self.roach2 = FpgaClient(roach2_host)
-        if roach2_host:
-            self.roach2.wait_connected()
-
-    def _program(self, bitcode):
-
-        # Program with the bitcode
-        self._bitcode = bitcode
-        self.roach2.progdev(self._bitcode)
 
     def set_digital_seed(self, source_n, seed):
 
