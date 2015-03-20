@@ -22,8 +22,9 @@ from xeng import (
 )
 
 from dbe import (
-    DBE,
+    SwarmDBE,
     DBEImposter,
+    MK6Imposter,
     DBEDataCatcher,
     DBEDataHandler,
     BengineDataCatcher,
