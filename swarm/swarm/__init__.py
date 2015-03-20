@@ -2,6 +2,7 @@ from defines import *
 
 from core import (
     SwarmInput,
+    SwarmROACH,
     SwarmMember,
     Swarm,
 )
@@ -21,8 +22,9 @@ from xeng import (
 )
 
 from dbe import (
-    DBE,
+    SwarmDBE,
     DBEImposter,
+    MK6Imposter,
     DBEDataCatcher,
     DBEDataHandler,
     BengineDataCatcher,

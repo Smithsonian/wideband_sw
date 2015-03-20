@@ -11,6 +11,7 @@ from threading import Thread, Event
 
 from numpy import nan, array, empty, uint8, complex128
 
+from core import SwarmROACH
 from defines import *
 
 
@@ -18,29 +19,93 @@ SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
 
 
-class DBE:
+class Interface(object):
 
-    def __init__(self, mac, ip):
+    def __init__(self, mac, ip, port):
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.port = port
         self.mac = mac
+        self.arp = []
         self.ip = ip
 
 
-class DBEImposter:
+class LocalInterface(Interface):
 
-    def __init__(self, interface, port=0xbea3):
-        self.logger = logging.getLogger('DBEImposter')
+    def __init__(self, interface, port):
+        mac, ip, host = self.get_netinfo(interface)
+        super(LocalInterface, self).__init__(mac, ip, port)
         self.interface = interface
-        self._set_netinfo(port)
+        self.host = host
 
-    def _set_netinfo(self, port):
+    @staticmethod
+    def get_netinfo(interface):
         s = socket(AF_INET, SOCK_DGRAM)
-        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface[:15]))
-        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface[:15]))
-        self.mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
-        self.ip = unpack(SWARM_REG_FMT, info_adr[20:24])[0]
-        self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
-        self.port = port
+        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', interface[:15]))
+        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', interface[:15]))
+        mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
+        ip = unpack('>I', info_adr[20:24])[0]
+        host = inet_ntoa(pack('>I', ip))
         s.close()
+        return mac, ip, host
+
+
+class DBEImposter(LocalInterface):
+
+    def __init__(self, interface, port=SWARM_BENGINE_PORT):
+        super(DBEImposter, self).__init__(interface, port)
+
+
+class MK6Imposter(LocalInterface):
+
+    def __init__(self, interface, port=SWARM_DBE_PORT):
+        super(MK6Imposter, self).__init__(interface, port)
+
+
+class SwarmDBE(SwarmROACH):
+
+    def __init__(self, swarm, roach2_host):
+        super(SwarmROACH, self).__init__(roach2_host)
+        self.swarm = swarm
+
+    def setup(self, ipbase=0x9d000000, macbase=0x000f9d9d9d00):
+
+        # Configure the RX interfaces
+        return self.setup_rx_interfaces(macbase, ipbase)
+
+    def setup_rx_interfaces(self, macbase, ipbase, bhmac=SWARM_BLACK_HOLE_MAC):
+
+        # Keep track of our net info
+        self.macbase = macbase
+        self.ipbase = ipbase
+        self.bhmac = bhmac
+
+        # Initialize the ARP table
+        arp = [bh_mac] * 256
+
+        # Determine our TX interfaces first
+        fids = range(self.swarm.fids_expected)
+        tx_ifaces = list(Interface(macbase + fid, ipbase + fid, SWARM_BENG_PORT) for fid in fids)
+
+        # The determine our RX interfaces
+        cores = range(SWARM_DBE_N_RX_CORE)
+        rx_ifaces = list(Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
+
+        # Fill the ARP table
+        for iface in tx_ifaces + rx_ifaces:
+            arp[iface.mac & 0xff] = arp.ip
+
+        # Set ARP table for all interfaces
+        for iface in tx_ifaces + rx_ifaces:
+            iface.arp = arp
+
+        # Finally configure the interfaces
+        for core in cores:
+
+            # Configure each core with net info
+            self.roach2.config_10gbe_core(SWARM_DBE_RX_CORE % core, rx_iface[core].mac, rx_iface[core].port, rx_iface[core].arp)
+
+        # Finish up
+        return tx_ifaces
 
 
 class BengineDataCatcher(Thread):

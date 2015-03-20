@@ -59,13 +59,12 @@ class SwarmInput:
         return (self._ant != None) and (self._chk != None) and (self._pol != None)
 
 
-class SwarmMember:
+class SwarmROACH(object):
 
     def __init__(self, roach2_host):
 
         # Set all initial members
-        self.logger = logging.getLogger('SwarmMember')
-        self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.roach2_host = roach2_host
 
         # Connect to our ROACH2
@@ -83,6 +82,26 @@ class SwarmMember:
 
     def is_valid(self):
         return self.roach2_host is not None
+
+    def _connect(self, roach2_host):
+
+        # Connect and wait until ready
+        self.roach2 = FpgaClient(roach2_host)
+        if roach2_host:
+            self.roach2.wait_connected()
+
+    def _program(self, bitcode):
+
+        # Program with the bitcode
+        self._bitcode = bitcode
+        self.roach2.progdev(self._bitcode)
+
+
+class SwarmMember(SwarmROACH):
+
+    def __init__(self, roach2_host):
+        super(SwarmMember, self).__init__(roach2_host)
+        self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
 
     def __repr__(self):
         repr_str = 'SwarmMember(roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]' 
@@ -139,19 +158,6 @@ class SwarmMember:
 
         # Verify QDRs
         self.verify_qdr()
-
-    def _connect(self, roach2_host):
-
-        # Connect and wait until ready
-        self.roach2 = FpgaClient(roach2_host)
-        if roach2_host:
-            self.roach2.wait_connected()
-
-    def _program(self, bitcode):
-
-        # Program with the bitcode
-        self._bitcode = bitcode
-        self.roach2.progdev(self._bitcode)
 
     def set_digital_seed(self, source_n, seed):
 
@@ -261,7 +267,7 @@ class SwarmMember:
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
-    def _setup_corner_turn(self, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=0x000f530cd899):
+    def _setup_corner_turn(self, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Reset the cores
         self._reset_corner_turn()
@@ -293,7 +299,7 @@ class SwarmMember:
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=0x000f530cd899):
+    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
@@ -303,7 +309,7 @@ class SwarmMember:
 
         # Configure 10 GbE device
         last_byte = (fid << 4) + 0b1100
-        self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, 0xbea3, arp)
+        self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, SWARM_BENGINE_PORT, arp)
 
         # Configure the B-engine destination IPs
         self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe.ip))
