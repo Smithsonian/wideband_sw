@@ -267,7 +267,7 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
-    def _setup_corner_turn(self, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=0x000f530cd899):
+    def _setup_corner_turn(self, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Reset the cores
         self._reset_corner_turn()
@@ -299,7 +299,7 @@ class SwarmMember(SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=0x000f530cd899):
+    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
