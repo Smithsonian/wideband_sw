@@ -1,7 +1,7 @@
+from copy import copy
 from functools import partial
 from signal import signal, SIGINT, SIG_IGN
 from multiprocessing import Pool, cpu_count
-from itertools import combinations_with_replacement as combos
 from numpy.linalg import eig as eig
 from numpy.fft import fft, ifft, fftshift
 from numpy import (
@@ -11,6 +11,7 @@ from numpy import (
     linspace,
     float64,
     newaxis,
+    hstack,
     vstack,
     array,
     zeros,
@@ -34,6 +35,8 @@ from swarm import (
     SWARM_CLOCK_RATE,
 )
 from json_file import JSONListFile
+
+SWARM_PHASED_SUM_ANTENNAS = '/global/configFiles/swarmPhasedSumAntennas'
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -154,12 +157,8 @@ class CalibrateVLBI(SwarmDataCallback):
         if not isnan(pid_phases).any():
             map(self.feedback_phase, inputs, pid_phases)
 
-    def __call__(self, data):
-        """ Callback for VLBI calibration """
-        solve_chunk = 0
-        solve_sideband = 'USB'
-        inputs = list(inp for inp in data.inputs if inp._chk==solve_chunk)
-        baselines = list(SwarmBaseline(i, j) for i, j in combos(inputs, r=2))
+    def solve_for(self, data, inputs, chunk, sideband='USB'):
+        baselines = list(baseline for baseline in data.baselines if ((baseline.left in inputs) and (baseline.right in inputs)))
         corr_matrix = zeros([SWARM_CHANNELS, len(inputs), len(inputs)], dtype=complex128)
         for baseline in baselines:
             left_i = inputs.index(baseline.left)
@@ -168,17 +167,33 @@ class CalibrateVLBI(SwarmDataCallback):
             complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
-        referenced_solver = partial(solve_cgains, ref=inputs.index(self.reference))
-        norm_corr_matrix = complex_nan_to_num(corr_matrix / abs(corr_matrix))
+        chunk_reference = copy(self.reference)
+        chunk_reference._chk = chunk
+        referenced_solver = partial(solve_cgains, ref=inputs.index(chunk_reference))
+        with errstate(invalid='ignore'):
+            norm_corr_matrix = complex_nan_to_num(corr_matrix / abs(corr_matrix))
         full_spec_gains = array(self.map(referenced_solver, norm_corr_matrix))
         delays, phases = solve_delay_phase(full_spec_gains)
         amplitudes = abs(full_spec_gains).mean(axis=0)
-        cal_solution = vstack([amplitudes, delays, phases])
-        for i in range(len(inputs)):
-            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         with errstate(invalid='ignore'):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
-        self.logger.info('Avg. phasing efficiency across band={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency), nanstd(efficiency)))
+        return efficiency, vstack([amplitudes, delays, phases])
+
+    def __call__(self, data):
+        """ Callback for VLBI calibration """
+        with open(SWARM_PHASED_SUM_ANTENNAS, 'r') as file_:
+            valid_ants = list(int(i) for i in file_.readline().split())
+        inputs = sorted(list(inp for inp in data.inputs if inp._ant in valid_ants), key=lambda inp: 100*inp._chk + inp._ant)
+        efficiency_0, cal_solution_0 = self.solve_for(data, list(inp for inp in inputs if inp._chk==0), 0)
+        efficiency_1, cal_solution_1 = self.solve_for(data, list(inp for inp in inputs if inp._chk==1), 1)
+        cal_solution = hstack([cal_solution_0, cal_solution_1])
+        amplitudes, delays, phases = cal_solution
+
+        for i in range(len(inputs)):
+            self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
+        self.logger.info('Avg. phasing efficiency across band s49={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency_0), nanstd(efficiency_0)))
+        self.logger.info('Avg. phasing efficiency across band s50={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency_1), nanstd(efficiency_1)))
+
         if self.accums == 0:
             self.init_history(cal_solution, length=self.history_size)
         elif self.skip_next[0]:
@@ -188,16 +203,12 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
             self.pid_servo(inputs)
-        corr_matrix_ca = nanmean(corr_matrix.reshape([64, SWARM_CHANNELS/64, len(inputs), len(inputs)]), axis=1)
-        complex_gains_ca = nanmean(full_spec_gains.reshape([64, SWARM_CHANNELS/64, len(inputs)]), axis=1)
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
-                    'corr_matrix_ca': corr_matrix_ca.view(float64).tolist(),
-                    'complex_gains_ca': complex_gains_ca.view(float64).tolist(),
+                    'efficiencies': [nanmean(efficiency_0), nanmean(efficiency_1)],
                     'cal_solution': cal_solution.tolist(),
-                    'efficiency': nanmean(efficiency),
                     })
         self.accums += 1
