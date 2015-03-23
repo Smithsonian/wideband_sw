@@ -91,12 +91,13 @@ def wrap_phase(in_phase):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
+    def __init__(self, swarm, reference=None, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
         self.reference = reference if reference is not None else swarm[0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = zeros(2, dtype=bool)
         self.history_size = history_size
         self.outfilename = outfilename
+        self.single_chan = single_chan
         self.PID_coeffs = PID_coeffs
         self.init_pool()
         self.accums = 0
@@ -172,8 +173,13 @@ class CalibrateVLBI(SwarmDataCallback):
         referenced_solver = partial(solve_cgains, ref=inputs.index(chunk_reference))
         with errstate(invalid='ignore'):
             norm_corr_matrix = complex_nan_to_num(corr_matrix / abs(corr_matrix))
-        full_spec_gains = array(self.map(referenced_solver, norm_corr_matrix))
-        delays, phases = solve_delay_phase(full_spec_gains)
+        if not self.single_chan:
+            full_spec_gains = array(self.map(referenced_solver, norm_corr_matrix))
+            delays, phases = solve_delay_phase(full_spec_gains)
+        else:
+            full_spec_gains = array(self.map(referenced_solver, [norm_corr_matrix.mean(axis=0),]))
+            phases = (180.0/pi) * angle(full_spec_gains.mean(axis=0))
+            delays = zeros(len(inputs))
         amplitudes = abs(full_spec_gains).mean(axis=0)
         with errstate(invalid='ignore'):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
