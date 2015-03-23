@@ -211,12 +211,15 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
             self.pid_servo(inputs)
+        new_delays = map(self.swarm.get_delay, inputs)
+        new_phases = map(self.swarm.get_phase, inputs)
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
                     'efficiencies': [nanmean(efficiency_0), nanmean(efficiency_1)],
+                    'delays': new_delays, 'phases': new_phases,
                     'cal_solution': cal_solution.tolist(),
                     })
         self.accums += 1
