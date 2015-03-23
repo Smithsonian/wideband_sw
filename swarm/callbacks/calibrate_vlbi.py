@@ -83,6 +83,9 @@ def complex_nan_to_num(arr):
     out_arr[isnan(out_arr)] = 0.0j
     return out_arr
 
+def wrap_phase(in_phase):
+        return (in_phase + 180.0) % 360.0 - 180.0
+
 class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
@@ -136,7 +139,7 @@ class CalibrateVLBI(SwarmDataCallback):
         current_phase = self.swarm.get_phase(this_input)
         updated_phase = current_phase + feedback_phase
         if not this_input==self.reference:
-            self.swarm.set_phase(this_input, updated_phase)
+            self.swarm.set_phase(this_input, wrap_phase(updated_phase))
             self.logger.info('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
 
     def pid_servo(self, inputs):
