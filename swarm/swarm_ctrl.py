@@ -16,7 +16,7 @@ from callbacks.log_stats import *
 from callbacks.sma_data import *
 
 
-DEFAULT_BITCODE = 'sma_corr_2015_Feb_18_1118.bof.gz'
+DEFAULT_BITCODE = 'sma_corr_2015_May_01_1655.bof.gz'
 
 
 def main():
