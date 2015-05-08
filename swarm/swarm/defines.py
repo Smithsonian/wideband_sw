@@ -16,7 +16,9 @@ SWARM_SB_STATE_BRAM = 'xengine_final_acc_sb_state'
 
 # Clocking parameters
 # (changes with external clock)
-SWARM_CLOCK_RATE = 156e6
+SWARM_CLOCK_RATE = 208e6
+SWARM_TARGET_RATE = 286e6
+SWARM_ELEVENTHS = int(11 * SWARM_CLOCK_RATE / SWARM_TARGET_RATE)
 
 # Overall design parameters
 # (should not change unless design changes)
@@ -26,7 +28,7 @@ SWARM_CHANNELS = 2**14
 # (should not change unless design changes)
 SWARM_INT_HB_PER_SOWF = 64
 SWARM_TRANSPOSE_SIZE = 128
-SWARM_CLOCKS_PER_INT_HB = 6 * SWARM_TRANSPOSE_SIZE * 2048
+SWARM_CLOCKS_PER_INT_HB = SWARM_ELEVENTHS * SWARM_TRANSPOSE_SIZE * 2048
 SWARM_INT_HB_PERIOD = SWARM_CLOCKS_PER_INT_HB / SWARM_CLOCK_RATE
 
 # External Walshing parameters
