@@ -368,15 +368,26 @@ class SwarmMember(SwarmROACH):
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
 
-    def verify_qdr(self):
+    def verify_qdr(self, max_tries=10):
   
-        # check qdr ready, reset if not ready 
+        # verify each QDR
         for qnum in SWARM_ALL_QDR:
             self.logger.debug('checking QDR%d' % qnum)
-            rdy = self.qdr_ready(qnum)
-            if not rdy:
-                self.logger.warning('QDR%d not ready, resetting' % qnum)
-                self.reset_qdr(qnum) 
+
+            try_n = 0
+            while not self.qdr_ready(qnum):
+
+                # reset up to max number of tries
+                if try_n < max_tries:
+                    self.logger.warning('QDR{0} not ready, resetting (try #{1})'.format(qnum, try_n))
+                    self.reset_qdr(qnum)
+                    try_n += 1
+
+                # max tries exceded, gtfo
+                else:
+                    msg = 'QDR{0} not calibrating, reset max number of times'
+                    self.logger.error(msg)
+                    raise RuntimeError(msg)
 
     def _setup_visibs(self, listener, delay_test=False):
 
