@@ -179,6 +179,7 @@ struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 3,
   .name = "sma-dsm-wait",
   .version = KATCP_PLUGIN_VERSION,
+  .init = start_waiting_cmd,
   .uninit = stop_waiting_cmd,
   .cmd_array = {
     { // 1
