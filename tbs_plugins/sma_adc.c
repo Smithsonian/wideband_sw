@@ -751,22 +751,22 @@ struct PLUGIN KATCP_PLUGIN = {
     },
     {
       .name = "?measure-og", 
-      .desc = "Take repeated snapshots and mesasure offset and gain assuming noise input.  Write result in /instance/ogp_meas.  Optional arguments zdoc (0) and rpt(30)",
+      .desc = "Take repeated snapshots and mesasure offset and gain assuming noise input.  Write result in /instance/configFiles/ogp_if[01].meas.  Optional arguments zdoc (0) and rpt(30)",
       .cmd = measure_og_cmd
     },
     {
       .name = "?get-ogp", 
-      .desc = "read ogp from the adc and write to /instance/ogp",
+      .desc = "read ogp from the adc and print",
       .cmd = get_ogp_cmd
     },
     {
       .name = "?set-ogp", 
-      .desc = "read ogp from a file and set the adc ogp registers.  Optional arguments zdok [0] and fname [/instance/ogp]",
+      .desc = "read ogp from a file and set the adc ogp registers.  Optional arguments zdok [0] and fname [/instance/configFiles/ogp_if[01]]",
       .cmd = set_ogp_cmd
     },
     {
       .name = "?update-ogp", 
-      .desc = "read /instance/ogp_meas and add to the ogp registers in the adc.  Also store results in /instance/ogp.  Optional argument zdok",
+      .desc = "read /instance/configFiles/ogp_if[01].meas and add to the ogp registers in the adc.  Also store results in /instance/configFiles/ogp_if[01].  Optional argument zdok",
       .cmd = update_ogp_cmd
     },
     {
