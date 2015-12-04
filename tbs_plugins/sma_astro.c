@@ -303,7 +303,7 @@ int update_vars() {
   }
 
   /* Then write it to the monitor class */
-  s = dsm_write((char *)obs_host, DSM_FSTATS_VAR, &structure);
+  s = dsm_write("SWARM_MONITOR", DSM_FSTATS_VAR, &structure);
   if (s != DSM_SUCCESS) {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_write()");
