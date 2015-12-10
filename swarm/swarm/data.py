@@ -278,8 +278,10 @@ class SwarmDataCatcher(SwarmListener):
 
             # Reorder by Xengine word (per channel)
             for offset, word in enumerate(order):
-                sub_data = data[offset::len(order)]
-                data_pkg.set_data(word, fid, sub_data)
+
+                if word.baseline.is_valid():
+                    sub_data = data[offset::len(order)]
+                    data_pkg.set_data(word, fid, sub_data)
 
         # Return the (hopefully) complete data packages
         return data_pkg
