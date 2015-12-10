@@ -705,6 +705,21 @@ class Swarm:
                              "calling on all members!".format(attr))
             return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
+        # See if user is trying to access the SwarmMember.roach2 attribute
+        if attr == 'roach2':
+
+            # Define an anonymous class we will instantiate and return
+            class AnonClass(object):
+                def __dir__(self):
+                    return dir(FpgaClient)
+                def __getattr__(self_, attr):
+                    if callable(getattr(FpgaClient, attr, None)):
+                        return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.roach2, attr)(*args, **kwargs))
+                    else:
+                        return self.members_do(lambda fid, member: getattr(member.roach2, attr))
+
+            return AnonClass()
+
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmMember".format(attr))
 
