@@ -332,7 +332,7 @@ class SwarmDataCatcher(SwarmListener):
                 for rawback in self.rawbacks:
 
                     try: # catch callback error
-                        rawback(data)
+                        rawback(data[acc_n])
                     except KeyboardInterrupt:
                         raise
                     except: # and log if needed
