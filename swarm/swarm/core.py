@@ -949,9 +949,16 @@ class Swarm:
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
 
+        # Create empty list for return values
+        return_values = [None, ] * self.fids_expected
+
         # Run func on each valid member
         for fid, member in enumerate(valid_members):
-            func(fid, member)
+            return_values[fid] = func(fid, member)
+
+        # Return the results, if present
+        if any(rv is not None for rv in return_values):
+            return return_values
 
     def set_noise(self, correlation=1.0):
 
