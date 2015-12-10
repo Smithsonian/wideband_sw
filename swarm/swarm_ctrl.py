@@ -55,7 +55,14 @@ def main():
     parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', nargs='?', const='low', default=None,
                         help='Solve for complex gains (and possibly delay) to calibrate the phased sum '
                         '(optionally append either "high" or "low" for different SNR algorithms')
+    parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
+                        help='Write logger output to LOGFILE')
     args = parser.parse_args()
+
+    # Add file handler, if requested
+    if args.log_file:
+        fh = logging.FileHandler(args.log_file)
+        logger.addHandler(fh)
 
     # Set logging level given verbosity
     if args.verbose:
