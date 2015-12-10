@@ -96,6 +96,21 @@ class SwarmROACH(object):
         self._bitcode = bitcode
         self.roach2.progdev(self._bitcode)
 
+    def send_katcp_cmd(self, cmd, *args):
+
+        # Create the message object
+        message = Message.request(cmd, *args)
+
+        # Send the request, and block for 60 seconds
+        reply, informs = self.roach2.blocking_request(message, timeout=60)
+
+        # Check for error, and raise one if present
+        if not reply.reply_ok():
+            raise RuntimeError(reply)
+
+        # Otherwise return what we got
+        return reply, informs
+
 
 class SwarmMember(SwarmROACH):
 
@@ -470,17 +485,18 @@ class SwarmMember(SwarmROACH):
     def fringe_stop(self, enable):
 
         # Stop fringe stopping
-        message = Message.request(SWARM_FSTOP_STOP_CMD)
-        reply, informs = self.roach2.blocking_request(message, timeout=60)
-        if not reply.reply_ok():
+        try:
+            self.send_katcp_cmd(SWARM_FSTOP_STOP_CMD)
+        except RuntimeError:
             self.logger.error("Stopping fringe stopping failed!")
 
         # Start it again (if requested)
         if enable:
-            message = Message.request(SWARM_FSTOP_START_CMD)
-            reply, informs = self.roach2.blocking_request(message, timeout=60)
-            if not reply.reply_ok():
-                self.logger.error("Starting fringe stopping failed!")
+
+            try:
+                self.send_katcp_cmd(SWARM_FSTOP_START_CMD)
+            except RuntimeError:
+                self.logger.error("Starting fringe starting failed!")
 
     def dewalsh(self, enable_0, enable_1):
 
