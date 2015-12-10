@@ -5,6 +5,7 @@ from random import randint
 from socket import inet_ntoa
 from threading import Thread
 from collections import OrderedDict
+from ConfigParser import ConfigParser
 
 from numpy import clip, roll
 
@@ -110,6 +111,49 @@ class SwarmROACH(object):
 
         # Otherwise return what we got
         return reply, informs
+
+    def plugin_list(self):
+
+        # Send plugin-list command
+        reply, informs = self.send_katcp_cmd('plugin-list')
+
+        # Return the list of loaded plugin names
+        return list(inform.arguments[0] for inform in informs)
+
+    def unload_plugins(self):
+
+        # Unload all currently loaded plugins
+        for plugin in reversed(self.plugin_list()):
+            self.send_katcp_cmd('plugin-unload', plugin)
+
+    def reload_plugins(self, plugins_filename):
+
+        # Unload all currently loaded plugins
+        self.unload_plugins()
+
+        # Read the default plugins file
+        cfg = ConfigParser({'init': ''})
+        cfg.read(plugins_filename)
+
+        # Get the names of all default plugins
+        default_plugins = cfg.sections()
+
+        # Cycle through defaults
+        for plugin in default_plugins:
+
+            # First, load the plugin
+            path = cfg.get(plugin, 'file')
+            self.send_katcp_cmd('plugin-load', path)
+
+            # Then, run user init commands (if requested)
+            for cmdstr in cfg.get(plugin, 'init').splitlines():
+                cmd, sep, args = cmdstr.partition(' ')
+
+                # If failure: catch, log, and proceed
+                try:
+                    self.send_katcp_cmd(cmd, *args.split())
+                except RuntimeError as err:
+                    self.logger.error("Plugin init failure: {0}".format(err))
 
 
 class SwarmMember(SwarmROACH):
