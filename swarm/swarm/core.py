@@ -667,12 +667,12 @@ class SwarmMember(SwarmROACH):
 
 EMPTY_MEMBER = SwarmMember(None)
 
-class Swarm:
+class SwarmQuadrant:
 
     def __init__(self, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
 
         # Set initial member variables
-        self.logger = logging.getLogger('Swarm')
+        self.logger = logging.getLogger('SwarmQuadrant(qid={0})'.format(qid))
 
         # Parse mapping for first time
         self.load_mapping(map_filename)
@@ -690,19 +690,19 @@ class Swarm:
         return self.members.values()[fid]
 
     def __repr__(self):
-        return 'Swarm(members=[{members}])'.format(members=self.members)
+        return 'SwarmQuadrant(qid={qid}, members=[{members}])'.format(qid=self.qid, members=self.members)
 
     def __str__(self):
         return os.linesep.join(str(v) for k,v in self.members.iteritems() if v != None)
 
     def __getattr__(self, attr):
 
-        # See if the non-Swarm attribute is a SwarmMember method
+        # See if the non-SwarmQuadrant attribute is a SwarmMember method
         if callable(getattr(SwarmMember, attr, None)):
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
-            self.logger.info("The {0} is not a Swarm method but it is a SwarmMember method; "
+            self.logger.info("The {0} is not a SwarmQuadrant method but it is a SwarmMember method; "
                              "calling on all members!".format(attr))
             return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
@@ -722,7 +722,7 @@ class Swarm:
             return AnonClass()
 
         else: # Remember to raise an error if nothing is found
-            raise AttributeError("{0} not an attribute of Swarm or SwarmMember".format(attr))
+            raise AttributeError("{0} not an attribute of SwarmQuadrant or SwarmMember".format(attr))
 
     def load_mapping(self, map_filename):
 

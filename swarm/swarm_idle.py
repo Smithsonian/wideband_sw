@@ -14,6 +14,6 @@ def idlize(fid, member):
     member.roach2.progdev('sma_idle.bof')
     logger.info("Idling {} = FID #{}".format(member.roach2_host, fid))
 
-s = Swarm()
+s = SwarmQuadrant()
 s.unload_plugins()
 s.members_do(idlize)

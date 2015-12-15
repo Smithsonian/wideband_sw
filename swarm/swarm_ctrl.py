@@ -6,6 +6,7 @@ from swarm import (
     SWARM_MAPPING,
     SwarmDataCatcher,
     SwarmDataHandler,
+    SwarmQuadrant,
     SwarmInput,
     Swarm,
     )
@@ -76,7 +77,7 @@ def main():
     reference = SwarmInput(**dict(reference_args))
 
     # Create our SWARM instance
-    swarm = Swarm(map_filename=args.swarm_mapping)
+    swarm = SwarmQuadrant(map_filename=args.swarm_mapping)
 
     # Setup the data catcher class
     swarm_catcher = SwarmDataCatcher(swarm, args.interface)

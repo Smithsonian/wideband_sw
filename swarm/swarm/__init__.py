@@ -3,6 +3,7 @@ from defines import *
 from core import (
     SwarmInput,
     SwarmROACH,
+    SwarmQuadrant,
     SwarmMember,
     Swarm,
 )
