@@ -20,7 +20,7 @@ the antennas are in the project.
 
 #define N_ANTENNAS (8)
 #define N_SIDEBANDS (2)
-#define N_CHUNKS (2)
+#define N_CHUNKS (4)
 
 #define ERROR (-1)
 #define OK    ( 0)
@@ -52,7 +52,7 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
     getAntennaList(antennaInArray);
   
   if ((antennaInArray[ant1] && antennaInArray[ant2]) || forceTransfer) {
-    if ((chunk != 0) && (chunk != 1)) {
+    if (chunk >= N_CHUNKS) {
       fprintf(stderr, "sendIntegration called with illegal chunk number (%d) - aborting\n", chunk);
       return(ERROR);
     }

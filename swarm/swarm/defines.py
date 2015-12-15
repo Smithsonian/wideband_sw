@@ -4,7 +4,7 @@ SWARM_MAPPING = '/global/configFiles/swarmMapping'
 SWARM_MAPPING_COMMENT = '#'
 SWARM_MAPPING_COLUMNS = 5
 SWARM_MAPPING_INPUTS = (0, 1)
-SWARM_MAPPING_CHUNKS = (0, 1)
+SWARM_MAPPING_CHUNKS = (0, 1, 2, 3)
 SWARM_MAPPING_POLS = (0, 1)
 
 SWARM_WALSH_PATTERNS = '/global/configFiles/swarmWalshPatterns'
