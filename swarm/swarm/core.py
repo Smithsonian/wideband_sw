@@ -363,10 +363,14 @@ class SwarmMember(SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, qid, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def setup_beam_former(self, qid, fid, dbe, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
+
+        # Set up initial parametrs
+        ipbase = 0xc0a80b00 + (qid<<8)
+        macbase = 0x000f530ce500 + (qid<<8)
 
         # Set the MAC for our destinatino IP
         arp[dbe.ip & 0xff] = dbe.mac
