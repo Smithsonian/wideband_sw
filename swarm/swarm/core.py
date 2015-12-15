@@ -474,7 +474,7 @@ class SwarmMember(SwarmROACH):
 
         # Configure the transmit interface
         final_hex = (self.fid + 4) * 2
-        src_ip = (192<<24) + (168<<16) + (10<<8) + final_hex + 50 
+        src_ip = (192<<24) + (168<<16) + ((10 + qid)<<8) + final_hex + 50
         src_mac = (2<<40) + (2<<32) + final_hex + src_ip
         self.roach2.config_10gbe_core(SWARM_VISIBS_CORE, src_mac, src_ip, 4000, arp)
 
