@@ -48,8 +48,7 @@ logger = logging.getLogger()
 logger.handlers[0].setFormatter(formatter)
 logger.setLevel(logging.INFO)
 
-valid_members = list(swarm[fid] for fid in range(swarm.fids_expected))
-for member in valid_members:
+for member in swarm.get_valid_members():
 
     for input_n in SWARM_MAPPING_INPUTS:
 

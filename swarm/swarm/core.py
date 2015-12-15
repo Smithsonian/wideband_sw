@@ -820,6 +820,12 @@ class Swarm:
         for fid in missing_fids:
             self.members[fid] = SwarmMember(None)
 
+    def get_valid_members(self):
+
+        # Return a list of valid fids and members
+        for fid in range(self.fids_expected):
+            yield fid, self[fid]
+
     def load_walsh_patterns(self, walsh_filename):
 
         # Clear the Walsh patterns instance
@@ -865,11 +871,8 @@ class Swarm:
 
     def set_walsh_patterns(self, offset=0, swap90=[True, False]):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Go through every member
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # And every input
             for inp in SWARM_MAPPING_INPUTS:
@@ -922,22 +925,16 @@ class Swarm:
 
     def set_sideband_states(self):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Go through every member
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # Write the states to the FPGA
             member.set_sideband_states(self.sideband_states)
 
     def fringe_stopping(self, enable):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Go through every member
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # En(dis)able fringe stoppiner per member
             member.fringe_stop(enable)
@@ -946,11 +943,8 @@ class Swarm:
 
         itime = None
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Find the member with the right visibs_ip
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # Set our first itime
             if fid == 0:
@@ -964,11 +958,8 @@ class Swarm:
 
     def get_member(self, visibs_ip):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Find the member with the right visibs_ip
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # Return if we found it
             if member.get_visibs_ip() == visibs_ip:
@@ -976,14 +967,11 @@ class Swarm:
 
     def members_do(self, func):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Create empty list for return values
         return_values = [None, ] * self.fids_expected
 
         # Run func on each valid member
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
             return_values[fid] = func(fid, member)
 
         # Return the results, if present
@@ -992,16 +980,13 @@ class Swarm:
 
     def set_noise(self, correlation=1.0):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Create a common seed
         correlated_bits = int(32 * clip(correlation, 0.0, 1.0))
         uncorrelated_bits = 32 - correlated_bits
         common_seed = randint(0, 2**correlated_bits - 1)
 
         # Set noise on all inputs
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # Make sure all non-correlated nibbles are different
             uncommon_seed_0 = int(('%x' % (2*fid+0)) * 8, 16)
@@ -1016,7 +1001,7 @@ class Swarm:
             member.set_noise(seed_0, seed_1)
 
         # Reset the digital noise
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
             member.reset_digital_noise()
 
     def get_delay(self, this_input):
@@ -1025,13 +1010,10 @@ class Swarm:
         if not isinstance(this_input, SwarmInput):
             raise ValueError("Function requires a SwarmInput object!")
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Loop through each valid member
         delays_found = []
         members_found = 0
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # And loop through each input
             for input_n, input_inst in enumerate(member._inputs):
@@ -1056,12 +1038,9 @@ class Swarm:
         if not isinstance(this_input, SwarmInput):
             raise ValueError("Function requires a SwarmInput object!")
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Loop through each valid member
         members_found = 0
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # And loop through each input
             for input_n, input_inst in enumerate(member._inputs):
@@ -1081,13 +1060,10 @@ class Swarm:
         if not isinstance(this_input, SwarmInput):
             raise ValueError("Function requires a SwarmInput object!")
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Loop through each valid member
         phases_found = []
         members_found = 0
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # And loop through each input
             for input_n, input_inst in enumerate(member._inputs):
@@ -1112,12 +1088,9 @@ class Swarm:
         if not isinstance(this_input, SwarmInput):
             raise ValueError("Function requires a SwarmInput object!")
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Loop through each valid member
         members_found = 0
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # And loop through each input
             for input_n, input_inst in enumerate(member._inputs):
@@ -1133,11 +1106,9 @@ class Swarm:
 
     def reset_xengines(self):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
 
         # Do a threaded reset_xeng
-        rstxeng_threads = list(Thread(target=m.reset_xeng) for m in valid_members)
+        rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
         for thread in rstxeng_threads:
             thread.start()
         self.logger.info('Resetting the X-engines')
@@ -1149,32 +1120,29 @@ class Swarm:
 
     def sync(self):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Do a threaded sync of SOWF
-        sowf_threads = list(Thread(target=m.sync_sowf) for m in valid_members)
+        sowf_threads = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
         for thread in sowf_threads:
             thread.start()
         self.logger.info('SOWF sync attempted')
         sleep(1)
 
         # Do a threaded sync of 1PPS
-        pps_threads = list(Thread(target=m.sync_1pps) for m in valid_members)
+        pps_threads = list(Thread(target=m.sync_1pps) for f, m in self.get_valid_members())
         for thread in pps_threads:
             thread.start()
         self.logger.info('1PPS sync attempted')
         sleep(1)
 
         # Do a threaded sync of MCNT
-        mcnt_threads = list(Thread(target=m.sync_mcnt) for m in valid_members)
+        mcnt_threads = list(Thread(target=m.sync_mcnt) for f, m in self.get_valid_members())
         for thread in mcnt_threads:
             thread.start()
         self.logger.info('MCNT sync attempted')
         sleep(1)
 
         # Do a threaded sync of BENG
-        beng_threads = list(Thread(target=m.sync_beng) for m in valid_members)
+        beng_threads = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
         for thread in beng_threads:
             thread.start()
         self.logger.info('BENG sync attempted')
@@ -1186,11 +1154,8 @@ class Swarm:
 
     def setup(self, itime, listener):
 
-        # Create list of valid members
-        valid_members = list(self[fid] for fid in range(self.fids_expected))
-
         # Go through hosts in our mapping
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
 
             # Log some transmit side (i.e. ROACH2) network information
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
@@ -1202,24 +1167,24 @@ class Swarm:
         self.sync()
 
         # Do the post-sync setup
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
             member.reset_digital_noise()
             member.set_source(3, 3)
             member.enable_network()
 
         # Wait for initial accumulations to finish
         self.logger.info('Waiting for initial accumulations to finish...')
-        while any(m.roach2.read_uint('xeng_xn_num') for m in valid_members):
+        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
             sleep(0.1)
 
         # Set the itime and wait for it to register
         self.logger.info('Setting integration time and resetting x-engines...')
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
             member.set_itime(itime)
         
         # Reset the xengines
         self.reset_xengines()
 
         # Setup the 10 GbE visibility
-        for fid, member in enumerate(valid_members):
+        for fid, member in self.get_valid_members():
             member._setup_visibs(listener)
