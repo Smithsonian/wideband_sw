@@ -16,9 +16,6 @@ from callbacks.log_stats import *
 from callbacks.sma_data import *
 
 
-DEFAULT_BITCODE = 'sma_corr_2015_May_01_1655.bof.gz'
-
-
 def main():
 
     # Setup some basic logging
@@ -34,8 +31,6 @@ def main():
                         help='Use file SWARM_MAPPING to determine the SWARM input to IF mapping (default="%s")' % SWARM_MAPPING)
     parser.add_argument('-i', '--interface', dest='interface', metavar='INTERFACE', type=str, default='eth2',
                         help='listen for UDP data on INTERFACE (default="eth2")')
-    parser.add_argument('-b', '--bitcode', dest='bitcode', metavar='BITCODE', type=str, default=DEFAULT_BITCODE,
-                        help='program ROACH2s with BITCODE (default="%s")' % DEFAULT_BITCODE)
     parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
                         help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
     parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
@@ -89,7 +84,7 @@ def main():
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup(args.bitcode, args.itime, swarm_catcher)
+        swarm.setup(args.itime, swarm_catcher)
 
     if args.visibs_test:
 

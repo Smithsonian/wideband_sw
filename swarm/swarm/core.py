@@ -158,9 +158,10 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, roach2_host):
+    def __init__(self, roach2_host, bitcode=None):
         super(SwarmMember, self).__init__(roach2_host)
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
+        self.bitcode = bitcode
 
     def __repr__(self):
         repr_str = 'SwarmMember(roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]' 
@@ -179,13 +180,13 @@ class SwarmMember(SwarmROACH):
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
-    def setup(self, fid, fids_expected, bitcode, itime_sec, listener, noise=randint(0, 15)):
+    def setup(self, fid, fids_expected, itime_sec, listener, noise=randint(0, 15)):
 
         # Reset logger for current setup
         self.logger = logging.getLogger('SwarmMember[%d]' % fid)
 
         # Program the board
-        self._program(bitcode)
+        self._program(self.bitcode)
 
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
@@ -734,6 +735,9 @@ class Swarm:
         # Open the mapping file
         with open(self.map_filename, 'r') as map_file:
 
+            # Initialize empty parameters
+            parameters = {}
+
             # Parse line by line
             for map_line in map_file:
 
@@ -743,10 +747,21 @@ class Swarm:
                 # Checks if this line is a comment
                 is_comment = entry[0].startswith(SWARM_MAPPING_COMMENT)
 
+                # Checks if our line is a parameter
+                is_parameter = entry[0].startswith(SWARM_MAPPING_PARAM)
+
                 if is_comment:
 
                     # Display map comment
                     self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
+
+                elif is_parameter:
+
+                    # Set the parameter
+                    parameters[entry[1]] = entry[2]
+
+                    # Display map parameter
+                    self.logger.debug('Mapping parameters updated: {0}'.format(parameters))
 
                 else:
 
@@ -764,7 +779,7 @@ class Swarm:
                     roach2_host = SWARM_ROACH2_IP % roach2_num
 
                     # Create and attach our member instance
-                    member_inst = SwarmMember(roach2_host)
+                    member_inst = SwarmMember(roach2_host, **parameters)
                     if not self.members.has_key(roach2_host):
                         self.members[roach2_host] = member_inst
 
@@ -1169,7 +1184,7 @@ class Swarm:
         for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
             thread.join()
 
-    def setup(self, bitcode, itime, listener):
+    def setup(self, itime, listener):
 
         # Create list of valid members
         valid_members = list(self[fid] for fid in range(self.fids_expected))
@@ -1181,7 +1196,7 @@ class Swarm:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
-            member.setup(fid, self.fids_expected, bitcode, 0.0, listener)
+            member.setup(fid, self.fids_expected, 0.0, listener)
 
         # Sync the SWARM
         self.sync()
