@@ -327,14 +327,18 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
-    def _setup_corner_turn(self, qid, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def _setup_corner_turn(self, qid, fid, fids_expected, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Reset the cores
         self._reset_corner_turn()
 
         # Store our FID 
-        self.fid = this_fid
+        self.fid = fid
         self.fids_expected = fids_expected
+
+        # Set up initial parameters
+        ipbase = 0xc0a88000 + (qid<<8)
+        macbase = 0x000f530cd500 + (qid<<8)
 
         # Set static parameters
         self.roach2.write_int(SWARM_NETWORK_FIDS_EXPECTED, self.fids_expected)
