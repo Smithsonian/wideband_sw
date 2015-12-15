@@ -667,10 +667,11 @@ class SwarmMember(SwarmROACH):
 
 class SwarmQuadrant:
 
-    def __init__(self, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
+    def __init__(self, qid, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
 
         # Set initial member variables
         self.logger = logging.getLogger('SwarmQuadrant(qid={0})'.format(qid))
+        self.qid = qid
 
         # Parse mapping for first time
         self.load_mapping(map_filename)

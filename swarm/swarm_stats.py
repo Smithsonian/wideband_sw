@@ -33,7 +33,7 @@ if args.save:
 if args.plot:
     from pylab import gca, bar, xlim, show, figure, title, text
 
-swarm = SwarmQuadrant()
+swarm = SwarmQuadrant(0)
 
 swarm.members_do(lambda fid, member: member.set_scope(3, 0, 6))
 if args.source == 'analog':
