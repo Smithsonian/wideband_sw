@@ -31,7 +31,7 @@ class SwarmInput:
     def __init__(self, antenna=None, chunk=None, polarization=None):
 
         # Set all initial members
-        self.logger = logging.getLogger('SwarmMember')
+        self.logger = logging.getLogger('SwarmInput')
         self._ant = antenna
         self._chk = chunk
         self._pol = polarization
