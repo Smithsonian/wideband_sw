@@ -180,7 +180,7 @@ class SwarmMember(SwarmROACH):
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
-    def setup(self, fid, fids_expected, itime_sec, listener, noise=randint(0, 15)):
+    def setup(self, qid, fid, fids_expected, itime_sec, listener, noise=randint(0, 15)):
 
         # Reset logger for current setup
         self.logger = logging.getLogger('SwarmMember[%d]' % fid)
@@ -214,7 +214,7 @@ class SwarmMember(SwarmROACH):
         self.reset_xeng()
 
         # Initial setup of the switched corner-turn
-        self._setup_corner_turn(fid, fids_expected)
+        self._setup_corner_turn(qid, fid, fids_expected)
 
         # Verify QDRs
         self.verify_qdr()
@@ -327,7 +327,7 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
-    def _setup_corner_turn(self, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def _setup_corner_turn(self, qid, this_fid, fids_expected, ipbase=0xc0a88000, macbase=0x000f530cd500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Reset the cores
         self._reset_corner_turn()
@@ -359,7 +359,7 @@ class SwarmMember(SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def setup_beam_former(self, qid, fid, dbe, ipbase=0xc0a80b00, macbase=0x000f530ce500, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
@@ -449,7 +449,7 @@ class SwarmMember(SwarmROACH):
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-    def _setup_visibs(self, listener, delay_test=False):
+    def _setup_visibs(self, qid, listener, delay_test=False):
 
         # Store (or override) our listener
         self._listener = listener
@@ -1160,7 +1160,7 @@ class SwarmQuadrant:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
-            member.setup(fid, self.fids_expected, 0.0, listener)
+            member.setup(self.qid, fid, self.fids_expected, 0.0, listener)
 
         # Sync the SWARM
         self.sync()
@@ -1186,4 +1186,4 @@ class SwarmQuadrant:
 
         # Setup the 10 GbE visibility
         for fid, member in self.get_valid_members():
-            member._setup_visibs(listener)
+            member._setup_visibs(self.qid, listener)
