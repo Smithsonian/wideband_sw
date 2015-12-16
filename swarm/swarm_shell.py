@@ -83,7 +83,7 @@ logging.getLogger('katcp').setLevel(logging.CRITICAL)
 logging.getLogger('').setLevel(logging.INFO)
 
 # Set up SWARM 
-swarm = SwarmQuadrant(0)
+swarm = SwarmQuadrant(0, map_filename=SWARM_MAPPING)
 
 # Start the IPython embedded shell
 ipshell = InteractiveShellEmbed(config=cfg)

@@ -675,7 +675,7 @@ class SwarmMember(SwarmROACH):
 
 class SwarmQuadrant:
 
-    def __init__(self, qid, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
+    def __init__(self, qid, map_filename, walsh_filename=SWARM_WALSH_PATTERNS):
 
         # Set initial member variables
         self.logger = logging.getLogger('SwarmQuadrant(qid={0})'.format(qid))
@@ -1195,3 +1195,57 @@ class SwarmQuadrant:
         # Setup the 10 GbE visibility
         for fid, member in self.get_valid_members():
             member._setup_visibs(self.qid, listener)
+
+
+class Swarm:
+
+    def __init__(self, map_filenames=SWARM_MAPPINGS):
+
+        # Set initial member variables
+        self.logger = logging.getLogger('Swarm')
+
+        # For every mapping file, instantiate one SwarmQuadrant
+        self.quads = list(SwarmQuadrant(q, m) for q, m in enumerate(map_filenames))
+
+    def __len__(self):
+        return len(self.quads)
+
+    def __getitem__(self, qid):
+        return self.quads[qid]
+
+    def __repr__(self):
+        return 'Swarm(quads=[{quads}])'.format(quads=self.quads)
+
+    def get_valid_members(self):
+
+        # Return a list of valid fids and members
+        for quad in self.quads:
+            for tup in quad.get_valid_members():
+                yield tup
+
+    def quadrants_do(self, func):
+
+        # Create empty list for return values
+        return_values = []
+
+        # Run func on every quadrant
+        for qid, quad in enumerate(self.quads):
+            return_values.append(func(qid, quad))
+
+        # Return the results, if present
+        if any(rv is not None for rv in return_values):
+            return return_values
+
+    def __getattr__(self, attr):
+
+        # See if the non-Swarm attribute is a SwarmQuadrant method
+        if callable(getattr(SwarmQuadrant, attr, None)):
+
+            # If so, return a callable that passes the users args and kwargs
+            # to the appropriate method on all members
+            self.logger.info("The {0} is not a Swarm method but it is a SwarmQuadrant method; "
+                             "calling on all quadrants!".format(attr))
+            return lambda *args, **kwargs: self.quadrants_do(lambda qid, quad: getattr(quad, attr)(*args, **kwargs))
+
+        else: # Remember to raise an error if nothing is found
+            raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
