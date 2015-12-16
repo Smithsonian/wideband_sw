@@ -976,11 +976,11 @@ class SwarmQuadrant:
     def members_do(self, func):
 
         # Create empty list for return values
-        return_values = [None, ] * self.fids_expected
+        return_values = []
 
         # Run func on each valid member
         for fid, member in self.get_valid_members():
-            return_values[fid] = func(fid, member)
+            return_values.append(func(fid, member))
 
         # Return the results, if present
         if any(rv is not None for rv in return_values):
