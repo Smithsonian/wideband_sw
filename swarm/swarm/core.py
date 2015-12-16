@@ -467,7 +467,7 @@ class SwarmMember(SwarmROACH):
         self.reset_ddr3()
 
         # Enable DDR3 interleaver
-        self.visibs_delay(enable=True)
+        self.visibs_delay(enable=True, delay_test=delay_test)
 
         # Fill the visibs ARP table
         arp = [0xffffffffffff] * 256
