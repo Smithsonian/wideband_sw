@@ -1111,21 +1111,7 @@ class SwarmQuadrant:
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
 
-    def reset_xengines(self):
-
-
-        # Do a threaded reset_xeng
-        rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
-        for thread in rstxeng_threads:
-            thread.start()
-        self.logger.info('Resetting the X-engines')
-        sleep(1)
-
-        # Finally join all threads
-        for thread in rstxeng_threads:
-            thread.join()
-
-    def setup(self, itime, listener):
+    def setup(self, listener):
 
         # Go through hosts in our mapping
         for fid, member in self.get_valid_members():
@@ -1134,30 +1120,6 @@ class SwarmQuadrant:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
-            member.setup(self.qid, fid, self.fids_expected, 0.0, listener)
-
-        # Do the post-sync setup
-        for fid, member in self.get_valid_members():
-            member.reset_digital_noise()
-            member.set_source(3, 3)
-            member.enable_network()
-
-        # Wait for initial accumulations to finish
-        self.logger.info('Waiting for initial accumulations to finish...')
-        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
-            sleep(0.1)
-
-        # Set the itime and wait for it to register
-        self.logger.info('Setting integration time and resetting x-engines...')
-        for fid, member in self.get_valid_members():
-            member.set_itime(itime)
-        
-        # Reset the xengines
-        self.reset_xengines()
-
-        # Setup the 10 GbE visibility
-        for fid, member in self.get_valid_members():
-            member._setup_visibs(self.qid, listener)
 
 
 class Swarm:
@@ -1217,10 +1179,29 @@ class Swarm:
 
         # Setup each quadrant
         for qid, quad in enumerate(self.quads):
-            quad.setup(itime, listener)
+            quad.setup(listener)
 
         # Sync the SWARM
         self.sync()
+
+        # Do the post-sync setup
+        for fid, member in self.get_valid_members():
+            member.reset_digital_noise()
+            member.set_source(3, 3)
+            member.enable_network()
+
+        # Wait for initial accumulations to finish
+        self.logger.info('Waiting for initial accumulations to finish...')
+        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
+            sleep(0.1)
+
+        # Set the itime and wait for it to register
+        self.logger.info('Setting integration time and resetting x-engines...')
+        for fid, member in self.get_valid_members():
+            member.set_itime(itime)
+
+        # Reset the xengines
+        self.reset_xengines()
 
     def sync(self):
 
@@ -1254,4 +1235,17 @@ class Swarm:
 
         # Finally join all threads
         for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
+            thread.join()
+
+    def reset_xengines(self):
+
+        # Do a threaded reset_xeng
+        rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
+        for thread in rstxeng_threads:
+            thread.start()
+        self.logger.info('Resetting the X-engines')
+        sleep(1)
+
+        # Finally join all threads
+        for thread in rstxeng_threads:
             thread.join()

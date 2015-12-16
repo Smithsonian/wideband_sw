@@ -85,7 +85,7 @@ def main():
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup(args.itime, swarm_catcher)
+        swarm.setup(swarm_catcher)
 
     if args.visibs_test:
 
