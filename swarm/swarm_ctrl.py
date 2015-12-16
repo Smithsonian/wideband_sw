@@ -1,9 +1,10 @@
 #!/usr/bin/env python2.7
 
 import logging, argparse
+from threading import Thread
 
 from swarm import (
-    SWARM_MAPPING,
+    SWARM_MAPPINGS,
     SwarmDataCatcher,
     SwarmDataHandler,
     SwarmQuadrant,
@@ -28,8 +29,8 @@ def main():
     # Parse the user's command line arguments
     parser = argparse.ArgumentParser(description='Catch and process visibility data from a set of SWARM ROACH2s')
     parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
-    parser.add_argument('-m', '--swarm-mapping', dest='swarm_mapping', metavar='SWARM_MAPPING', type=str, default=SWARM_MAPPING,
-                        help='Use file SWARM_MAPPING to determine the SWARM input to IF mapping (default="%s")' % SWARM_MAPPING)
+    parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+                        help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
     parser.add_argument('-i', '--interface', dest='interface', metavar='INTERFACE', type=str, default='eth2',
                         help='listen for UDP data on INTERFACE (default="eth2")')
     parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
@@ -77,25 +78,25 @@ def main():
     reference = SwarmInput(**dict(reference_args))
 
     # Create our SWARM instance
-    swarm = SwarmQuadrant(0, map_filename=args.swarm_mapping)
-
-    # Setup the data catcher class
-    swarm_catcher = SwarmDataCatcher(swarm, args.interface)
+    swarm = Swarm(map_filenames=args.swarm_mappings)
 
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup()
+        swarm.setup(args.itime, args.interface, delay_test=args.visibs_test)
 
-    if args.visibs_test:
+    # Launch a seperate catcher for each quadrant
+    threads = []
+    for quad in swarm.quads:
+        t = Thread(target=catch_data, args=(quad, args))
+        threads.append(t)
+        t.start()
 
-        # Enable the visibs test
-        swarm.members_do(lambda fid, member: member.visibs_delay(delay_test=True))
 
-    else:
+def catch_data(swarm, args):
 
-        # Disable the visibs test
-        swarm.members_do(lambda fid, member: member.visibs_delay(delay_test=False))
+    # Setup the data catcher class
+    swarm_catcher = SwarmDataCatcher(swarm, args.interface, port=4100+swarm.qid)
 
     if not args.setup_only:
 

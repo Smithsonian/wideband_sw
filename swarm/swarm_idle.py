@@ -14,6 +14,6 @@ def idlize(fid, member):
     member.roach2.progdev('sma_idle.bof')
     logger.info("Idling {} = FID #{}".format(member.roach2_host, fid))
 
-s = SwarmQuadrant(0, map_filename=SWARM_MAPPING)
-s.unload_plugins()
+s = Swarm(map_filenames=['swarmMapping.quad1', 'swarmMapping.quad2'])
+s.quadrants_do(lambda qid, quad: quad.unload_plugins())
 s.members_do(idlize)

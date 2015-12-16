@@ -1,6 +1,5 @@
 SWARM_ROACH2_IP = 'roach2-%02x'
 
-SWARM_MAPPING = '/global/configFiles/swarmMapping'
 SWARM_MAPPINGS = ['/global/configFiles/swarmMapping.quad1', '/global/configFiles/swarmMapping.quad2']
 SWARM_MAPPING_COMMENT = '#'
 SWARM_MAPPING_PARAM = '!'
