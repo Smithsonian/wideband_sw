@@ -1249,3 +1249,9 @@ class Swarm:
 
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
+
+    def setup(self, itime, listener, delay_test=False):
+
+        # Setup each quadrant
+        for qid, quad in enumerate(self.quads):
+            quad.setup(itime, listener)
