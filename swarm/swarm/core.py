@@ -24,6 +24,7 @@ import pydsm
 
 from defines import *
 from xeng import SwarmXengine
+from data import SwarmListener
 
 
 class SwarmInput:
@@ -180,7 +181,7 @@ class SwarmMember(SwarmROACH):
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
-    def setup(self, qid, fid, fids_expected, itime_sec, listener, noise=randint(0, 15)):
+    def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15)):
 
         # Reset logger for current setup
         self.logger = logging.getLogger('SwarmMember[%d]' % fid)
@@ -457,7 +458,7 @@ class SwarmMember(SwarmROACH):
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-    def _setup_visibs(self, qid, listener, delay_test=False):
+    def setup_visibs(self, qid, listener, delay_test=False):
 
         # Store (or override) our listener
         self._listener = listener
@@ -1111,7 +1112,7 @@ class SwarmQuadrant:
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
 
-    def setup(self, listener):
+    def setup(self):
 
         # Go through hosts in our mapping
         for fid, member in self.get_valid_members():
@@ -1120,6 +1121,7 @@ class SwarmQuadrant:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
+            member.setup(self.qid, fid, self.fids_expected, 0.0)
 
 
 class Swarm:
@@ -1175,11 +1177,11 @@ class Swarm:
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
 
-    def setup(self, itime, listener, delay_test=False):
+    def setup(self, itime, interface, delay_test=False):
 
         # Setup each quadrant
         for qid, quad in enumerate(self.quads):
-            quad.setup(listener)
+            quad.setup()
 
         # Sync the SWARM
         self.sync()
@@ -1202,6 +1204,12 @@ class Swarm:
 
         # Reset the xengines
         self.reset_xengines()
+
+        # Setup the visibility outputs
+        for qid, quad in enumerate(self.quads):
+            listener = SwarmListener(interface, port=4100+qid)
+            for fid, member in quad.get_valid_members():
+                member.setup_visibs(qid, listener, delay_test=delay_test)
 
     def sync(self):
 
