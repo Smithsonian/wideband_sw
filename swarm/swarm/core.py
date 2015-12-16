@@ -1125,40 +1125,6 @@ class SwarmQuadrant:
         for thread in rstxeng_threads:
             thread.join()
 
-    def sync(self):
-
-        # Do a threaded sync of SOWF
-        sowf_threads = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
-        for thread in sowf_threads:
-            thread.start()
-        self.logger.info('SOWF sync attempted')
-        sleep(1)
-
-        # Do a threaded sync of 1PPS
-        pps_threads = list(Thread(target=m.sync_1pps) for f, m in self.get_valid_members())
-        for thread in pps_threads:
-            thread.start()
-        self.logger.info('1PPS sync attempted')
-        sleep(1)
-
-        # Do a threaded sync of MCNT
-        mcnt_threads = list(Thread(target=m.sync_mcnt) for f, m in self.get_valid_members())
-        for thread in mcnt_threads:
-            thread.start()
-        self.logger.info('MCNT sync attempted')
-        sleep(1)
-
-        # Do a threaded sync of BENG
-        beng_threads = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
-        for thread in beng_threads:
-            thread.start()
-        self.logger.info('BENG sync attempted')
-        sleep(1)
-
-        # Finally join all threads
-        for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
-            thread.join()
-
     def setup(self, itime, listener):
 
         # Go through hosts in our mapping
@@ -1169,9 +1135,6 @@ class SwarmQuadrant:
 
             # Setup (i.e. program and configure) the ROACH2
             member.setup(self.qid, fid, self.fids_expected, 0.0, listener)
-
-        # Sync the SWARM
-        self.sync()
 
         # Do the post-sync setup
         for fid, member in self.get_valid_members():
@@ -1255,3 +1218,40 @@ class Swarm:
         # Setup each quadrant
         for qid, quad in enumerate(self.quads):
             quad.setup(itime, listener)
+
+        # Sync the SWARM
+        self.sync()
+
+    def sync(self):
+
+        # Do a threaded sync of SOWF
+        sowf_threads = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
+        for thread in sowf_threads:
+            thread.start()
+        self.logger.info('SOWF sync attempted')
+        sleep(1)
+
+        # Do a threaded sync of 1PPS
+        pps_threads = list(Thread(target=m.sync_1pps) for f, m in self.get_valid_members())
+        for thread in pps_threads:
+            thread.start()
+        self.logger.info('1PPS sync attempted')
+        sleep(1)
+
+        # Do a threaded sync of MCNT
+        mcnt_threads = list(Thread(target=m.sync_mcnt) for f, m in self.get_valid_members())
+        for thread in mcnt_threads:
+            thread.start()
+        self.logger.info('MCNT sync attempted')
+        sleep(1)
+
+        # Do a threaded sync of BENG
+        beng_threads = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
+        for thread in beng_threads:
+            thread.start()
+        self.logger.info('BENG sync attempted')
+        sleep(1)
+
+        # Finally join all threads
+        for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
+            thread.join()
