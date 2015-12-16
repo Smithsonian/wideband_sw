@@ -665,8 +665,6 @@ class SwarmMember(SwarmROACH):
             self.logger.exception("DSM read failed")
 
 
-EMPTY_MEMBER = SwarmMember(None)
-
 class SwarmQuadrant:
 
     def __init__(self, map_filename=SWARM_MAPPING, walsh_filename=SWARM_WALSH_PATTERNS):
