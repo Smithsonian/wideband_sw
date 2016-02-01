@@ -159,18 +159,19 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, roach2_host, bitcode=None):
+    def __init__(self, fid, roach2_host, bitcode=None):
         super(SwarmMember, self).__init__(roach2_host)
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
         self.bitcode = bitcode
+        self.fid = fid
 
     def __repr__(self):
-        repr_str = 'SwarmMember(roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]' 
-        return repr_str.format(host=self.roach2_host, inputs=self._inputs)
+        repr_str = 'SwarmMember(fid={fid}, roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]'
+        return repr_str.format(fid=self.fid, host=self.roach2_host, inputs=self._inputs)
 
     def __str__(self):
-        repr_str = '{host} [{inputs[0]!s}] [{inputs[1]!s}]' 
-        return repr_str.format(host=self.roach2_host, inputs=self._inputs)
+        repr_str = '[fid={fid}] {host} [{inputs[0]!s}] [{inputs[1]!s}]'
+        return repr_str.format(fid=self.fid, host=self.roach2_host, inputs=self._inputs)
 
     def __getitem__(self, input_n):
         return self._inputs[input_n]
@@ -743,6 +744,9 @@ class SwarmQuadrant:
         # Open the mapping file
         with open(self.map_filename, 'r') as map_file:
 
+            # Initialize FID
+            fid = 0
+
             # Initialize empty parameters
             parameters = {}
 
@@ -787,9 +791,10 @@ class SwarmQuadrant:
                     roach2_host = SWARM_ROACH2_IP % roach2_num
 
                     # Create and attach our member instance
-                    member_inst = SwarmMember(roach2_host, **parameters)
+                    member_inst = SwarmMember(fid, roach2_host, **parameters)
                     if not self.members.has_key(roach2_host):
                         self.members[roach2_host] = member_inst
+                        fid += 1
 
                     # Second column is input number
                     roach2_inp = int(entry[1])
@@ -821,12 +826,12 @@ class SwarmQuadrant:
                                       input_inst, roach2_host, roach2_inp)
 
         # Set number FIDs expected
-        self.fids_expected = len(self.members)
+        self.fids_expected = fid
 
         # Fill missing FIDs with empty members
         missing_fids = set(SWARM_ALL_FID) - set(range(self.fids_expected))
-        for fid in missing_fids:
-            self.members[fid] = SwarmMember(None)
+        for missing_fid in range(fid, SWARM_N_FIDS):
+            self.members[missing_fid] = SwarmMember(missing_fid, None)
 
     def get_valid_members(self):
 
