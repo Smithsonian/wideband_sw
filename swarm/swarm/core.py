@@ -971,7 +971,7 @@ class SwarmQuadrant:
 
         itime = None
 
-        # Find the member with the right visibs_ip
+        # Go through all members, compare itimes
         for fid, member in self.get_valid_members():
 
             # Set our first itime
@@ -979,7 +979,9 @@ class SwarmQuadrant:
                 itime = member.get_itime()
             else:
                 if member.get_itime() != itime:
-                    self.logger.error('FID #%d has mismatching integration time!' % fid)
+                    err_msg = 'FID #%d has mismatching integration time!' % fid
+                    self.logger.error(err_msg)
+                    raise ValueError(err_msg)
 
         # Finally return the itime
         return itime
