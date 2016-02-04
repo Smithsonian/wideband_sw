@@ -38,7 +38,7 @@ class SwarmInput:
         self._pol = polarization
 
     def __repr__(self):
-        repr_str = 'SwarmInput(antenna={ant}, chunk={chk}, polarization={pol})' 
+        repr_str = 'SwarmInput(antenna={ant}, chunk={chk}, polarization={pol})'
         return repr_str.format(ant=self._ant, chk=self._chk, pol=self._pol)
 
     def __str__(self):
@@ -717,7 +717,7 @@ class SwarmQuadrant:
         return 'SwarmQuadrant(qid={qid}, members=[{members}])'.format(qid=self.qid, members=self.members)
 
     def __str__(self):
-        return os.linesep.join(str(v) for k,v in self.members.iteritems() if v != None)
+        return os.linesep.join('[qid={0}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
 
     def __getattr__(self, attr):
 
@@ -1164,6 +1164,9 @@ class Swarm:
 
     def __repr__(self):
         return 'Swarm(quads=[{quads}])'.format(quads=self.quads)
+
+    def __str__(self):
+        return os.linesep.join(str(quad) for quad in self.quads)
 
     def get_valid_members(self):
 
