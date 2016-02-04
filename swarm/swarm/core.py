@@ -1197,7 +1197,7 @@ class Swarm:
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
 
-    def setup(self, itime, interface, delay_test=False):
+    def setup(self, itime, interfaces, delay_test=False):
 
         # Setup each quadrant
         for qid, quad in enumerate(self.quads):
@@ -1225,9 +1225,17 @@ class Swarm:
         # Reset the xengines
         self.reset_xengines()
 
-        # Setup the visibility outputs
+        # Setup the visibility outputs per quad
+        listener = SwarmListener('lo') # default to loopback
         for qid, quad in enumerate(self.quads):
-            listener = SwarmListener(interface, port=4100+qid)
+
+            # Pop an interface (should be at least one)
+            try:
+                listener = SwarmListener(interfaces.pop())
+            except IndexError:
+                self.logger.debug('Reached end of interface list; using last given')
+
+            # We've got a listener, setup this quadrant
             for fid, member in quad.get_valid_members():
                 member.setup_visibs(qid, listener, delay_test=delay_test)
 

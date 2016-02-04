@@ -4,6 +4,7 @@ import logging, argparse
 from threading import Thread
 
 from swarm import (
+    SWARM_LISTENER_INTERFACES,
     SWARM_MAPPINGS,
     SwarmDataCatcher,
     SwarmDataHandler,
@@ -31,8 +32,8 @@ def main():
     parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
     parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
                         help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
-    parser.add_argument('-i', '--interface', dest='interface', metavar='INTERFACE', type=str, default='eth2',
-                        help='listen for UDP data on INTERFACE (default="eth2")')
+    parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES', nargs='+', default=SWARM_LISTENER_INTERFACES,
+                        help='listen for UDP data on INTERFACES (default="{0}")'.format(SWARM_LISTENER_INTERFACES))
     parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
                         help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
     parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
@@ -83,7 +84,7 @@ def main():
     if not args.listen_only:
 
         # Setup using the Swarm class and our parameters
-        swarm.setup(args.itime, args.interface, delay_test=args.visibs_test)
+        swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test)
 
     # Launch a seperate catcher for each quadrant
     threads = []
