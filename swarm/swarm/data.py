@@ -23,6 +23,8 @@ from xeng import (
 
 SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
+SIOCGIFNETMASK = 0x891b
+
 
 INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 2, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 2)
@@ -109,6 +111,8 @@ class SwarmListener(object):
         s = socket(AF_INET, SOCK_DGRAM)
         info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface))
         info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface))
+        info_mask = fcntl.ioctl(s.fileno(), SIOCGIFNETMASK, pack('256s', self.interface))
+        self.netmask = unpack(SWARM_REG_FMT, info_mask[20:24])[0]
         self.mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
         self.ip = unpack(SWARM_REG_FMT, info_adr[20:24])[0]
         self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
