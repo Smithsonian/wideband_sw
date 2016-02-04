@@ -1285,3 +1285,22 @@ class Swarm:
         # Finally join all threads
         for thread in rstxeng_threads:
             thread.join()
+
+    def get_itime(self):
+
+        itime = None
+
+        # Go through all quadrants compare itimes
+        for quad in self.quads:
+
+            # Set our first itime
+            if quad.qid == 0:
+                itime = quad.get_itime()
+            else:
+                if quad.get_itime() != itime:
+                    err_msg = 'QID #%d has mismatching integration time!' % quad.qid
+                    self.logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+        # Finally return the itime
+        return itime
