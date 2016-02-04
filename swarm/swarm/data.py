@@ -40,7 +40,7 @@ class SwarmDataPackage:
         self.swarm = swarm
         self.int_time = time
         self.int_length = length
-        self.inputs = list(self.swarm[i][j] for i in range(self.swarm.fids_expected) for j in SWARM_MAPPING_INPUTS)
+        self.inputs = list(quad[i][j] for quad in self.swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
         self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
@@ -136,9 +136,9 @@ class SwarmDataCatcher:
 
     def __init__(self, swarm, host='0.0.0.0', port=4100):
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.xengines = list(SwarmXengine(quad) for quad in swarm)
         self.swarm = swarm
         self.rawbacks = []
-        self.xengine = SwarmXengine(swarm)
         self.host = host
         self.port = port
 
@@ -234,35 +234,42 @@ class SwarmDataCatcher:
             # Parse the IP address
             ip = unpack('BBBB', inet_aton(addr[0]))
 
+            # Determing the QID
+            qid = (ip[3]>>4) & 0x7
+
             # Determine the FID
             fid = ip[3] & 0x7
 
 	    # Unpack it to get packet # and accum #
             pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-            self.logger.debug("Received packet #%d for accumulation #%d from %s(FID=%d)" %(pkt_n, acc_n, addr, fid))
+            self.logger.debug("Received packet #%d for accumulation #%d from %s(QID=%d, FID=%d)" %(pkt_n, acc_n, addr, qid, fid))
 
             # Check if packet is wrong size
             if len(datar) <> SWARM_VISIBS_PKT_SIZE:
                 self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
 		continue
 
+	    # Initialize qid data buffer, if necessary
+            if not data.has_key(qid):
+                data[qid] = {}
+
 	    # Initialize fid data buffer, if necessary
-            if not data.has_key(fid):
-                data[fid] = {}
+            if not data[qid].has_key(fid):
+                data[qid][fid] = {}
 
 	    # Initialize acc_n data buffer, if necessary
-            if not data[fid].has_key(acc_n):
-                data[fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
+            if not data[qid][fid].has_key(acc_n):
+                data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
 
             # Then store data in it
-            data[fid][acc_n][pkt_n] = datar[8:]
+            data[qid][fid][acc_n][pkt_n] = datar[8:]
 
             # If we've gotten all pkts for this acc_n from this FID
-            if not has_none(data[fid][acc_n]):
+            if not has_none(data[qid][fid][acc_n]):
 
                 # Put data onto the queue
-                datas = ''.join(data[fid].pop(acc_n))
-                out_queue.put((fid, acc_n, datas))
+                datas = ''.join(data[qid][fid].pop(acc_n))
+                out_queue.put((qid, fid, acc_n, datas))
 
         udp_sock.close()
 
@@ -272,24 +279,26 @@ class SwarmDataCatcher:
 
     def _reorder_data(self, datas_list, int_time, int_length):
 
-        # Get the xengine packet ordering
-        order = list(self.xengine.packet_order())
-
         # Create data package to hold baseline data
         data_pkg = SwarmDataPackage(self.swarm, time=int_time, length=int_length)
 
-        # Unpack and reorder each FID's data
-        for fid, datas in enumerate(datas_list):
+        for qid, quad in enumerate(self.swarm.quads):
 
-            # Unpack this FID's data
-            data = array(unpack('>%di' % SWARM_VISIBS_ACC_SIZE, datas))
+            # Get the xengine packet ordering
+            order = list(self.xengines[qid].packet_order())
 
-            # Reorder by Xengine word (per channel)
-            for offset, word in enumerate(order):
+            # Unpack and reorder each FID's data
+            for fid, datas in enumerate(datas_list[qid]):
 
-                if word.baseline.is_valid():
-                    sub_data = data[offset::len(order)]
-                    data_pkg.set_data(word, fid, sub_data)
+                # Unpack this FID's data
+                data = array(unpack('>%di' % SWARM_VISIBS_ACC_SIZE, datas))
+
+                # Reorder by Xengine word (per channel)
+                for offset, word in enumerate(order):
+
+                    if word.baseline.is_valid():
+                        sub_data = data[offset::len(order)]
+                        data_pkg.set_data(word, fid, sub_data)
 
         # Return the (hopefully) complete data packages
         return data_pkg
@@ -297,34 +306,39 @@ class SwarmDataCatcher:
     def order(self, stop, new_acc, in_queue, out_queue):
 
         data = {}
-        last_acc = list(None for x in range(self.swarm.fids_expected))
+        last_acc = []
+        for quad in self.swarm.quads:
+            last_acc.append(list(None for fid in range(quad.fids_expected)))
+
         while not stop.is_set():
 
             # Receive a set of data
             try:
-                fid, acc_n, datas = in_queue.get_nowait()
+                qid, fid, acc_n, datas = in_queue.get_nowait()
             except Empty:
                 sleep(0.01)
                 continue
 
             # Initialize acc_n data buffer, if necessary
             if not data.has_key(acc_n):
-                data[acc_n] = list(None for fid in range(self.swarm.fids_expected))
+                data[acc_n] = []
+                for quad in self.swarm.quads:
+                    data[acc_n].append(list(None for fid in range(quad.fids_expected)))
 
             # Populate this data
-            data[acc_n][fid] = datas
+            data[acc_n][qid][fid] = datas
 
             # Get the member/fid this set is from
-            member = self.swarm[fid]
+            member = self.swarm[qid][fid]
 
             # Log the fact
-            suffix = "({:.4f} secs since last)".format(time() - last_acc[fid]) if last_acc[fid] else ""
-            self.logger.info("Received full accumulation #{:<4} from fid #{}: {} {}".format(acc_n, fid, member, suffix))
+            suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
+            self.logger.info("Received full accumulation #{:<4} from qid #{}, fid #{}: {} {}".format(acc_n, qid, fid, member, suffix))
 
             # Set the last acc time
-            last_acc[fid] = time()
+            last_acc[qid][fid] = time()
 
-	    # If we've gotten all pkts for this acc_n from all FIDs
+	    # If we've gotten all pkts for this acc_n from all QIDs & FIDs
             if not has_none(data[acc_n]):
 
                 # Flag this accumulation as done

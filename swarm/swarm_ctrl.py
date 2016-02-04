@@ -1,7 +1,6 @@
 #!/usr/bin/env python2.7
 
 import logging, argparse
-from threading import Thread
 
 from swarm import (
     SWARM_LISTENER_INTERFACES,
@@ -86,18 +85,8 @@ def main():
         # Setup using the Swarm class and our parameters
         swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test)
 
-    # Launch a seperate catcher for each quadrant
-    threads = []
-    for quad in swarm.quads:
-        t = Thread(target=catch_data, args=(quad, args))
-        threads.append(t)
-        t.start()
-
-
-def catch_data(swarm, args):
-
     # Setup the data catcher class
-    swarm_catcher = SwarmDataCatcher(swarm, port=4100+swarm.qid)
+    swarm_catcher = SwarmDataCatcher(swarm)
 
     if not args.setup_only:
 

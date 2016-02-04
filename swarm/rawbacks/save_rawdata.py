@@ -9,7 +9,8 @@ class SaveRawData(SwarmDataCallback):
 
     def __call__(self, rawdata):
         """ Callback for saving raw data """
-        for fid, datas in enumerate(rawdata):
-            filename = 'fid%d.dat' % fid
-            self.save_bin(filename, datas)
-            self.logger.info('Data for FID #%d saved to %r' % (fid, filename))
+        for quad in self.swarm.quads:
+            for fid, datas in enumerate(rawdata):
+                filename = 'qid%d.fid%d.dat' % (quad.qid, fid)
+                self.save_bin(filename, datas)
+                self.logger.info('Data for QID #%d, FID #%d saved to %r' % (quad.qid, fid, filename))
