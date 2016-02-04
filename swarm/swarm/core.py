@@ -461,8 +461,26 @@ class SwarmMember(SwarmROACH):
 
     def setup_visibs(self, qid, listener, delay_test=False):
 
-        # Store (or override) our listener
-        self._listener = listener
+        # From the SWARM network specifications
+        # MAC = 02:53:57:41:[0x4D + (NID=1)<<4]:[QID<<4 + 0x8 + FID]
+        # IP = 53:4D:[0x41 + (NID=1)<<4]:[QID<<4 + 0x8 + FID]
+        # PORT = 18008 + [(NID=1)<<4 + QID]
+
+        # Set up initial parameters
+        nid = 1 # simply stands for visibility type data
+        mac = 0x025357410000 + ((0x4D + (nid<<4))<<8) + ((qid<<4) + 0x8 + self.fid)
+        ip = 0x534D0000 + ((0x41 + (nid<<4))<<8) + ((qid<<4) + 0x8 + self.fid)
+        port = 18008 + (nid<<4) + qid
+
+        # Log the transmit side net info
+        tip_str = inet_ntoa(pack(SWARM_REG_FMT, ip))
+        self.logger.info("Transmit interface set to {0}:{1}".format(tip_str, port))
+
+        # Make sure listener subnet matches
+        if not (ip & 0xFFFFFF00) == (listener.ip & listener.netmask):
+            vip_str = inet_ntoa(pack(SWARM_REG_FMT, ip))
+            lip_str = inet_ntoa(pack(SWARM_REG_FMT, listener.ip))
+            raise RuntimeError("Listener IP ({0}) not in same subnet as visibility IP ({1})".format(lip_str, vip_str))
 
         # Reset the DDR3
         self.reset_ddr3()
@@ -471,18 +489,15 @@ class SwarmMember(SwarmROACH):
         self.visibs_delay(enable=True, delay_test=delay_test)
 
         # Fill the visibs ARP table
-        arp = [0xffffffffffff] * 256
-        arp[self._listener.ip & 0xff] = self._listener.mac
+        arp = [SWARM_BLACK_HOLE_MAC] * 256
+        arp[listener.ip & 0xff] = listener.mac
 
         # Configure the transmit interface
-        final_hex = (self.fid + 4) * 2
-        src_ip = (192<<24) + (168<<16) + ((10 + qid)<<8) + final_hex + 50
-        src_mac = (2<<40) + (2<<32) + final_hex + src_ip
-        self.roach2.config_10gbe_core(SWARM_VISIBS_CORE, src_mac, src_ip, 4000, arp)
+        self.roach2.config_10gbe_core(SWARM_VISIBS_CORE, mac, ip, port, arp)
 
         # Configure the visibility packet buffer
-        self.roach2.write(SWARM_VISIBS_SENDTO_IP, pack(SWARM_REG_FMT, self._listener.ip))
-        self.roach2.write(SWARM_VISIBS_SENDTO_PORT, pack(SWARM_REG_FMT, self._listener.port))
+        self.roach2.write(SWARM_VISIBS_SENDTO_IP, pack(SWARM_REG_FMT, listener.ip))
+        self.roach2.write(SWARM_VISIBS_SENDTO_PORT, pack(SWARM_REG_FMT, listener.port))
 
         # Reset (and disable) visibility transmission
         self.roach2.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 1<<30))
