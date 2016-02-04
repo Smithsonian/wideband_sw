@@ -418,7 +418,7 @@ class SwarmMember(SwarmROACH):
         for i in SWARM_ALL_FID:
             self.roach2.write(SWARM_XENG_TVG % i, pack('>%dH' % SWARM_VISIBS_CHANNELS, *const_inputs))
 
-    def visibs_delay(self, enable=True, delay_test=False, chunk_delay=2**23):
+    def visibs_delay(self, enable=True, delay_test=False, chunk_delay=2**21):
 
         # Disable/enable Laura's DDR3 delay and test
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + chunk_delay)
@@ -459,7 +459,7 @@ class SwarmMember(SwarmROACH):
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-    def setup_visibs(self, qid, listener, delay_test=False):
+    def setup_visibs(self, qid, listener, delay_test=False, chunk_delay=2**21):
 
         # From the SWARM network specifications
         # MAC = 02:53:57:41:[0x4D + (NID=1)<<4]:[QID<<4 + 0x8 + FID]
@@ -486,7 +486,7 @@ class SwarmMember(SwarmROACH):
         self.reset_ddr3()
 
         # Enable DDR3 interleaver
-        self.visibs_delay(enable=True, delay_test=delay_test)
+        self.visibs_delay(enable=True, delay_test=delay_test, chunk_delay=chunk_delay)
 
         # Fill the visibs ARP table
         arp = [SWARM_BLACK_HOLE_MAC] * 256
