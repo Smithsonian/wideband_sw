@@ -127,14 +127,14 @@ class SwarmROACH(object):
         for plugin in reversed(self.plugin_list()):
             self.send_katcp_cmd('plugin-unload', plugin)
 
-    def reload_plugins(self, plugins_filename):
+    def reload_plugins(self, plugins_config=SWARM_PLUGINS_CONFIG):
 
         # Unload all currently loaded plugins
         self.unload_plugins()
 
         # Read the default plugins file
         cfg = ConfigParser({'init': ''})
-        cfg.read(plugins_filename)
+        cfg.read(plugins_config)
 
         # Get the names of all default plugins
         default_plugins = cfg.sections()

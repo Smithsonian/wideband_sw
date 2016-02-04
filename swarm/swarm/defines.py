@@ -8,6 +8,8 @@ SWARM_MAPPING_INPUTS = (0, 1)
 SWARM_MAPPING_CHUNKS = (0, 1, 2, 3)
 SWARM_MAPPING_POLS = (0, 1)
 
+SWARM_PLUGINS_CONFIG = '/global/configFiles/swarmPlugins'
+
 SWARM_LISTENER_INTERFACES = ['eth2', 'eth3']
 
 SWARM_WALSH_PATTERNS = '/global/configFiles/swarmWalshPatterns'
