@@ -97,7 +97,7 @@ def main():
 def catch_data(swarm, args):
 
     # Setup the data catcher class
-    swarm_catcher = SwarmDataCatcher(swarm, args.interface, port=4100+swarm.qid)
+    swarm_catcher = SwarmDataCatcher(swarm, port=4100+swarm.qid)
 
     if not args.setup_only:
 

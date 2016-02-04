@@ -132,12 +132,15 @@ def has_none(obj):
     return False
 
 
-class SwarmDataCatcher(SwarmListener):
+class SwarmDataCatcher:
 
-    def __init__(self, swarm, interface, port=4100):
+    def __init__(self, swarm, host='0.0.0.0', port=4100):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.swarm = swarm
         self.rawbacks = []
         self.xengine = SwarmXengine(swarm)
+        self.host = host
+        self.port = port
 
         # Catch thread objects
         self.catch_thread = None
@@ -152,8 +155,6 @@ class SwarmDataCatcher(SwarmListener):
         # Interthread signals
         self.new_acc = Event()
         self.new_acc.set()
-
-        SwarmListener.__init__(self, interface, port)
 
     def get_queue(self):
         return self.order_queue
