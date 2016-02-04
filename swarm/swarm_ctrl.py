@@ -59,6 +59,7 @@ def main():
     # Add file handler, if requested
     if args.log_file:
         fh = logging.FileHandler(args.log_file)
+        fh.setFormatter(formatter)
         logger.addHandler(fh)
 
     # Set logging level given verbosity
