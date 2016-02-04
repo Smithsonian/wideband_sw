@@ -107,8 +107,8 @@ class SwarmListener(object):
 
     def _set_netinfo(self, port=4100):
         s = socket(AF_INET, SOCK_DGRAM)
-        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface[:15]))
-        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface[:15]))
+        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface))
+        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface))
         self.mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
         self.ip = unpack(SWARM_REG_FMT, info_adr[20:24])[0]
         self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
