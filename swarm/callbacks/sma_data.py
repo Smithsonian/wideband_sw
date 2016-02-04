@@ -40,8 +40,8 @@ class SMAData(SwarmDataCallback):
                                  ant_right, pol_right, 
                                  lsb_data, usb_data, 0)
 
-            # Debug log this baseline
-            self.logger.debug("Processed baseline: {!s}".format(baseline))
+                # Debug log this baseline
+                self.logger.debug("Processed baseline: {!s}".format(baseline))
 
         # Info log the set
         self.logger.info("Processed all baselines")
