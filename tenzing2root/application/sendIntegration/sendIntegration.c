@@ -46,8 +46,16 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
 		    float *lsbCross, float *usbCross, int forceTransfer)
 {
   int i, antennaInArray[11];
+  int dontPlot;
   static CLIENT *corrSaverCl = NULL, *dataCatcherCl = NULL;
+  FILE *flagFile;
 
+  flagFile = fopen("/global/configFiles/dontPlotSWARM", "r");
+  if (flagFile != NULL) {
+    dontPlot = TRUE;
+    fclose(flagFile);
+  } else
+    dontPlot = FALSE;
   if (!forceTransfer)
     getAntennaList(antennaInArray);
   
@@ -73,22 +81,24 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
 	sWARMData.uSB[i] = usbCross[i];
       }
     }
-    
-    /* Send the data to corrPlotter */
-    if (corrSaverCl == NULL) {
-      if (!(corrSaverCl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
-	clnt_pcreateerror("obscon");
-	return(ERROR);
+
+    if (!dontPlot) {
+      /* Send the data to corrPlotter */
+      if (corrSaverCl == NULL) {
+	if (!(corrSaverCl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
+	  clnt_pcreateerror("obscon");
+	  return(ERROR);
+	}
+      }
+      if (printResults(plot_swarm_data_1(&sWARMData, corrSaverCl))) {
+	fprintf(stderr, "Error returned from corrPlotter call\n");
+	clnt_destroy(corrSaverCl);
+	corrSaverCl = NULL;
       }
     }
-    if (printResults(plot_swarm_data_1(&sWARMData, corrSaverCl))) {
-      fprintf(stderr, "Error returned from corrPlotter call\n");
-      clnt_destroy(corrSaverCl);
-      corrSaverCl = NULL;
-    }
-    
     /* Send the data to dataCatcher */
     if (dataCatcherCl == NULL) {
+      printf("Establishing client handle for dataCatcher\n");
       if (!(dataCatcherCl = clnt_create("hcn", DATACATCHERPROG, DATACATCHERVERS, "tcp"))) {
 	clnt_pcreateerror("hcn");
 	return(ERROR);
