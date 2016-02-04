@@ -230,8 +230,11 @@ class SwarmDataCatcher(SwarmListener):
                 new_acc.clear()
                 send_sync()
 
-            # Determine the FID from addr
-            fid = unpack('BBBB', inet_aton(addr[0]))[3]/2 - 29
+            # Parse the IP address
+            ip = unpack('BBBB', inet_aton(addr[0]))
+
+            # Determine the FID
+            fid = ip[3] & 0x7
 
 	    # Unpack it to get packet # and accum #
             pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
