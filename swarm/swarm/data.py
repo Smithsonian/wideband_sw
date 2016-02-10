@@ -11,7 +11,7 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
 
-from numpy import array, nan
+from numpy import array, nan, fromstring
 
 from pysendint import send_sync
 from defines import *
@@ -291,7 +291,7 @@ class SwarmDataCatcher:
             for fid, datas in enumerate(datas_list[qid]):
 
                 # Unpack this FID's data
-                data = array(unpack('>%di' % SWARM_VISIBS_ACC_SIZE, datas))
+                data = fromstring(datas, dtype='>i4')
 
                 # Reorder by Xengine word (per channel)
                 for offset, word in enumerate(order):
