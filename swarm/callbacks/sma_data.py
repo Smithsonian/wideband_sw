@@ -38,7 +38,7 @@ class SMAData(SwarmDataCallback):
                                  data.int_length, chunk,
                                  ant_left, pol_left, 
                                  ant_right, pol_right, 
-                                 lsb_data, usb_data, 0)
+                                 lsb_data.tolist(), usb_data.tolist(), 0)
 
                 # Debug log this baseline
                 self.logger.debug("Processed baseline: {!s}".format(baseline))
