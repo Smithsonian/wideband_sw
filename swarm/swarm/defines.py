@@ -21,7 +21,7 @@ SWARM_SB_STATE_BRAM = 'xengine_final_acc_sb_state'
 
 # Clocking parameters
 # (changes with external clock)
-SWARM_CLOCK_RATE = 208e6
+SWARM_CLOCK_RATE = 260e6
 SWARM_TARGET_RATE = 286e6
 SWARM_ELEVENTHS = int(11 * SWARM_CLOCK_RATE / SWARM_TARGET_RATE)
 
