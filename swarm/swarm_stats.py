@@ -50,7 +50,7 @@ logger = logging.getLogger()
 logger.handlers[0].setFormatter(formatter)
 logger.setLevel(logging.INFO)
 
-for member in swarm.get_valid_members():
+for fid, member in swarm.get_valid_members():
 
     for input_n in SWARM_MAPPING_INPUTS:
 
