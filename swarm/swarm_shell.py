@@ -2,6 +2,7 @@
 
 import os
 import logging
+import argparse
 from swarm import *
 from swarm.ipython import magics
 from IPython.config.loader import Config
@@ -82,8 +83,15 @@ logging.basicConfig()
 logging.getLogger('katcp').setLevel(logging.CRITICAL)
 logging.getLogger('').setLevel(logging.INFO)
 
+# Parse the user's command line arguments
+parser = argparse.ArgumentParser(description='Run an interactive SWARM shell')
+parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
+parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+                    help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
+args = parser.parse_args()
+
 # Set up SWARM 
-swarm = Swarm()
+swarm = Swarm(map_filenames=args.swarm_mappings)
 
 # Start the IPython embedded shell
 ipshell = InteractiveShellEmbed(config=cfg)

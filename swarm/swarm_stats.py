@@ -11,6 +11,8 @@ from swarm import *
 parser = argparse.ArgumentParser(description='Plot a histogram of the 8-bit sampled correlator data for the given antennas')
 parser.add_argument('antennas', metavar='ANTS', type=int, nargs='*', 
                     help='show histogram for ANTS')
+parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+                    help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 parser.add_argument('-c', '--chunks', metavar='CHUNKS', type=int, nargs='*', 
                     help='show histogram for the given CHUNKS only')
 parser.add_argument('-p', '--polarizations', metavar='POLARIZATIONS', type=int, nargs='*', 
@@ -33,7 +35,7 @@ if args.save:
 if args.plot:
     from pylab import gca, bar, xlim, show, figure, title, text
 
-swarm = Swarm()
+swarm = Swarm(args.swarm_mappings)
 
 swarm.members_do(lambda fid, member: member.set_scope(3, 0, 6))
 if args.source == 'analog':
