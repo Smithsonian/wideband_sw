@@ -159,9 +159,12 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, fid, roach2_host, bitcode=None):
+    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[None, None]):
         super(SwarmMember, self).__init__(roach2_host)
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
+        assert len(dc_if_freqs) == 2, \
+            "DC IF Frequencies given are invalid: %r" % dc_if_freqs
+        self.dc_if_freqs = list(float(i) for i in dc_if_freqs)
         self.bitcode = bitcode
         self.fid = fid
 
@@ -569,6 +572,15 @@ class SwarmMember(SwarmROACH):
             except RuntimeError:
                 self.logger.error("Starting fringe starting failed!")
 
+            # If we've been given IF frequencies set them
+            if all(self.dc_if_freqs):
+
+                try:
+                    katcp_cmd_str = SWARM_FSTOP_SET_CMD.format(*self.dc_if_freqs)
+                    self.send_katcp_cmd(*katcp_cmd_str.split())
+                except RuntimeError:
+                    self.logger.error("Starting fringe starting failed!")
+
     def dewalsh(self, enable_0, enable_1):
 
         # Set the Walsh control register
@@ -786,7 +798,7 @@ class SwarmQuadrant:
                 elif is_parameter:
 
                     # Set the parameter
-                    parameters[entry[1]] = entry[2]
+                    parameters[entry[1]] = entry[2:]
 
                     # Display map parameter
                     self.logger.debug('Mapping parameters updated: {0}'.format(parameters))

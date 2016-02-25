@@ -78,6 +78,7 @@ SWARM_REG_FMT = '>I'
 SWARM_SYNC_ARM_CMD = 'sma-walsh-arm'
 SWARM_FSTOP_STOP_CMD = 'sma-astro-fstop-stop'
 SWARM_FSTOP_START_CMD = 'sma-astro-fstop-start'
+SWARM_FSTOP_SET_CMD = 'sma-astro-fstop-set {0} {1} -2.71359 1 1'
 SWARM_DELAY_GET_CMD = 'sma-astro-delay-get'
 SWARM_DELAY_SET_CMD = 'sma-astro-delay-set'
 
