@@ -798,7 +798,7 @@ class SwarmQuadrant:
                 elif is_parameter:
 
                     # Set the parameter
-                    parameters[entry[1]] = entry[2:]
+                    parameters[entry[1]] = entry[2] if len(entry[2:]) == 1 else entry[2:]
 
                     # Display map parameter
                     self.logger.debug('Mapping parameters updated: {0}'.format(parameters))
