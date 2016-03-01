@@ -1249,7 +1249,7 @@ class Swarm:
 
             # Pop an interface (should be at least one)
             try:
-                listener = SwarmListener(interfaces.pop())
+                listener = SwarmListener(interfaces.pop(0))
             except IndexError:
                 self.logger.debug('Reached end of interface list; using last given')
 
