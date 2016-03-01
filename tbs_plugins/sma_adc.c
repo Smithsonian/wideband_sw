@@ -12,9 +12,12 @@
 #include <dsm.h>
 #include <pthread.h>
 #include <plugin.h>
+#include "sma_adc.h"
 
 #define TRUE 1
 #define FALSE 0
+#define OK 1
+#define FAIL 0
 
 #define SCOPE_0_DATA "scope_snap0_bram"
 #define SCOPE_0_CTRL "scope_snap0_ctrl"
@@ -77,6 +80,8 @@ typedef struct {
   float avamp;
   int overload_cnt[4];
 } og_rtn;
+
+dsm_structure dsm_adc_cal;
 
 /* Things for the adc monitor thread */
 
@@ -226,6 +231,100 @@ void set_ogp_registers(float *ogp) {
     set_gain_register(chan, *ogp++);
     set_phase_register(chan, *ogp++);
   }
+}
+
+int read_adc_calibrations(void) {
+  int i, status;
+  static int adc_cal_valid = FALSE;
+
+  if(!adc_cal_valid) {
+    status = dsm_structure_init(&dsm_adc_cal,"SWARM_SAMPLER_CALIBRATIONS_X" );
+    if (status != DSM_SUCCESS) {
+      return FAIL;
+    }
+    if((i = dsm_read("obscon", "SWARM_SAMPLER_CALIBRATIONS_X",
+        &dsm_adc_cal, NULL)) != DSM_SUCCESS){
+      return FAIL;
+    }
+    adc_cal_valid = TRUE;
+  }
+  return(OK);
+}
+
+int write_adc_calibrations(void) {
+
+  if(dsm_write("SWARM_MONITOR_AND_HAL", "SWARM_SAMPLER_CALIBRATIONS_X",
+      &dsm_adc_cal) != DSM_SUCCESS){
+    return FAIL;
+  }
+  return OK;
+}
+
+int dsm_write_actual_ogp(struct katcp_dispatch *d, int zdok, float *ogp) {
+  float offs[2][4], gains[2][4], phases[2][4];
+  int chan;
+
+  if(read_adc_calibrations() != OK) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Error reading adc calibrations structure from dsm");
+    return(FAIL);
+  }
+  dsm_structure_get_element(&dsm_adc_cal, A_OFFS, offs);
+  dsm_structure_get_element(&dsm_adc_cal, A_GAINS, gains);
+  dsm_structure_get_element(&dsm_adc_cal, A_PHASES, phases);
+  for(chan = 0; chan < 4; chan++) {
+    offs[zdok][chan] = ogp[3 * chan];
+    gains[zdok][chan] = ogp[3 * chan + 1];
+    phases[zdok][chan] = ogp[3 * chan + 2];
+  }
+  dsm_structure_set_element(&dsm_adc_cal, A_OFFS, offs);
+  dsm_structure_set_element(&dsm_adc_cal, A_GAINS, gains);
+  dsm_structure_set_element(&dsm_adc_cal, A_PHASES, phases);
+  if(write_adc_calibrations() != OK) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Error writing adc calibrations structure to dsm");
+    return(FAIL);
+  }
+  return OK;
+}
+
+int dsm_write_measured_ogp(struct katcp_dispatch *d, int zdok, og_rtn sum_og) {
+  float offs[2][4], gains[2][4], oflow[2][4];
+  float avz[2], avamp[2];
+  int chan;
+
+  if(read_adc_calibrations() != OK) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Error reading adc calibrations structure from dsm");
+    return(FAIL);
+  }
+  dsm_structure_get_element(&dsm_adc_cal, DEL_OFFS, offs);
+  dsm_structure_get_element(&dsm_adc_cal, DEL_GAINS, gains);
+  dsm_structure_get_element(&dsm_adc_cal, DEL_OVL_CNT , oflow);
+  dsm_structure_get_element(&dsm_adc_cal, DEL_AVZ, avz);
+  dsm_structure_get_element(&dsm_adc_cal, DEL_AVAMP, avamp);
+  for(chan = 0; chan < 4; chan++) {
+    offs[zdok][chan] = sum_og.ogp[3 * chan];
+    gains[zdok][chan] = sum_og.ogp[3 * chan + 1];
+    oflow[zdok][chan] = sum_og.overload_cnt[chan];
+  }
+  avz[zdok] = sum_og.avz;
+  avamp[zdok] = sum_og.avamp;
+
+  dsm_structure_set_element(&dsm_adc_cal, DEL_OFFS, offs);
+  dsm_structure_set_element(&dsm_adc_cal, DEL_GAINS, gains);
+  /* phases can not be measured for either zdok, so just set them to zero */
+  memset((char *)&gains, 0, sizeof(gains));
+  dsm_structure_set_element(&dsm_adc_cal, DEL_PHASES, gains);
+  dsm_structure_set_element(&dsm_adc_cal, DEL_OVL_CNT , oflow);
+  dsm_structure_set_element(&dsm_adc_cal, DEL_AVZ, avz);
+  dsm_structure_set_element(&dsm_adc_cal, DEL_AVAMP, avamp);
+  if(write_adc_calibrations() != OK) {
+    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL,
+        "Error writing adc calibrations structure to dsm");
+    return(FAIL);
+  }
+  return OK;
 }
 
 int check_ogp_registers(float *desired_ogp) {
@@ -560,6 +659,7 @@ int measure_og_cmd(struct katcp_dispatch *d, int argc){
   if(write_ogp_file(d, fname, sum_og.ogp) == 0) {
     return KATCP_RESULT_FAIL;
   }
+  dsm_write_measured_ogp(d, zdok, sum_og);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL,
     "avZero=%.4f,avAmp=%.4f", sum_og.avz/rpt, sum_og.avamp/rpt);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL,
@@ -607,6 +707,7 @@ int set_ogp_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   set_ogp_registers(ogp);
+  dsm_write_actual_ogp(d, zdok, ogp);
 #if CHECK_READBACK 
   errCnt = check_ogp_registers(ogp);
   if(errCnt != 0) {
@@ -694,6 +795,7 @@ int update_ogp_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
   set_ogp_registers(ogp_reg);
+  dsm_write_actual_ogp(d, zdok, ogp_reg);
 #if CHECK_READBACK  
   i = check_ogp_registers(ogp_reg);
   if(i != 0) {
