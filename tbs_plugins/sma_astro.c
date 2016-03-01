@@ -24,7 +24,7 @@
 #define FDELAY_MAX 1.000000000000000
 #define FDELAY_MIN -1.000000000000000
 #define CDELAY_MID 16384 // middle of coarse delay FIFO
-#define SAMPLE_FREQ 3.328 // sample rate in GHz
+#define SAMPLE_FREQ 4.160 // sample rate in GHz
 #define FSTOP_UPDATE 100
 #define PI 3.14159265
 #define DSM_GEOM_VAR "SWARM_SOURCE_GEOM_X"
