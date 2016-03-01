@@ -78,6 +78,9 @@ cfg.TerminalInteractiveShell.banner2 = ''
 # Set to confirm when you try to exit IPython with an EOF 
 cfg.TerminalInteractiveShell.confirm_exit = False
 
+# Enable completion on elements of lists, function calls, etc
+cfg.IPCompleter.greedy = True
+
 # Setup logging
 logging.basicConfig()
 logging.getLogger('katcp').setLevel(logging.CRITICAL)
