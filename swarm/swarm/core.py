@@ -735,7 +735,7 @@ class SwarmQuadrant:
     def __getattr__(self, attr):
 
         # See if the non-SwarmQuadrant attribute is a SwarmMember method
-        if callable(getattr(SwarmMember, attr, None)):
+        if callable(getattr(self.members.values()[0], attr, None)):
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
@@ -1204,7 +1204,7 @@ class Swarm:
     def __getattr__(self, attr):
 
         # See if the non-Swarm attribute is a SwarmQuadrant method
-        if callable(getattr(SwarmQuadrant, attr, None)):
+        if callable(getattr(self.quads[0], attr, None)):
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
