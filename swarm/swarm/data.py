@@ -26,8 +26,8 @@ SIOCSIFHWADDR  = 0x8927
 SIOCGIFNETMASK = 0x891b
 
 
-INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 2, 2)
-OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 2)
+INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
+OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
 EMPTY_DATA_ARRAY = array([nan,] * SWARM_CHANNELS * 2)
@@ -70,7 +70,7 @@ class SwarmDataPackage:
         baseline = xeng_word.baseline
         sideband = xeng_word.sideband
 
-        slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 2 + imag_off
+        slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
         try: # normal conjugation first
 
             # Fill this baseline
