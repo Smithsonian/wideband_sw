@@ -1047,106 +1047,6 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.reset_digital_noise()
 
-    def get_delay(self, this_input):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        delays_found = []
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    delays_found.append(member.get_delay(input_n))
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-            return None
-        elif members_found == 1:
-            return delays_found[0]
-        else:
-            return delays_found
-
-    def set_delay(self, this_input, value):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    member.set_delay(input_n, value)
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-
-    def get_phase(self, this_input):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        phases_found = []
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    phases_found.append(member.get_phase(input_n))
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-            return None
-        elif members_found == 1:
-            return phases_found[0]
-        else:
-            return phases_found
-
-    def set_phase(self, this_input, value):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    member.set_phase(input_n, value)
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-
     def setup(self):
 
         # Go through hosts in our mapping
@@ -1322,3 +1222,103 @@ class Swarm:
 
         # Finally return the itime
         return itime
+
+    def get_delay(self, this_input):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        delays_found = []
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    delays_found.append(member.get_delay(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return delays_found[0]
+        else:
+            return delays_found
+
+    def set_delay(self, this_input, value):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_delay(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+
+    def get_phase(self, this_input):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        phases_found = []
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    phases_found.append(member.get_phase(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return phases_found[0]
+        else:
+            return phases_found
+
+    def set_phase(self, this_input, value):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_phase(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
