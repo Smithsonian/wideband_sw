@@ -310,6 +310,17 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
+    def get_bengine_mask(self):
+
+        # Get the phased sum mask
+        return self.roach2.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffff
+
+    def set_bengine_mask(self, mask):
+
+        # Set the phased sum mask
+        disable = (mask & 0xffff) ^ 0xffff
+        return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
+
     def get_itime(self):
         
         # Get the current integration time in spectra
@@ -980,6 +991,47 @@ class SwarmQuadrant:
             # En(dis)able fringe stoppiner per member
             member.fringe_stop(enable)
 
+    def get_beamformer_inputs(self):
+
+        mask = None
+        inputs = []
+
+        # Get the phased sum mask from all members
+        for fid, member in self.get_valid_members():
+
+            # Set our first mask
+            if fid == 0:
+                mask = member.get_bengine_mask()
+            else:
+                if member.get_bengine_mask() != mask:
+                    err_msg = 'FID #%d has mismatching phased sum mask!' % fid
+                    self.logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+        # Now convert our mask to a list of inputs
+        for input_n in SWARM_MAPPING_INPUTS:
+            for fid in SWARM_ALL_FID:
+                if mask & 0x1:
+                    inputs.append(self[fid][input_n])
+                mask >>= 1
+
+        return inputs
+
+    def set_beamformer_inputs(self, inputs):
+
+        mask = 0x0
+
+        # Convert list of inputs to a mask
+        for input_n in SWARM_MAPPING_INPUTS:
+            for fid in SWARM_ALL_FID:
+                if self[fid][input_n] in inputs:
+                    input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
+                    mask |= input_mask
+
+        # Set the mask on all members
+        for fid, member in self.get_valid_members():
+            member.set_bengine_mask(mask)
+
     def get_itime(self):
 
         itime = None
@@ -1046,106 +1098,6 @@ class SwarmQuadrant:
         # Reset the digital noise
         for fid, member in self.get_valid_members():
             member.reset_digital_noise()
-
-    def get_delay(self, this_input):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        delays_found = []
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    delays_found.append(member.get_delay(input_n))
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-            return None
-        elif members_found == 1:
-            return delays_found[0]
-        else:
-            return delays_found
-
-    def set_delay(self, this_input, value):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    member.set_delay(input_n, value)
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-
-    def get_phase(self, this_input):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        phases_found = []
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    phases_found.append(member.get_phase(input_n))
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
-            return None
-        elif members_found == 1:
-            return phases_found[0]
-        else:
-            return phases_found
-
-    def set_phase(self, this_input, value):
-
-        # Make sure we've been given a SwarmInput
-        if not isinstance(this_input, SwarmInput):
-            raise ValueError("Function requires a SwarmInput object!")
-
-        # Loop through each valid member
-        members_found = 0
-        for fid, member in self.get_valid_members():
-
-            # And loop through each input
-            for input_n, input_inst in enumerate(member._inputs):
-
-                # Does this one have it?
-                if this_input == input_inst:
-                    member.set_phase(input_n, value)
-                    members_found += 1
-
-        # Return different values depending on how many instances found
-        if members_found == 0:
-            self.logger.error('{} not in SWARM!'.format(this_input))
 
     def setup(self):
 
@@ -1304,6 +1256,22 @@ class Swarm:
         for thread in rstxeng_threads:
             thread.join()
 
+    def get_beamformer_inputs(self):
+
+        inputs = []
+
+        # Go through all quadrants get inputs
+        for quad in self.quads:
+            inputs.extend(quad.get_beamformer_inputs())
+
+        return inputs
+
+    def set_beamformer_inputs(self, inputs):
+
+        # Go through all quadrants get inputs
+        for quad in self.quads:
+            quad.set_beamformer_inputs(inputs)
+
     def get_itime(self):
 
         itime = None
@@ -1322,3 +1290,103 @@ class Swarm:
 
         # Finally return the itime
         return itime
+
+    def get_delay(self, this_input):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        delays_found = []
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    delays_found.append(member.get_delay(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return delays_found[0]
+        else:
+            return delays_found
+
+    def set_delay(self, this_input, value):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_delay(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+
+    def get_phase(self, this_input):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        phases_found = []
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    phases_found.append(member.get_phase(input_n))
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))
+            return None
+        elif members_found == 1:
+            return phases_found[0]
+        else:
+            return phases_found
+
+    def set_phase(self, this_input, value):
+
+        # Make sure we've been given a SwarmInput
+        if not isinstance(this_input, SwarmInput):
+            raise ValueError("Function requires a SwarmInput object!")
+
+        # Loop through each valid member
+        members_found = 0
+        for fid, member in self.get_valid_members():
+
+            # And loop through each input
+            for input_n, input_inst in enumerate(member._inputs):
+
+                # Does this one have it?
+                if this_input == input_inst:
+                    member.set_phase(input_n, value)
+                    members_found += 1
+
+        # Return different values depending on how many instances found
+        if members_found == 0:
+            self.logger.error('{} not in SWARM!'.format(this_input))

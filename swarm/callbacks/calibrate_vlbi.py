@@ -33,10 +33,9 @@ from swarm import (
     SwarmBaseline,
     SWARM_CHANNELS,
     SWARM_CLOCK_RATE,
+    SWARM_MAPPING_CHUNKS,
 )
 from json_file import JSONListFile
-
-SWARM_PHASED_SUM_ANTENNAS = '/global/configFiles/swarmPhasedSumAntennas'
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -92,7 +91,7 @@ def wrap_phase(in_phase):
 class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
-        self.reference = reference if reference is not None else swarm[0].get_input(0)
+        self.reference = reference if reference is not None else swarm[0][0].get_input(0)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = zeros(2, dtype=bool)
         self.history_size = history_size
@@ -101,7 +100,7 @@ class CalibrateVLBI(SwarmDataCallback):
         self.PID_coeffs = PID_coeffs
         self.normed = normed
         self.init_pool()
-        self.accums = 0
+        self.inputs = []
 
     def init_history(self, first, length=8):
         hist_shape = [length,] + list(first.shape)
@@ -189,21 +188,27 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        with open(SWARM_PHASED_SUM_ANTENNAS, 'r') as file_:
-            valid_ants = list(int(i) for i in file_.readline().split())
-        inputs = sorted(list(inp for inp in data.inputs if inp._ant in valid_ants), key=lambda inp: 100*inp._chk + inp._ant)
-        efficiency_0, cal_solution_0 = self.solve_for(data, list(inp for inp in inputs if inp._chk==0), 0)
-        efficiency_1, cal_solution_1 = self.solve_for(data, list(inp for inp in inputs if inp._chk==1), 1)
-        cal_solution = hstack([cal_solution_0, cal_solution_1])
+        inputs = self.swarm.get_beamformer_inputs()
+        if not inputs:
+            return
+
+        efficiencies = list(None for chunk in SWARM_MAPPING_CHUNKS)
+        cal_solutions = list(None for chunk in SWARM_MAPPING_CHUNKS)
+        for chunk in SWARM_MAPPING_CHUNKS:
+            eff, cal = self.solve_for(data, list(inp for inp in inputs if inp._chk==chunk), chunk)
+            cal_solutions[chunk] = cal
+            efficiencies[chunk] = eff
+        cal_solution = hstack(cal_solutions)
         amplitudes, delays, phases = cal_solution
 
         for i in range(len(inputs)):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
-        self.logger.info('Avg. phasing efficiency across band s49={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency_0), nanstd(efficiency_0)))
-        self.logger.info('Avg. phasing efficiency across band s50={:>8.2f} +/- {:.2f}'.format(nanmean(efficiency_1), nanstd(efficiency_1)))
+        for chunk in SWARM_MAPPING_CHUNKS:
+            self.logger.info('Avg. phasing efficiency across chunk {}={:>8.2f} +/- {:.2f}'.format(chunk, nanmean(efficiencies[chunk]), nanstd(efficiencies[chunk])))
 
-        if self.accums == 0:
+        if self.inputs != inputs:
             self.init_history(cal_solution, length=self.history_size)
+            self.inputs = inputs
         elif self.skip_next[0]:
             self.logger.info("Ignoring this integration for historical purposes")
             self.skip_next[0] = False
@@ -218,8 +223,7 @@ class CalibrateVLBI(SwarmDataCallback):
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
-                    'efficiencies': [nanmean(efficiency_0), nanmean(efficiency_1)],
+                    'efficiencies': list(nanmean(eff) for eff in efficiencies),
                     'delays': new_delays, 'phases': new_phases,
                     'cal_solution': cal_solution.tolist(),
                     })
-        self.accums += 1
