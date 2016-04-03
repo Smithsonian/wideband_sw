@@ -102,8 +102,8 @@ class CalibrateVLBI(SwarmDataCallback):
         self.init_pool()
         self.inputs = []
 
-    def init_history(self, first, length=8):
-        hist_shape = [length,] + list(first.shape)
+    def init_history(self, first):
+        hist_shape = [self.history_size,] + list(first.shape)
         self.logger.info("Initializing history to shape {0}".format(hist_shape))
         self.history = empty(hist_shape, dtype=first.dtype)
         self.history[:] = nan
@@ -207,7 +207,7 @@ class CalibrateVLBI(SwarmDataCallback):
             self.logger.info('Avg. phasing efficiency across chunk {}={:>8.2f} +/- {:.2f}'.format(chunk, nanmean(efficiencies[chunk]), nanstd(efficiencies[chunk])))
 
         if self.inputs != inputs:
-            self.init_history(cal_solution, length=self.history_size)
+            self.init_history(cal_solution)
             self.inputs = inputs
         elif self.skip_next[0]:
             self.logger.info("Ignoring this integration for historical purposes")
