@@ -37,8 +37,6 @@ from swarm import (
 )
 from json_file import JSONListFile
 
-SWARM_PHASED_SUM_ANTENNAS = '/global/configFiles/swarmPhasedSumAntennas'
-
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
     max_val = vals.real.max()
@@ -188,14 +186,12 @@ class CalibrateVLBI(SwarmDataCallback):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
         return efficiency, vstack([amplitudes, delays, phases])
 
-    def get_valid_inputs(self, data):
-        with open(SWARM_PHASED_SUM_ANTENNAS, 'r') as file_:
-            valid_ants = list(int(i) for i in file_.readline().split())
-        return sorted(list(inp for inp in data.inputs if inp._ant in valid_ants), key=lambda inp: 100*inp._chk + inp._ant)
-
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        inputs = self.get_valid_inputs(data)
+        inputs = self.swarm.get_beamformer_inputs()
+        if not inputs:
+            return
+
         efficiencies = list(None for chunk in SWARM_MAPPING_CHUNKS)
         cal_solutions = list(None for chunk in SWARM_MAPPING_CHUNKS)
         for chunk in SWARM_MAPPING_CHUNKS:
