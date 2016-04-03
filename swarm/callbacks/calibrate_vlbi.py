@@ -102,7 +102,7 @@ class CalibrateVLBI(SwarmDataCallback):
         self.PID_coeffs = PID_coeffs
         self.normed = normed
         self.init_pool()
-        self.accums = 0
+        self.inputs = []
 
     def init_history(self, first, length=8):
         hist_shape = [length,] + list(first.shape)
@@ -188,11 +188,14 @@ class CalibrateVLBI(SwarmDataCallback):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
         return efficiency, vstack([amplitudes, delays, phases])
 
-    def __call__(self, data):
-        """ Callback for VLBI calibration """
+    def get_valid_inputs(self, data):
         with open(SWARM_PHASED_SUM_ANTENNAS, 'r') as file_:
             valid_ants = list(int(i) for i in file_.readline().split())
-        inputs = sorted(list(inp for inp in data.inputs if inp._ant in valid_ants), key=lambda inp: 100*inp._chk + inp._ant)
+        return sorted(list(inp for inp in data.inputs if inp._ant in valid_ants), key=lambda inp: 100*inp._chk + inp._ant)
+
+    def __call__(self, data):
+        """ Callback for VLBI calibration """
+        inputs = self.get_valid_inputs(data)
         efficiencies = list(None for chunk in SWARM_MAPPING_CHUNKS)
         cal_solutions = list(None for chunk in SWARM_MAPPING_CHUNKS)
         for chunk in SWARM_MAPPING_CHUNKS:
@@ -207,8 +210,9 @@ class CalibrateVLBI(SwarmDataCallback):
         for chunk in SWARM_MAPPING_CHUNKS:
             self.logger.info('Avg. phasing efficiency across chunk {}={:>8.2f} +/- {:.2f}'.format(chunk, nanmean(efficiencies[chunk]), nanstd(efficiencies[chunk])))
 
-        if self.accums == 0:
+        if self.inputs != inputs:
             self.init_history(cal_solution, length=self.history_size)
+            self.inputs = inputs
         elif self.skip_next[0]:
             self.logger.info("Ignoring this integration for historical purposes")
             self.skip_next[0] = False
@@ -227,4 +231,3 @@ class CalibrateVLBI(SwarmDataCallback):
                     'delays': new_delays, 'phases': new_phases,
                     'cal_solution': cal_solution.tolist(),
                     })
-        self.accums += 1
