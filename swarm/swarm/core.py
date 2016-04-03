@@ -310,6 +310,17 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
+    def get_bengine_mask(self):
+
+        # Get the phased sum mask
+        return self.roach2.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffff
+
+    def set_bengine_mask(self, mask):
+
+        # Set the phased sum mask
+        disable = (mask & 0xffff) ^ 0xffff
+        return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
+
     def get_itime(self):
         
         # Get the current integration time in spectra
@@ -980,6 +991,47 @@ class SwarmQuadrant:
             # En(dis)able fringe stoppiner per member
             member.fringe_stop(enable)
 
+    def get_beamformer_inputs(self):
+
+        mask = None
+        inputs = []
+
+        # Get the phased sum mask from all members
+        for fid, member in self.get_valid_members():
+
+            # Set our first mask
+            if fid == 0:
+                mask = member.get_bengine_mask()
+            else:
+                if member.get_bengine_mask() != mask:
+                    err_msg = 'FID #%d has mismatching phased sum mask!' % fid
+                    self.logger.error(err_msg)
+                    raise ValueError(err_msg)
+
+        # Now convert our mask to a list of inputs
+        for input_n in SWARM_MAPPING_INPUTS:
+            for fid in SWARM_ALL_FID:
+                if mask & 0x1:
+                    inputs.append(self[fid][input_n])
+                mask >>= 1
+
+        return inputs
+
+    def set_beamformer_inputs(self, inputs):
+
+        mask = 0x0
+
+        # Convert list of inputs to a mask
+        for input_n in SWARM_MAPPING_INPUTS:
+            for fid in SWARM_ALL_FID:
+                if self[fid][input_n] in inputs:
+                    input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
+                    mask |= input_mask
+
+        # Set the mask on all members
+        for fid, member in self.get_valid_members():
+            member.set_bengine_mask(mask)
+
     def get_itime(self):
 
         itime = None
@@ -1203,6 +1255,22 @@ class Swarm:
         # Finally join all threads
         for thread in rstxeng_threads:
             thread.join()
+
+    def get_beamformer_inputs(self):
+
+        inputs = []
+
+        # Go through all quadrants get inputs
+        for quad in self.quads:
+            inputs.extend(quad.get_beamformer_inputs())
+
+        return inputs
+
+    def set_beamformer_inputs(self, inputs):
+
+        # Go through all quadrants get inputs
+        for quad in self.quads:
+            quad.set_beamformer_inputs(inputs)
 
     def get_itime(self):
 
