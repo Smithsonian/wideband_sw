@@ -10,7 +10,7 @@ SWARM_MAPPING_POLS = (0, 1)
 
 SWARM_PLUGINS_CONFIG = '/global/configFiles/swarmPlugins'
 
-SWARM_LISTENER_INTERFACES = ['eth2', 'eth3']
+SWARM_LISTENER_INTERFACES = ['eth2', ]
 
 SWARM_WALSH_PATTERNS = '/global/configFiles/swarmWalshPatterns'
 SWARM_WALSH_TABLE_BRAM = 'walsh_table'
