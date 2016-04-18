@@ -81,6 +81,9 @@ cfg.TerminalInteractiveShell.confirm_exit = False
 # Enable completion on elements of lists, function calls, etc
 cfg.IPCompleter.greedy = True
 
+# Enable the autocall feature
+cfg.TerminalInteractiveShell.autocall = 2
+
 # Setup logging
 logging.basicConfig()
 logging.getLogger('katcp').setLevel(logging.CRITICAL)
