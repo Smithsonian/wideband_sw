@@ -23,10 +23,11 @@
 //#define FDELAY_MAX 0.999969482421875
 #define FDELAY_MAX 1.000000000000000
 #define FDELAY_MIN -1.000000000000000
-#define CDELAY_MID 16384 // middle of coarse delay FIFO
+#define CDELAY_MID 24576 // middle of coarse delay FIFO
 #define SAMPLE_FREQ 4.160 // sample rate in GHz
-#define FSTOP_UPDATE 100
 #define PI 3.14159265
+#define DSM_READ_FREQ 100
+#define DSM_WRITE_FREQ 10000
 #define DSM_GEOM_VAR "SWARM_SOURCE_GEOM_X"
 #define DSM_GEOM_RA "SOURCE_RA_D"
 #define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
@@ -179,7 +180,7 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
 }
 
 /* Update DSM-derived variables */
-int update_vars() {
+int fstop_dsm_read() {
   int s;
   time_t timeStamp;
   dsm_structure structure;
@@ -285,11 +286,19 @@ int update_vars() {
   /* Destroy structure before re-creating */
   dsm_structure_destroy(&structure);
 
+  return 0;
+}
+
+/* Update our own DSM variables */
+int fstop_dsm_write() {
+  int s;
+  dsm_structure structure;
+
   /* Initialize the fstop stats structure */
   s = dsm_structure_init(&structure, DSM_FSTATS_VAR);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_init()");
-    return -11;
+    return -1;
   }
 
   /* Set the fstop delay part */
@@ -299,7 +308,7 @@ int update_vars() {
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_structure_set_element(fstop_del)");
     dsm_structure_destroy(&structure);
-    return -12;
+    return -2;
   }
 
   /* Then write it to the monitor class */
@@ -307,7 +316,7 @@ int update_vars() {
   if (s != DSM_SUCCESS) {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_write()");
-    return -13;
+    return -3;
   }
 
   /* Clear up the allocated memory */
@@ -386,13 +395,23 @@ void * fringe_stop(void * tr){
     /* Next find the hour angle of the source */
     ha = lst - source_rA;
 
-    /* Update our DSM variables every FSTOP_UPDATE */
-    if ((i % FSTOP_UPDATE) == 0){
+    /* Read our DSM variables every DSM_READ_FREQ */
+    if ((i % DSM_READ_FREQ) == 0){
 
       /* Do the DSM update */
-      result = update_vars();
+      result = fstop_dsm_read();
       if (result < 0)
-	printf("update_vars returned error code %d\r\n", result);
+	printf("fstop_dsm_read returned error code %d\r\n", result);
+
+    }
+
+    /* Write our DSM variables every DSM_WRITE_FREQ */
+    if ((i % DSM_WRITE_FREQ) == 0){
+
+      /* Do the DSM update */
+      result = fstop_dsm_write();
+      if (result < 0)
+	printf("fstop_dsm_write returned error code %d\r\n", result);
 
     }
 

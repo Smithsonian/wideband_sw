@@ -36,6 +36,7 @@ from swarm import (
     SWARM_MAPPING_CHUNKS,
 )
 from json_file import JSONListFile
+from redis import StrictRedis
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -92,6 +93,7 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
         self.reference = reference if reference is not None else swarm[0][0].get_input(0)
+        self.redis = StrictRedis(host='localhost', port=6379)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = zeros(2, dtype=bool)
         self.history_size = history_size
@@ -102,8 +104,8 @@ class CalibrateVLBI(SwarmDataCallback):
         self.init_pool()
         self.inputs = []
 
-    def init_history(self, first, length=8):
-        hist_shape = [length,] + list(first.shape)
+    def init_history(self, first):
+        hist_shape = [self.history_size,] + list(first.shape)
         self.logger.info("Initializing history to shape {0}".format(hist_shape))
         self.history = empty(hist_shape, dtype=first.dtype)
         self.history[:] = nan
@@ -205,9 +207,10 @@ class CalibrateVLBI(SwarmDataCallback):
             self.logger.info('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         for chunk in SWARM_MAPPING_CHUNKS:
             self.logger.info('Avg. phasing efficiency across chunk {}={:>8.2f} +/- {:.2f}'.format(chunk, nanmean(efficiencies[chunk]), nanstd(efficiencies[chunk])))
+            self.redis.set('efficiency_%d' % chunk, efficiencies[chunk])
 
         if self.inputs != inputs:
-            self.init_history(cal_solution, length=self.history_size)
+            self.init_history(cal_solution)
             self.inputs = inputs
         elif self.skip_next[0]:
             self.logger.info("Ignoring this integration for historical purposes")
