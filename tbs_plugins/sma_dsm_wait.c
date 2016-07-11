@@ -16,7 +16,7 @@
 #define DSM_SCAN_LENGTH "SWARM_SCAN_LENGTH_L"
 
 #define SWARM_TOTAL_WSTEPS 64
-#define SWARM_VECTORS_PER_WSTEP 10
+#define SWARM_VECTORS_PER_WSTEP 11
 #define SWARM_XENG_CTRL "xeng_ctrl"
 
 /* Some global variables for DSM waiting */

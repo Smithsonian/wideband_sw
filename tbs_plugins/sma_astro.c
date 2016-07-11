@@ -24,7 +24,7 @@
 #define FDELAY_MAX 1.000000000000000
 #define FDELAY_MIN -1.000000000000000
 #define CDELAY_MID 24576 // middle of coarse delay FIFO
-#define SAMPLE_FREQ 4.160 // sample rate in GHz
+#define SAMPLE_FREQ 4.576 // sample rate in GHz
 #define PI 3.14159265
 #define DSM_READ_FREQ 100
 #define DSM_WRITE_FREQ 10000
