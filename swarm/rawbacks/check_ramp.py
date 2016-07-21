@@ -16,7 +16,7 @@ class CheckRamp(SwarmDataCallback):
         """ Callback for checking ramp """
         for quad in self.swarm.quads:
             ramp = empty(SWARM_VISIBS_ACC_SIZE)
-            for fid, datas in enumerate(rawdata):
+            for fid, datas in enumerate(rawdata[quad.qid]):
                 raw = array(unpack('>%dI'%SWARM_VISIBS_ACC_SIZE, datas))
                 ramp[0::2] = raw[1::2]
                 ramp[1::2] = raw[0::2]
