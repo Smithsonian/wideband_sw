@@ -279,6 +279,29 @@ class SwarmMember(SwarmROACH):
         for inp in SWARM_MAPPING_INPUTS:
             unset_test_mode(self.roach2, inp)
 
+    def warm_calibrate_adc(self):
+
+        # This time do one input at a time
+        for inp in SWARM_MAPPING_INPUTS:
+
+            # First set to test mode
+            set_test_mode(self.roach2, inp)
+
+            # Send a sync
+            if inp != 0: # if not ZDOK0
+                sync_adc(self.roach2, zdok_0=False)
+
+            # Do the calibration
+            opt, glitches = calibrate_mmcm_phase(self.roach2, inp, [SWARM_SCOPE_SNAP % inp,])
+            gprof = pretty_glitch_profile(opt, glitches)
+            if opt is None:
+                self.logger.error('ADC%d calibration failed! Glitch profile: [%s]' % (inp, gprof))
+            else:
+                self.logger.info( 'ADC%d calibration found optimal phase: %2d [%s]' % (inp, opt, gprof))
+
+            # Unset test mode
+            unset_test_mode(self.roach2, inp)
+
     def _setup_fengine(self):
 
         # Set the shift schedule of the F-engine
