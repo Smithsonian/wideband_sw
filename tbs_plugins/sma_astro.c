@@ -38,6 +38,8 @@
 #define DSM_PHA_OFF "PHASE_V2_D"
 #define DSM_FSTATS_VAR "SWARM_FSTOP_STATS_X"
 #define DSM_FSTOP_DEL "FSTOP_DELAY_V2_D"
+#define DSM_FSTOP_LST "FSTOP_LST_D"
+#define DSM_FSTOP_HA  "FSTOP_HA_D"
 
 /* DSM host names, may be changed by user */
 volatile char dds_host[DSM_NAME_LENGTH] = "newdds";
@@ -57,6 +59,7 @@ volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
 volatile double final_delay[N_INPUTS];
 volatile double final_phase[N_INPUTS];
+volatile double ha, lst, tjd;
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
 
@@ -311,6 +314,26 @@ int fstop_dsm_write() {
     return -2;
   }
 
+  /* Set the LST part */
+  pthread_mutex_lock(&fstop_mutex);
+  s = dsm_structure_set_element(&structure, DSM_FSTOP_LST, (double *)&lst);
+  pthread_mutex_unlock(&fstop_mutex);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_set_element(fstop_lst)");
+    dsm_structure_destroy(&structure);
+    return -2;
+  }
+
+  /* Set the HA part */
+  pthread_mutex_lock(&fstop_mutex);
+  s = dsm_structure_set_element(&structure, DSM_FSTOP_HA, (double *)&ha);
+  pthread_mutex_unlock(&fstop_mutex);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_set_element(fstop_ha)");
+    dsm_structure_destroy(&structure);
+    return -2;
+  }
+
   /* Then write it to the monitor class */
   s = dsm_write("SWARM_MONITOR", DSM_FSTATS_VAR, &structure);
   if (s != DSM_SUCCESS) {
@@ -380,7 +403,6 @@ void * fringe_stop(void * tr){
   double total_delay[N_INPUTS];
   double total_phase[N_INPUTS];
 
-  double ha, lst, tjd;
   struct timespec start, next, now;
   double tot_late_ms = 0;
 
@@ -389,11 +411,13 @@ void * fringe_stop(void * tr){
 
     /* Find the local sidereal time 1 msec from now */
     add_nsec(&start, &next, i * 1e6);
-    tjd = tJDNow(next);
-    lst = lSTAtTJD(tjd);
 
     /* Next find the hour angle of the source */
+    pthread_mutex_lock(&fstop_mutex);
+    tjd = tJDNow(next);
+    lst = lSTAtTJD(tjd);
     ha = lst - source_rA;
+    pthread_mutex_unlock(&fstop_mutex);
 
     /* Read our DSM variables every DSM_READ_FREQ */
     if ((i % DSM_READ_FREQ) == 0){
