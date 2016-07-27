@@ -40,6 +40,7 @@
 #define DSM_FSTOP_DEL "FSTOP_DELAY_V2_D"
 #define DSM_FSTOP_LST "FSTOP_LST_D"
 #define DSM_FSTOP_HA  "FSTOP_HA_D"
+#define DSM_FSTOP_UT  "FSTOP_UT_D"
 
 /* DSM host names, may be changed by user */
 volatile char dds_host[DSM_NAME_LENGTH] = "newdds";
@@ -59,7 +60,7 @@ volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
 volatile double final_delay[N_INPUTS];
 volatile double final_phase[N_INPUTS];
-volatile double ha, lst, tjd;
+volatile double ut, ha, lst, tjd;
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
 
@@ -314,6 +315,16 @@ int fstop_dsm_write() {
     return -2;
   }
 
+  /* Set the UT part */
+  pthread_mutex_lock(&fstop_mutex);
+  s = dsm_structure_set_element(&structure, DSM_FSTOP_UT, (double *)&ut);
+  pthread_mutex_unlock(&fstop_mutex);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_set_element(fstop_ut)");
+    dsm_structure_destroy(&structure);
+    return -2;
+  }
+
   /* Set the LST part */
   pthread_mutex_lock(&fstop_mutex);
   s = dsm_structure_set_element(&structure, DSM_FSTOP_LST, (double *)&lst);
@@ -417,6 +428,7 @@ void * fringe_stop(void * tr){
     tjd = tJDNow(next);
     lst = lSTAtTJD(tjd);
     ha = lst - source_rA;
+    ut = timespec_to_double(next);
     pthread_mutex_unlock(&fstop_mutex);
 
     /* Read our DSM variables every DSM_READ_FREQ */
@@ -475,7 +487,7 @@ void * fringe_stop(void * tr){
       fringe_rate[j] = (final_phase[j] - last_phase[j]) * (1e3 / 360.0);
 
       /* Print some useful information */
-      printf("%25.15f:  ", timespec_to_double(next));
+      printf("%25.15f:  ", ut);
       printf("HA=%25.15f  ", ha * (12.0/PI));
       printf("Phase[%d] = %25.15f    ", j, final_phase[j]);
       printf("Rate [%d] = %25.15f    ", j, fringe_rate[j]);
@@ -527,7 +539,7 @@ void * fringe_stop(void * tr){
 
     /* Take note of the time we updated, and how late we were */
     clock_gettime(CLOCK_REALTIME, &now);
-    late_ms = (timespec_to_double(now) - timespec_to_double(next)) * 1e3;
+    late_ms = (timespec_to_double(now) - ut) * 1e3;
 
     /* Generate some lateness statistics */
     if (late_ms > max_late_ms)
