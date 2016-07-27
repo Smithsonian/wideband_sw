@@ -29,6 +29,7 @@
 #define DSM_READ_FREQ 100
 #define DSM_WRITE_FREQ 10000
 #define DSM_GEOM_VAR "SWARM_SOURCE_GEOM_X"
+#define DSM_DUT1 "UT1MUTC_D"
 #define DSM_GEOM_RA "SOURCE_RA_D"
 #define DSM_GEOM_A "GEOM_DELAY_A_V2_D"
 #define DSM_GEOM_B "GEOM_DELAY_B_V2_D"
@@ -55,6 +56,7 @@ volatile int fstop_go = FALSE;
 volatile int fstop_del_en = TRUE;
 volatile int fstop_pha_en = TRUE;
 volatile double source_rA = 0.0;
+volatile double global_dut1 = 0.0;
 volatile double longitude = -2.71359;
 volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
@@ -190,6 +192,7 @@ int fstop_dsm_read() {
   dsm_structure structure;
   double rA, a[2], b[2], c[2];
   double del_off[2], pha_off[2];
+  double dut1;
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -204,6 +207,14 @@ int fstop_dsm_read() {
     dsm_structure_destroy(&structure);
     dsm_error_message(s, "dsm_read()");
     return -2;
+  }
+
+  /* Get the UT1-UTC (DUT1) element */
+  s = dsm_structure_get_element(&structure, DSM_DUT1, &dut1);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_get_element(dut1)");
+    dsm_structure_destroy(&structure);
+    return -3;
   }
 
   /* Get the source rA element */
@@ -275,6 +286,7 @@ int fstop_dsm_read() {
   /* Set the global variables */
   pthread_mutex_lock(&fstop_mutex);
   source_rA = rA;
+  global_dut1 = dut1;
   delays[0] = del_off[0];
   phases[0] = pha_off[0];
   delays[1] = del_off[1];
@@ -415,20 +427,22 @@ void * fringe_stop(void * tr){
   double total_phase[N_INPUTS];
 
   struct timespec start, next, now;
+  struct timespec next_ut1;
   double tot_late_ms = 0;
 
   clock_gettime(CLOCK_REALTIME, &start);
   while (fstop_go) {
 
-    /* Find the local sidereal time 1 msec from now */
+    /* Find the UTC and UT1 at 1 msec from now */
     add_nsec(&start, &next, i * 1e6);
+    add_nsec(&next, &next_ut1, global_dut1 * 1e9);
 
     /* Next find the hour angle of the source */
     pthread_mutex_lock(&fstop_mutex);
-    tjd = tJDNow(next);
+    tjd = tJDNow(next_ut1);
     lst = lSTAtTJD(tjd);
     ha = lst - source_rA;
-    ut = timespec_to_double(next);
+    ut = timespec_to_double(next_ut1);
     pthread_mutex_unlock(&fstop_mutex);
 
     /* Read our DSM variables every DSM_READ_FREQ */
@@ -696,6 +710,7 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[1]:%f", fstop_freq[1]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA:%f", source_rA);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DUT1:%f", global_dut1);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "LST:%f", lst);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "HA:%f", ha);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "UT:%f", ut);
