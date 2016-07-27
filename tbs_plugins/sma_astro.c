@@ -696,6 +696,9 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[1]:%f", fstop_freq[1]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA:%f", source_rA);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "LST:%f", lst);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "HA:%f", ha);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "UT:%f", ut);
 
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "FringeRate[0]:%.6f~Hz", fringe_rate[0]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "FringeRate[1]:%.6f~Hz", fringe_rate[1]);
