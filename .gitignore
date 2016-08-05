@@ -42,3 +42,6 @@ tenzing2root/application/sendIntegration/dataFaker
 
 # Ignore Python setuptools junk
 *.egg-info/
+
+# Ignore tbs_plugins build path
+tbs_plugins/build/
