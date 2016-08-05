@@ -63,7 +63,7 @@ volatile double delay_trip[N_INPUTS][3];
 volatile double final_delay[N_INPUTS];
 volatile double final_phase[N_INPUTS];
 volatile double fudge_factor = 0.0;
-volatile double ut, ha, lst, tjd;
+volatile double ut, ha, lst, mjd;
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
 
@@ -440,8 +440,8 @@ void * fringe_stop(void * tr){
 
     /* Next find the hour angle of the source */
     pthread_mutex_lock(&fstop_mutex);
-    tjd = tJDNow(next_ut1);
-    lst = lSTAtTJD(tjd);
+    mjd = tJDNow(next_ut1) - 2400000.5;
+    lst = localApparentSiderealTime(mjd);
     ha = lst - source_rA;
     ut = timespec_to_double(next);
     pthread_mutex_unlock(&fstop_mutex);
