@@ -415,7 +415,7 @@ void add_nsec(struct timespec *in, struct timespec *out, long long nsec) {
 /* Only this loop should access registers */
 void * fringe_stop(void * tr){
   int j;
-  long i = 0;
+  long long i = 0;
   int result;
 
   int cdelay;
