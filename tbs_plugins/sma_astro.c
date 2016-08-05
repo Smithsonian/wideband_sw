@@ -62,6 +62,7 @@ volatile double fstop_freq[N_INPUTS] = {7.850, -12.150};
 volatile double delay_trip[N_INPUTS][3];
 volatile double final_delay[N_INPUTS];
 volatile double final_phase[N_INPUTS];
+volatile double fudge_factor = 0.0;
 volatile double ut, ha, lst, tjd;
 pthread_mutex_t fstop_mutex;
 pthread_t fstop_thread;
@@ -435,7 +436,7 @@ void * fringe_stop(void * tr){
 
     /* Find the UTC and UT1 at 1 msec from now */
     add_nsec(&start, &next, i * 1e6);
-    add_nsec(&next, &next_ut1, global_dut1 * 1e9);
+    add_nsec(&next, &next_ut1, global_dut1 * 1e9 + fudge_factor * 1e6);
 
     /* Next find the hour angle of the source */
     pthread_mutex_lock(&fstop_mutex);
@@ -710,6 +711,7 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Freq[1]:%f", fstop_freq[1]);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Longitude:%f", longitude);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Source rA:%f", source_rA);
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "Fudge:%f", fudge_factor);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DUT1:%f", global_dut1);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "LST:%f", lst);
   log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "HA:%f", ha);
@@ -744,8 +746,19 @@ int disable_dut1_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OK;
 }
 
+int set_fstop_fudge_cmd(struct katcp_dispatch *d, int argc){
+
+  /* Grab the fudge factor argument */
+  pthread_mutex_lock(&fstop_mutex);
+  fudge_factor = arg_double_katcp(d, 1);
+  pthread_mutex_unlock(&fstop_mutex);
+
+  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "fudge factor=%f", fudge_factor);
+  return KATCP_RESULT_OK;
+}
+
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 7,
+  .n_cmds = 8,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .uninit = stop_fstop_cmd,
@@ -784,6 +797,11 @@ struct PLUGIN KATCP_PLUGIN = {
       .name = "?sma-astro-dut1-disable",
       .desc = "disable the DUT1 correction (?sma-astro-dut1-disable)",
       .cmd = disable_dut1_cmd
+    },
+    { // 7
+      .name = "?sma-astro-fstop-fudge-set",
+      .desc = "set the timing offset fudge factor for fringe stopping in ms (?sma-astro-fstop-fudge-set factor)",
+      .cmd = set_fstop_fudge_cmd
     },
   }
 };
