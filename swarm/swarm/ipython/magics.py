@@ -61,6 +61,23 @@ class SwarmShellMagics(Magics):
             self.logger.error("Config \"{0}\" not supported!".format(line))
 
     @line_magic
+    def calibrate(self, line):
+
+        if line.lower() == 'adc-warm':
+
+            # Disable the ADC monitor
+            self.swarm.send_katcp_cmd('stop-adc-monitor')
+
+            # Do the warm ADC cal
+            self.swarm.warm_calibrate_adc()
+
+            # Enable the ADC monitor
+            self.swarm.send_katcp_cmd('start-adc-monitor')
+
+        else:
+            self.logger.error("Calibration \"{0}\" not supported!".format(line))
+
+    @line_magic
     def setprompt(self, line):
         self.shell.in_template = line
 
