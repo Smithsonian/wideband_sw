@@ -17,7 +17,7 @@ OBJS := $(EXAMPLES) $(SWARM_ONLY)
 
 $(ARCHDIR)/sma_adc.so:   LDLIBS = -lm
 $(ARCHDIR)/sma_dsm_wait.so: LDLIBS = -lm
-$(ARCHDIR)/sma_astro.so: LDLIBS = -lm
+$(ARCHDIR)/sma_astro.so: LDLIBS = -lm -lsla -L/usr/local/lib/slalib
 $(ARCHDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
 
 examples: $(EXAMPLES)
@@ -31,6 +31,7 @@ $(ARCHDIR):
 
 $(ARCHDIR)/%.o: %.c
 	$(CROSS_COMPILE)gcc $(CFLAGS) -fPIC -Wall -c $< -o $@ -g \
+		-I/usr/local/include/slalib \
 		-I$(KATCPDIR)/katcp -I$(KATCPDIR)/tcpborphserver3 -I$(GLOBAL)/dsm -I$(GLOBAL)/include -DKATCP_USE_FLOATS \
 		-D KATCP_PLUGIN_VERSION='"$(shell git describe --always --dirty)-$(shell git hash-object $< | head -c7)"'
 

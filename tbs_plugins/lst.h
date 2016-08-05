@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include "slalib.h"
 
 /* Some useful constants */
 #define DEGREES_TO_RADIANS (M_PI/180.0)
