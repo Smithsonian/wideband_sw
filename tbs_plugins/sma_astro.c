@@ -54,6 +54,7 @@ volatile double phases[N_INPUTS];
 volatile int fstop_go = FALSE;
 volatile int fstop_del_en = TRUE;
 volatile int fstop_pha_en = TRUE;
+volatile int fstop_en_dut1 = TRUE;
 volatile double source_rA = 0.0;
 volatile double global_dut1 = 0.0;
 volatile double longitude = -2.71359;
@@ -284,8 +285,8 @@ int fstop_dsm_read() {
 
   /* Set the global variables */
   pthread_mutex_lock(&fstop_mutex);
+  global_dut1 = fstop_en_dut1 ? dut1 : 0.0;
   source_rA = rA;
-  global_dut1 = dut1;
   delays[0] = del_off[0];
   phases[0] = pha_off[0];
   delays[1] = del_off[1];
@@ -727,8 +728,24 @@ int info_fstop_cmd(struct katcp_dispatch *d, int argc){
   return KATCP_RESULT_OK;
 }
 
+int enable_dut1_cmd(struct katcp_dispatch *d, int argc){
+
+  /* Set flag to enable DUT1 correction */
+  fstop_en_dut1 = TRUE;
+
+  return KATCP_RESULT_OK;
+}
+
+int disable_dut1_cmd(struct katcp_dispatch *d, int argc){
+
+  /* Set flag to disable DUT1 correction */
+  fstop_en_dut1 = FALSE;
+
+  return KATCP_RESULT_OK;
+}
+
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 5,
+  .n_cmds = 7,
   .name = "sma-astro",
   .version = KATCP_PLUGIN_VERSION,
   .uninit = stop_fstop_cmd,
@@ -757,6 +774,16 @@ struct PLUGIN KATCP_PLUGIN = {
       .name = "?sma-astro-fstop-info", 
       .desc = "print some fstop information (?sma-astro-fstop-info)",
       .cmd = info_fstop_cmd
+    },
+    { // 5
+      .name = "?sma-astro-dut1-enable",
+      .desc = "enable the DUT1 correction (?sma-astro-dut1-enable)",
+      .cmd = enable_dut1_cmd
+    },
+    { // 6
+      .name = "?sma-astro-dut1-disable",
+      .desc = "disable the DUT1 correction (?sma-astro-dut1-disable)",
+      .cmd = disable_dut1_cmd
     },
   }
 };
