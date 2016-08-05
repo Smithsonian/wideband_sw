@@ -441,7 +441,7 @@ void * fringe_stop(void * tr){
     tjd = tJDNow(next_ut1);
     lst = lSTAtTJD(tjd);
     ha = lst - source_rA;
-    ut = timespec_to_double(next_ut1);
+    ut = timespec_to_double(next);
     pthread_mutex_unlock(&fstop_mutex);
 
     /* Read our DSM variables every DSM_READ_FREQ */
