@@ -12,11 +12,11 @@ KATCPDIR := $(ACCAPP)/src/katcp_devel
 OBJDIR := build
 ARCHDIR := $(OBJDIR)/$(ARCH)
 EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
-SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_adc sma_walsh sma_astro sma_dsm_wait))
+SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_adc sma_walsh sma_astro sma_dsm))
 OBJS := $(EXAMPLES) $(SWARM_ONLY)
 
 $(ARCHDIR)/sma_adc.so:   LDLIBS = -lm
-$(ARCHDIR)/sma_dsm_wait.so: LDLIBS = -lm
+$(ARCHDIR)/sma_dsm.so:   LDLIBS = -lm
 $(ARCHDIR)/sma_astro.so: LDLIBS = -lm -lsla -L/usr/local/lib/slalib
 $(ARCHDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
 

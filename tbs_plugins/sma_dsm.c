@@ -177,7 +177,7 @@ int status_waiting_cmd(struct katcp_dispatch *d, int argc){
 
 struct PLUGIN KATCP_PLUGIN = {
   .n_cmds = 3,
-  .name = "sma-dsm-wait",
+  .name = "sma-dsm",
   .version = KATCP_PLUGIN_VERSION,
   .init = start_waiting_cmd,
   .uninit = stop_waiting_cmd,
