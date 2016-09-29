@@ -25,6 +25,7 @@ import pydsm
 from defines import *
 from xeng import SwarmXengine
 from data import SwarmListener
+from qdr import SwarmQDR
 
 
 class SwarmInput:
@@ -159,12 +160,14 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[None, None]):
+    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[None, None], soft_qdr_cal=False):
         super(SwarmMember, self).__init__(roach2_host)
+        self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
         assert len(dc_if_freqs) == 2, \
             "DC IF Frequencies given are invalid: %r" % dc_if_freqs
         self.dc_if_freqs = list(float(i) for i in dc_if_freqs)
+        self.soft_qdr_cal = bool(soft_qdr_cal)
         self.bitcode = bitcode
         self.fid = fid
 
@@ -193,6 +196,12 @@ class SwarmMember(SwarmROACH):
         # Program the board
         self._program(self.bitcode)
 
+        # Calibrate and verify QDRs
+        if self.soft_qdr_cal:
+            self.calibrate_and_verify_qdr()
+        else:
+            self.verify_qdr()
+
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
         self.reset_digital_noise()
@@ -220,9 +229,6 @@ class SwarmMember(SwarmROACH):
 
         # Initial setup of the switched corner-turn
         self._setup_corner_turn(qid, fid, fids_expected)
-
-        # Verify QDRs
-        self.verify_qdr()
 
     def set_digital_seed(self, source_n, seed):
 
@@ -476,6 +482,28 @@ class SwarmMember(SwarmROACH):
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
 
+    def calibrate_and_verify_qdr(self, max_tries=3):
+
+        # Calibrate each QDR
+        for qnum in SWARM_ALL_QDR:
+            self.logger.debug('checking QDR%d' % qnum)
+
+            try_n = 0
+            while not self.qdrs[qnum].qdr_cal(fail_hard=False):
+
+                # try up to max number of tries
+                if try_n < max_tries:
+                    self.logger.warning('QDR{0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
+                    try_n += 1
+
+                # max tires exceded, gtfo
+                else:
+                    msg = 'QDR{0} not calibrating, tried max number of tries'.format(qnum)
+                    self.logger.error(msg)
+                    raise RuntimeError(msg)
+
+            self.logger.debug('QDR{0} calibrated successfully'.format(qnum))
+
     def verify_qdr(self, max_tries=10):
   
         # verify each QDR
@@ -496,6 +524,8 @@ class SwarmMember(SwarmROACH):
                     msg = 'QDR{0} not calibrating, reset max number of times'
                     self.logger.error(msg)
                     raise RuntimeError(msg)
+
+            self.logger.debug('QDR{0} verified successfully'.format(qnum))
 
     def setup_visibs(self, qid, listener, delay_test=False, chunk_delay=2**21):
 
