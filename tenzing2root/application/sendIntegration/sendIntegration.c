@@ -20,7 +20,7 @@ the antennas are in the project.
 
 #define N_ANTENNAS (8)
 #define N_SIDEBANDS (2)
-#define N_CHUNKS (4)
+#define N_CHUNKS (6)
 
 #define ERROR (-1)
 #define OK    ( 0)
