@@ -196,11 +196,9 @@ class SwarmMember(SwarmROACH):
         # Program the board
         self._program(self.bitcode)
 
-        # Calibrate and verify QDRs
+        # If software QDR cal., calibrate and verify QDRs
         if self.soft_qdr_cal:
             self.calibrate_and_verify_qdr()
-        else:
-            self.verify_qdr()
 
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
@@ -229,6 +227,10 @@ class SwarmMember(SwarmROACH):
 
         # Initial setup of the switched corner-turn
         self._setup_corner_turn(qid, fid, fids_expected)
+
+        # If hardware QDR cal. only verify:
+        if not self.soft_qdr_cal:
+            self.verify_qdr()
 
     def set_digital_seed(self, source_n, seed):
 
