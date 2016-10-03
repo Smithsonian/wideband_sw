@@ -45,3 +45,6 @@ tenzing2root/application/sendIntegration/dataFaker
 
 # Ignore tbs_plugins build path
 tbs_plugins/build/
+
+# Ignore annoying NFS lock files
+*.nfs*
