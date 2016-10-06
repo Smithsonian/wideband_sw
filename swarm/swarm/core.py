@@ -160,7 +160,7 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[None, None], soft_qdr_cal=False):
+    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[0.0, 0.0], soft_qdr_cal=False):
         super(SwarmMember, self).__init__(roach2_host)
         self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
@@ -652,7 +652,7 @@ class SwarmMember(SwarmROACH):
         # Set the Walsh control register
         self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + 0xfffff))
 
-    def set_walsh_pattern(self, input_n, pattern, offset=0, swap90=True):
+    def set_walsh_pattern(self, input_n, pattern, offset=0):
 
         # Get the current Walsh table
         walsh_table_bin = self.roach2.read(SWARM_WALSH_TABLE_BRAM, SWARM_WALSH_TABLE_LEN*4)
@@ -673,7 +673,7 @@ class SwarmMember(SwarmROACH):
                 phase = int(pattern[index])
 
                 # Swap 90 if requested
-                if swap90:
+                if self.dc_if_freqs[input_n] >= 0.0:
                     if phase == 1:
                         phase = 3
                     elif phase == 3:
@@ -976,7 +976,7 @@ class SwarmQuadrant:
                     # Add it to your patterns
                     self.walsh_patterns[ant] = pattern
 
-    def set_walsh_patterns(self, offset=0, swap90=[True, False]):
+    def set_walsh_patterns(self, offset=0):
 
         # Go through every member
         for fid, member in self.get_valid_members():
@@ -991,7 +991,7 @@ class SwarmQuadrant:
                 pattern = self.walsh_patterns[ant]
 
                 # Then set it using the member function
-                member.set_walsh_pattern(inp, pattern, offset=offset, swap90=swap90[inp])
+                member.set_walsh_pattern(inp, pattern, offset=offset)
 
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)

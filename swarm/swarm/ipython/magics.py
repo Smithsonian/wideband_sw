@@ -20,31 +20,31 @@ class SwarmShellMagics(Magics):
 
         if line.lower() == 'dual-rx':
 
-            # Enable fringe stopping first
-            self.swarm.fringe_stopping(True)
-
             # Set quadrant one to be dual-Rx, 8-10 GHz (no flip)
-            self.swarm[0].send_katcp_cmd('sma-astro-fstop-set', '7.85', '7.85', '-2.71359', '1', '1')
-            self.swarm[0].set_walsh_patterns(swap90=[True, True])
+            self.swarm[0].members_do(lambda fid, mem: setattr(mem, 'dc_if_freqs', [7.85, 7.85]))
 
-            # Reset all the sideband separation tables
-            self.swarm.set_sideband_states()
+            # Enable fringe stopping first
+            self.swarm[0].fringe_stopping(True)
+
+            # Reset all Walshing and sideband separation tables
+            self.swarm[0].set_walsh_patterns()
+            self.swarm[0].set_sideband_states()
 
             # Alert user of any other tasks
             self.logger.info("Done. If you have not done so already (after a setIFLevels), "
-                             "please remember to run *both* BDC scripts with the 'b' option.")
+                             "please remember to run *all* BDC scripts with the 'b' option.")
 
         elif line.lower() == 'single-rx':
 
-            # Enable fringe stopping first
-            self.swarm.fringe_stopping(True)
-
             # Set quadrant one to be single-Rx, 8-12 GHz (no flip in chunk 0, flip in chunk 1)
-            self.swarm[0].send_katcp_cmd('sma-astro-fstop-set', '7.85', '-12.15', '-2.71359', '1', '1')
+            self.swarm[0].members_do(lambda fid, mem: setattr(mem, 'dc_if_freqs', [7.85, -12.15]))
+
+            # Enable fringe stopping first
+            self.swarm[0].fringe_stopping(True)
 
             # Reset all Walshing and sideband separation tables
-            self.swarm.set_walsh_patterns()
-            self.swarm.set_sideband_states()
+            self.swarm[0].set_walsh_patterns()
+            self.swarm[0].set_sideband_states()
 
             # Alert user of any other tasks
             self.logger.info("Done. If you have not done so already (after a setIFLevels), "
