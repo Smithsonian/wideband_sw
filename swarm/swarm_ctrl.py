@@ -52,6 +52,8 @@ parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', nargs='?', const=
                     '(optionally append either "high" or "low" for different SNR algorithms')
 parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
                     help='Write logger output to LOGFILE')
+parser.add_argument('--silence-loggers', nargs='+',
+                    help='silence the output from C extensions such as pysendint')
 args = parser.parse_args()
 
 # Add file handler, if requested
@@ -69,6 +71,10 @@ else:
 # Silence katcp INFO messages
 katcp_logger = logging.getLogger('katcp')
 katcp_logger.setLevel(logging.WARNING)
+
+# Silence user-defined loggers
+for logger_name in args.silence_loggers:
+    logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
 # Construct our reference input
 reference_args = [['antenna', 2], ['chunk', 0], ['polarization', 0]]
