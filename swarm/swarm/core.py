@@ -162,7 +162,8 @@ class SwarmMember(SwarmROACH):
 
     def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[0.0, 0.0], soft_qdr_cal=False):
         super(SwarmMember, self).__init__(roach2_host)
-        self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
+        if self.roach2_host:
+            self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
         self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
         assert len(dc_if_freqs) == 2, \
             "DC IF Frequencies given are invalid: %r" % dc_if_freqs
