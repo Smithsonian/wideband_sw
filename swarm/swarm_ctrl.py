@@ -52,7 +52,7 @@ parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', nargs='?', const=
                     '(optionally append either "high" or "low" for different SNR algorithms')
 parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
                     help='Write logger output to LOGFILE')
-parser.add_argument('--silence-loggers', nargs='+',
+parser.add_argument('--silence-loggers', nargs='+', default=[],
                     help='silence the output from C extensions such as pysendint')
 args = parser.parse_args()
 
