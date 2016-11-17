@@ -102,7 +102,7 @@ int handle_scan_length(struct tbs_raw *tr, int scan_length){
   old_value = *((uint32_t *)(tr->r_map + te->e_pos_base));
 
   /* Set the proper xn_num bits */
-  new_value = (old_value & 0xfffe0000) + (xn_num & 0x0001ffff);
+  new_value = (old_value & 0xe0000000) + (xn_num & 0x1fffffff);
 
   /* Finally, write it to the mmap region */
   *((uint32_t *)(tr->r_map + te->e_pos_base)) = new_value;
