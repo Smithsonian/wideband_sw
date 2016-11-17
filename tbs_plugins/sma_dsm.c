@@ -13,7 +13,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define DSM_HOST_NAME "hal9000"
+#define DSM_WAIT_HOST "hal9000"
 #define DSM_SCAN_LENGTH "SWARM_SCAN_LENGTH_L"
 
 #define DSM_WRITE_HOST "OBS"
@@ -128,7 +128,7 @@ void * dsm_wait_dispatch(void * tr){
   signal(SIGINT, sigint_handler);
 
   /* Add the scan length to the monitor list */
-  status = dsm_monitor(DSM_HOST_NAME, DSM_SCAN_LENGTH);
+  status = dsm_monitor(DSM_WAIT_HOST, DSM_SCAN_LENGTH);
   if (status != DSM_SUCCESS) {
     dsm_error_message(status, "dsm_monitor call for SWARM_SCAN_LENGTH_D");
   }
@@ -176,7 +176,7 @@ int start_waiting_cmd(struct katcp_dispatch *d, int argc){
     return KATCP_RESULT_FAIL;
   }
 
-  /* Set flag to start fringe-stopping */
+  /* Set flag to start waiting for DSM variables */
   waiting = TRUE;
 
   /* Start the thread */
