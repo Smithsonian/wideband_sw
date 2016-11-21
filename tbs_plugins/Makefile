@@ -2,11 +2,11 @@ ifdef CROSS_COMPILE
 	ARCH := $(CROSS_COMPILE)cross
 else
 	ARCH := $(shell uname -m)
+	GLOBAL := /global
+	COMMON := /common
+	ACCAPP := /application
 endif
 
-GLOBAL := /global
-COMMON := /common
-ACCAPP := /application
 KATCPDIR := $(ACCAPP)/src/katcp_devel
 
 OBJDIR := build
