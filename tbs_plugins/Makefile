@@ -42,3 +42,7 @@ $(ARCHDIR)/%.so: $(ARCHDIR)/%.o
 
 clean:
 	rm -rf $(OBJDIR)
+
+install: $(OBJS)
+	install -d $(ACCAPP)/lib/tbs_plugins/
+	install -D $(ARCHDIR)/*.so $(ACCAPP)/lib/tbs_plugins/
