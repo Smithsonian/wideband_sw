@@ -13,7 +13,6 @@ from socket import (
 
 from numpy import array, nan, fromstring
 
-from pysendint import send_sync
 from defines import *
 from xeng import (
     SwarmBaseline, 
@@ -229,7 +228,6 @@ class SwarmDataCatcher:
             if new_acc.is_set():
                 self.logger.info("First packet of new accumulation received")
                 new_acc.clear()
-                send_sync()
 
             # Parse the IP address
             ip = unpack('BBBB', inet_aton(addr[0]))
