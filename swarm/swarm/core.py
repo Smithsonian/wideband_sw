@@ -487,7 +487,7 @@ class SwarmMember(SwarmROACH):
 
     def calibrate_and_verify_qdr(self, max_tries=3, fail_hard=True):
 
-        # Calibrate each QDR
+        # calibrate each QDR
         for qnum in SWARM_ALL_QDR:
             self.logger.debug('checking QDR%d' % qnum)
 
@@ -499,7 +499,7 @@ class SwarmMember(SwarmROACH):
                     self.logger.warning('QDR{0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
                     try_n += 1
 
-                # max tires exceded, gtfo
+                # max tries exceded, gtfo
                 else:
                     msg = 'QDR{0} not calibrating, tried max number of tries'.format(qnum)
                     self.logger.error(msg)
