@@ -39,6 +39,8 @@ parser.add_argument('--setup-only', dest='setup_only', action='store_true',
                     help='only program and setup the board; do not wait for data')
 parser.add_argument('--listen-only', dest='listen_only', action='store_true',
                     help='do NOT setup the board; only wait for data')
+parser.add_argument('--continue-on-qdr-error', dest='raise_qdr_err', action='store_false',
+                    help='do NOT terminate program on a QDR calibration error.')
 parser.add_argument('--no-data-catcher', dest='disable_data_catcher', action='store_true',
                     help='do NOT send data to the SMAs dataCatcher and corrSaver servers')
 parser.add_argument('--visibs-test', dest='visibs_test', action='store_true',
@@ -88,7 +90,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 if not args.listen_only:
 
     # Setup using the Swarm class and our parameters
-    swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test)
+    swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test, raise_qdr_err=args.raise_qdr_err)
 
 # Setup the data catcher class
 swarm_catcher = SwarmDataCatcher(swarm)

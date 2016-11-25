@@ -189,7 +189,7 @@ class SwarmMember(SwarmROACH):
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
-    def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15)):
+    def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15), raise_qdr_err=True):
 
         # Reset logger for current setup
         self.logger = logging.getLogger('SwarmMember[%d]' % fid)
@@ -199,7 +199,7 @@ class SwarmMember(SwarmROACH):
 
         # If software QDR cal., calibrate and verify QDRs
         if self.soft_qdr_cal:
-            self.calibrate_and_verify_qdr()
+            self.calibrate_and_verify_qdr(fail_hard=raise_qdr_err)
 
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
@@ -485,7 +485,7 @@ class SwarmMember(SwarmROACH):
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
         self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
 
-    def calibrate_and_verify_qdr(self, max_tries=3):
+    def calibrate_and_verify_qdr(self, max_tries=3, fail_hard=True):
 
         # Calibrate each QDR
         for qnum in SWARM_ALL_QDR:
@@ -503,7 +503,10 @@ class SwarmMember(SwarmROACH):
                 else:
                     msg = 'QDR{0} not calibrating, tried max number of tries'.format(qnum)
                     self.logger.error(msg)
-                    raise RuntimeError(msg)
+                    if fail_hard:
+                        raise RuntimeError(msg)
+                    else:
+                        break
 
             self.logger.debug('QDR{0} calibrated successfully'.format(qnum))
 
@@ -1155,7 +1158,7 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.reset_digital_noise()
 
-    def setup(self):
+    def setup(self, raise_qdr_err=True):
 
         # Go through hosts in our mapping
         for fid, member in self.get_valid_members():
@@ -1164,7 +1167,7 @@ class SwarmQuadrant:
             self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
-            member.setup(self.qid, fid, self.fids_expected, 0.0)
+            member.setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
 
 
 class Swarm:
@@ -1223,11 +1226,11 @@ class Swarm:
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
 
-    def setup(self, itime, interfaces, delay_test=False):
+    def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True):
 
         # Setup each quadrant
         for qid, quad in enumerate(self.quads):
-            quad.setup()
+            quad.setup(raise_qdr_err=raise_qdr_err)
 
         # Sync the SWARM
         self.sync()
