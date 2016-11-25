@@ -508,7 +508,8 @@ class SwarmMember(SwarmROACH):
                     else:
                         break
 
-            self.logger.debug('QDR{0} calibrated successfully'.format(qnum))
+            if self.qdrs[qnum].qdr_cal_check():
+                self.logger.info('QDR{0} calibrated successfully'.format(qnum))
 
     def verify_qdr(self, max_tries=10):
   
