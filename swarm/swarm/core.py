@@ -43,7 +43,7 @@ class SwarmInput:
         return repr_str.format(name=self.__class__.__name__, ant=self._ant, chk=self._chk, pol=self._pol)
 
     def __str__(self):
-        repr_str = 'ant{ant}:chk{chk}:pol{pol}'
+        repr_str = 'ant{ant!r}:chk{chk!r}:pol{pol!r}'
         return repr_str.format(ant=self._ant, chk=self._chk, pol=self._pol)
 
     def __hash__(self):
@@ -177,7 +177,7 @@ class SwarmMember(SwarmROACH):
         return repr_str.format(name=self.__class__.__name__, fid=self.fid, host=self.roach2_host, inputs=self._inputs)
 
     def __str__(self):
-        repr_str = '[fid={fid}] {host} [{inputs[0]!s}] [{inputs[1]!s}]'
+        repr_str = '[fid={fid!r}] {host} [{inputs[0]!s}] [{inputs[1]!s}]'
         return repr_str.format(fid=self.fid, host=self.roach2_host, inputs=self._inputs)
 
     def __getitem__(self, input_n):
@@ -801,7 +801,7 @@ class SwarmQuadrant:
         return '{name}(qid={qid}, members=[{members}])'.format(name=self.__class__.__name__, qid=self.qid, members=self.members)
 
     def __str__(self):
-        return os.linesep.join('[qid={0}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
+        return os.linesep.join('[qid={0!r}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
 
     def __getattr__(self, attr):
 
