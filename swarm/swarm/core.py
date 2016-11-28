@@ -39,8 +39,8 @@ class SwarmInput:
         self._pol = polarization
 
     def __repr__(self):
-        repr_str = 'SwarmInput(antenna={ant}, chunk={chk}, polarization={pol})'
-        return repr_str.format(ant=self._ant, chk=self._chk, pol=self._pol)
+        repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
+        return repr_str.format(name=self.__class__.__name__, ant=self._ant, chk=self._chk, pol=self._pol)
 
     def __str__(self):
         repr_str = 'ant{ant}:chk{chk}:pol{pol}'
@@ -173,8 +173,8 @@ class SwarmMember(SwarmROACH):
         self.fid = fid
 
     def __repr__(self):
-        repr_str = 'SwarmMember(fid={fid}, roach2_host={host})[{inputs[0]!r}][{inputs[1]!r}]'
-        return repr_str.format(fid=self.fid, host=self.roach2_host, inputs=self._inputs)
+        repr_str = '{name}(fid={fid!r}, roach2_host={host!r})[{inputs[0]!r}][{inputs[1]!r}]'
+        return repr_str.format(name=self.__class__.__name__, fid=self.fid, host=self.roach2_host, inputs=self._inputs)
 
     def __str__(self):
         repr_str = '[fid={fid}] {host} [{inputs[0]!s}] [{inputs[1]!s}]'
@@ -798,7 +798,7 @@ class SwarmQuadrant:
         return self.members.values()[fid]
 
     def __repr__(self):
-        return 'SwarmQuadrant(qid={qid}, members=[{members}])'.format(qid=self.qid, members=self.members)
+        return '{name}(qid={qid}, members=[{members}])'.format(name=self.__class__.__name__, qid=self.qid, members=self.members)
 
     def __str__(self):
         return os.linesep.join('[qid={0}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
@@ -1188,7 +1188,7 @@ class Swarm:
         return self.quads[qid]
 
     def __repr__(self):
-        return 'Swarm(quads=[{quads}])'.format(quads=self.quads)
+        return '{name}(quads=[{quads}])'.format(name=self.__class__.__name__, quads=self.quads)
 
     def __str__(self):
         return os.linesep.join(str(quad) for quad in self.quads)
