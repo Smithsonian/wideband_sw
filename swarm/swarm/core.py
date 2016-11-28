@@ -28,15 +28,25 @@ from data import SwarmListener
 from qdr import SwarmQDR
 
 
+module_logger = logging.getLogger(__name__)
+
+
 class SwarmInput:
 
-    def __init__(self, antenna=None, chunk=None, polarization=None):
+    def __init__(self, antenna=None, chunk=None, polarization=None, parent_logger=module_logger):
 
         # Set all initial members
-        self.logger = logging.getLogger('SwarmInput')
         self._ant = antenna
         self._chk = chunk
         self._pol = polarization
+        self.logger = parent_logger.getChild(
+            '{name}[ant={ant!r}, chk={chk!r}, pol={pol!r}]'.format(
+                name=self.__class__.__name__,
+                ant=self._ant,
+                chk=self._chk,
+                pol=self._pol,
+                )
+            )
 
     def __repr__(self):
         repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
@@ -64,11 +74,16 @@ class SwarmInput:
 
 class SwarmROACH(object):
 
-    def __init__(self, roach2_host):
+    def __init__(self, roach2_host, parent_logger=module_logger):
 
         # Set all initial members
-        self.logger = logging.getLogger(self.__class__.__name__)
         self.roach2_host = roach2_host
+        self.logger = parent_logger.getChild(
+            '{name}[host={host!r}]'.format(
+                name=self.__class__.__name__,
+                host=self.roach2_host,
+                )
+            )
 
         # Connect to our ROACH2
         if self.roach2_host:
@@ -160,17 +175,24 @@ class SwarmROACH(object):
 
 class SwarmMember(SwarmROACH):
 
-    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[0.0, 0.0], soft_qdr_cal=True):
+    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[0.0, 0.0], soft_qdr_cal=True,
+                 parent_logger=module_logger):
         super(SwarmMember, self).__init__(roach2_host)
         if self.roach2_host:
             self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
-        self._inputs = [SwarmInput(),] * len(SWARM_MAPPING_INPUTS)
+        self._inputs = [SwarmInput(parent_logger=self.logger),] * len(SWARM_MAPPING_INPUTS)
         assert len(dc_if_freqs) == 2, \
             "DC IF Frequencies given are invalid: %r" % dc_if_freqs
         self.dc_if_freqs = list(float(i) for i in dc_if_freqs)
         self.soft_qdr_cal = bool(soft_qdr_cal)
         self.bitcode = bitcode
         self.fid = fid
+        self.logger = parent_logger.getChild(
+            '{name}[fid={fid!r}]'.format(
+                name=self.__class__.__name__,
+                fid=self.fid,
+                )
+            )
 
     def __repr__(self):
         repr_str = '{name}(fid={fid!r}, roach2_host={host!r})[{inputs[0]!r}][{inputs[1]!r}]'
@@ -190,9 +212,6 @@ class SwarmMember(SwarmROACH):
         self._inputs[input_n] = input_inst
 
     def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15), raise_qdr_err=True):
-
-        # Reset logger for current setup
-        self.logger = logging.getLogger('SwarmMember[%d]' % fid)
 
         # Program the board
         self._program(self.bitcode)
@@ -776,11 +795,16 @@ class SwarmMember(SwarmROACH):
 
 class SwarmQuadrant:
 
-    def __init__(self, qid, map_filename, walsh_filename=SWARM_WALSH_PATTERNS):
+    def __init__(self, qid, map_filename, walsh_filename=SWARM_WALSH_PATTERNS, parent_logger=module_logger):
 
         # Set initial member variables
-        self.logger = logging.getLogger('SwarmQuadrant(qid={0})'.format(qid))
         self.qid = qid
+        self.logger = parent_logger.getChild(
+            '{name}[qid={qid!r}]'.format(
+                name=self.__class__.__name__,
+                qid=self.qid,
+                )
+            )
 
         # Parse mapping for first time
         self.load_mapping(map_filename)
@@ -890,7 +914,7 @@ class SwarmQuadrant:
                     roach2_host = SWARM_ROACH2_IP % roach2_num
 
                     # Create and attach our member instance
-                    member_inst = SwarmMember(fid, roach2_host, **parameters)
+                    member_inst = SwarmMember(fid, roach2_host, parent_logger=self.logger, **parameters)
                     if not self.members.has_key(roach2_host):
                         self.members[roach2_host] = member_inst
                         fid += 1
@@ -917,7 +941,8 @@ class SwarmQuadrant:
                         continue
 
                     # Finally, attach our input instance
-                    input_inst = SwarmInput(antenna=antenna, chunk=chunk, polarization=pol)
+                    input_inst = SwarmInput(antenna=antenna, chunk=chunk, polarization=pol,
+                                            parent_logger=member_inst.logger)
                     self.members[roach2_host].set_input(roach2_inp, input_inst)
 
                     # We're done, spit some info out
@@ -930,7 +955,7 @@ class SwarmQuadrant:
         # Fill missing FIDs with empty members
         missing_fids = set(SWARM_ALL_FID) - set(range(self.fids_expected))
         for missing_fid in range(fid, SWARM_N_FIDS):
-            self.members[missing_fid] = SwarmMember(missing_fid, None)
+            self.members[missing_fid] = SwarmMember(missing_fid, None, parent_logger=self.logger)
 
     def get_valid_members(self):
 
@@ -1173,13 +1198,15 @@ class SwarmQuadrant:
 
 class Swarm:
 
-    def __init__(self, map_filenames=SWARM_MAPPINGS):
+    def __init__(self, map_filenames=SWARM_MAPPINGS, parent_logger=module_logger):
 
         # Set initial member variables
-        self.logger = logging.getLogger('Swarm')
+        self.logger = parent_logger.getChild(
+            '{name}'.format(name=self.__class__.__name__)
+            )
 
         # For every mapping file, instantiate one SwarmQuadrant
-        self.quads = list(SwarmQuadrant(q, m) for q, m in enumerate(map_filenames))
+        self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
 
     def __len__(self):
         return len(self.quads)
