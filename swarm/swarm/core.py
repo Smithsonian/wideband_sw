@@ -226,6 +226,9 @@ class SwarmMember(SwarmROACH):
 
     def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15), raise_qdr_err=True):
 
+        # Write to log to show we're starting the setup of this member
+        self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
+
         # Program the board
         self._program(self.bitcode)
 
@@ -1202,8 +1205,6 @@ class SwarmQuadrant:
         # Go through hosts in our mapping
         for fid, member in self.get_valid_members():
 
-            # Log some transmit side (i.e. ROACH2) network information
-            self.logger.info('Configuring ROACH2=%s for transmission as FID #%d' %(member.roach2_host, fid))
 
             # Setup (i.e. program and configure) the ROACH2
             member.setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
