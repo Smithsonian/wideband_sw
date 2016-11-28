@@ -1,4 +1,4 @@
-import logging, os
+import logging, os, sys
 from time import sleep
 from struct import pack, unpack
 from random import randint
@@ -26,6 +26,19 @@ from defines import *
 from xeng import SwarmXengine
 from data import SwarmListener
 from qdr import SwarmQDR
+
+
+class ExceptingThread(Thread):
+
+    def __init__(self, queue, *args, **kwargs):
+        super(ExceptingThread, self).__init__(*args, **kwargs)
+        self.queue = queue
+
+    def run(self):
+        try:
+            super(ExceptingThread, self).run()
+        except:
+            self.queue.put((self, sys.exc_info()))
 
 
 module_logger = logging.getLogger(__name__)
