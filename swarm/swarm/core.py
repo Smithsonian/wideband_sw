@@ -4,6 +4,8 @@ from struct import pack, unpack
 from random import randint
 from socket import inet_ntoa
 from threading import Thread
+from Queue import Queue, Empty
+from traceback import format_exception
 from collections import OrderedDict
 from ConfigParser import ConfigParser
 
@@ -1200,14 +1202,46 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.reset_digital_noise()
 
-    def setup(self, raise_qdr_err=True):
+    def setup(self, raise_qdr_err=True, threaded=False):
 
-        # Go through hosts in our mapping
-        for fid, member in self.get_valid_members():
+        # Setup each member
+        if not threaded:
+            for fid, member in self.get_valid_members():
+                member.setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
 
+        else: # if requested, do threaded setup
 
-            # Setup (i.e. program and configure) the ROACH2
-            member.setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
+            # Create our setup threads
+            exceptions_queue = Queue()
+            setup_threads = OrderedDict()
+            for fid, member in self.get_valid_members():
+                thread = ExceptingThread(
+                    exceptions_queue,
+                    target=member.setup,
+                    kwargs={'raise_qdr_err': raise_qdr_err},
+                    args=(self.qid, fid, self.fids_expected, 0.0),
+                    )
+                setup_threads[thread] = member
+
+            # Now start them all
+            for thread in setup_threads.iterkeys():
+                thread.start()
+
+            # ...and immediately join them
+            for thread in setup_threads.iterkeys():
+                thread.join()
+
+            # If there were exceptions log them
+            exceptions = 0
+            while not exceptions_queue.empty():
+                exceptions += 1
+                thread, exc = exceptions.get()
+                for line in format_exception(*exc):
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+
+            # If any exception occurred raise error
+            if exceptions > 0:
+                raise RuntimeError('{0} error(s) occurred during SwarmQuadrant setup!'.format(exceptions))
 
 
 class Swarm:
@@ -1268,11 +1302,45 @@ class Swarm:
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
 
-    def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True):
+    def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True, threaded=False):
 
         # Setup each quadrant
-        for qid, quad in enumerate(self.quads):
-            quad.setup(raise_qdr_err=raise_qdr_err)
+        if not threaded:
+            for quad in self.quads:
+                quad.setup(raise_qdr_err=raise_qdr_err, threaded=False)
+
+        else: # if requested, do threaded setup
+
+            # Create our setup threads
+            exceptions_queue = Queue()
+            setup_threads = OrderedDict()
+            for quad in self.quads:
+                thread = ExceptingThread(
+                    exceptions_queue,
+                    target=quad.setup,
+                    kwargs={'raise_qdr_err': raise_qdr_err, 'threaded': True},
+                    )
+                setup_threads[thread] = quad
+
+            # Now start them all
+            for thread in setup_threads.iterkeys():
+                thread.start()
+
+            # ...and immediately join them
+            for thread in setup_threads.iterkeys():
+                thread.join()
+
+            # If there were exceptions log them
+            exceptions = 0
+            while not exceptions_queue.empty():
+                exceptions += 1
+                thread, exc = exceptions.get()
+                for line in format_exception(*exc):
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+
+            # If any exception occurred raise error
+            if exceptions > 0:
+                raise RuntimeError('{0} error(s) occurred during Swarm setup!'.format(exceptions))
 
         # Sync the SWARM
         self.sync()

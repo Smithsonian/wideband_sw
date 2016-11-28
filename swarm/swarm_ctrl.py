@@ -56,6 +56,8 @@ parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
                     help='Write logger output to LOGFILE')
 parser.add_argument('--silence-loggers', nargs='+', default=[],
                     help='silence the output from C extensions such as pysendint')
+parser.add_argument('--thread-setup', dest='thread_setup', action='store_true',
+                    help='multi-thread the setup to make it faster')
 args = parser.parse_args()
 
 # Add file handler, if requested
@@ -90,7 +92,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 if not args.listen_only:
 
     # Setup using the Swarm class and our parameters
-    swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test, raise_qdr_err=args.raise_qdr_err)
+    swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test, raise_qdr_err=args.raise_qdr_err, threaded=args.thread_setup)
 
 # Setup the data catcher class
 swarm_catcher = SwarmDataCatcher(swarm)
