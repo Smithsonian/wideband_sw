@@ -1254,7 +1254,7 @@ class SwarmQuadrant:
 
             # If any exception occurred raise error
             if exceptions > 0:
-                raise RuntimeError('{0} error(s) occurred during SwarmQuadrant setup!'.format(exceptions))
+                raise RuntimeError('{0} member(s) had an error during SwarmQuadrant setup!'.format(exceptions))
 
 
 class Swarm:
@@ -1358,7 +1358,7 @@ class Swarm:
 
             # If any exception occurred raise error
             if exceptions > 0:
-                raise RuntimeError('{0} error(s) occurred during Swarm setup!'.format(exceptions))
+                raise RuntimeError('{0} quadrant(s) had an error during Swarm setup!'.format(exceptions))
 
         # Sync the SWARM
         self.sync()
