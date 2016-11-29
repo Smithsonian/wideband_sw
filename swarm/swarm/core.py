@@ -1243,8 +1243,13 @@ class SwarmQuadrant:
             exceptions = 0
             while not exceptions_queue.empty():
                 exceptions += 1
-                thread, exc = exceptions.get()
-                for line in format_exception(*exc):
+                thread, exc = exceptions_queue.get()
+                fmt_exc = format_exception(*exc)
+                tb_str = ''.join(fmt_exc[0:-1])
+                exc_str = ''.join(fmt_exc[-1])
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
                     setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
             # If any exception occurred raise error
@@ -1342,8 +1347,13 @@ class Swarm:
             exceptions = 0
             while not exceptions_queue.empty():
                 exceptions += 1
-                thread, exc = exceptions.get()
-                for line in format_exception(*exc):
+                thread, exc = exceptions_queue.get()
+                fmt_exc = format_exception(*exc)
+                tb_str = ''.join(fmt_exc[0:-1])
+                exc_str = ''.join(fmt_exc[-1])
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
                     setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
             # If any exception occurred raise error
