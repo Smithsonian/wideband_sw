@@ -72,9 +72,9 @@ if args.verbose:
 else:
     logger.setLevel(logging.INFO)
 
-# Silence katcp INFO messages
+# Silence all katcp messages
 katcp_logger = logging.getLogger('katcp')
-katcp_logger.setLevel(logging.WARNING)
+katcp_logger.setLevel(logging.CRITICAL)
 
 # Silence user-defined loggers
 for logger_name in args.silence_loggers:
