@@ -32,15 +32,22 @@ from qdr import SwarmQDR
 
 class ExceptingThread(Thread):
 
-    def __init__(self, queue, *args, **kwargs):
+    def __init__(self, queue, logger=None, *args, **kwargs):
         super(ExceptingThread, self).__init__(*args, **kwargs)
+        self.logger = logger
         self.queue = queue
 
     def run(self):
         try:
             super(ExceptingThread, self).run()
         except:
-            self.queue.put((self, sys.exc_info()))
+            exc = sys.exc_info()
+            if self.logger:
+                fmt_exc = format_exception(*exc)
+                exc_str = ''.join(fmt_exc[-1])
+                for line in exc_str.splitlines():
+                    self.logger.error('<{0}> {1}'.format(self.name, line))
+            self.queue.put((self, exc))
 
 
 module_logger = logging.getLogger(__name__)
@@ -1218,6 +1225,7 @@ class SwarmQuadrant:
                 thread = ExceptingThread(
                     exceptions_queue,
                     target=member.setup,
+                    logger=member.logger,
                     kwargs={'raise_qdr_err': raise_qdr_err},
                     args=(self.qid, fid, self.fids_expected, 0.0),
                     )
