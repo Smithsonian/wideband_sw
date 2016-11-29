@@ -128,7 +128,9 @@ class SwarmROACH(object):
         # Connect and wait until ready
         self.roach2 = FpgaClient(roach2_host)
         if roach2_host:
-            self.roach2.wait_connected()
+            if not self.roach2.wait_connected(timeout=5):
+                raise RuntimeError('Timeout trying to connect to {0}.'
+                                   'Is it up and running the swarm sever?'.format(self.roach2.host))
 
     def _program(self, bitcode):
 
