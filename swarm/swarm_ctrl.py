@@ -20,7 +20,7 @@ from callbacks.sma_data import *
 
 # Setup some basic logging
 logging.basicConfig()
-formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
+formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
 logger = logging.getLogger()
 logger.handlers[0].setFormatter(formatter)
 
