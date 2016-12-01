@@ -324,7 +324,11 @@ class SwarmDataCatcher:
                     data[acc_n].append(list(None for fid in range(quad.fids_expected)))
 
             # Populate this data
-            data[acc_n][qid][fid] = datas
+            try:
+                data[acc_n][qid][fid] = datas
+            except IndexError:
+                self.logger.info("Ignoring data from unexpected quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid))
+                continue # ignore and move on
 
             # Get the member/fid this set is from
             member = self.swarm[qid][fid]
