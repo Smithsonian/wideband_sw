@@ -216,6 +216,7 @@ class SwarmDataCatcher:
     def catch(self, stop, new_acc, in_queue, out_queue):
 
         data = {}
+        mask = {}
         udp_sock = self._create_socket()
         while not stop.is_set():
 
@@ -251,24 +252,29 @@ class SwarmDataCatcher:
 	    # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
                 data[qid] = {}
+                mask[qid] = {}
 
 	    # Initialize fid data buffer, if necessary
             if not data[qid].has_key(fid):
                 data[qid][fid] = {}
+                mask[qid][fid] = {}
 
 	    # Initialize acc_n data buffer, if necessary
             if not data[qid][fid].has_key(acc_n):
                 data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
+                mask[qid][fid][acc_n] = long(0)
 
             # Then store data in it
             data[qid][fid][acc_n][pkt_n] = datar[8:]
+            mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
-            if not has_none(data[qid][fid][acc_n]):
+            if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
 
                 # Put data onto the queue
                 datas = ''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, datas))
+                mask[qid][fid].pop(acc_n)
 
         udp_sock.close()
 
