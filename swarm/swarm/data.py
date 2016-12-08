@@ -229,6 +229,7 @@ class SwarmDataCatcher:
             # Send sync if this is the first packet of the next accumulation
             if new_acc.is_set():
                 self.logger.info("First packet of new accumulation received")
+                int_time = time() # scan end time
                 new_acc.clear()
 
             # Parse the IP address
@@ -272,7 +273,7 @@ class SwarmDataCatcher:
 
                 # Put data onto the queue
                 datas = ''.join(data[qid][fid].pop(acc_n))
-                out_queue.put((qid, fid, acc_n, datas))
+                out_queue.put((qid, fid, acc_n, int_time, datas))
                 mask[qid][fid].pop(acc_n)
 
         udp_sock.close()
@@ -322,7 +323,7 @@ class SwarmDataCatcher:
 
             # Receive a set of data
             try:
-                qid, fid, acc_n, datas = in_queue.get_nowait()
+                qid, fid, acc_n, int_time, datas = in_queue.get_nowait()
             except Empty:
                 sleep(0.01)
                 continue
@@ -356,9 +357,6 @@ class SwarmDataCatcher:
                 # Flag this accumulation as done
                 new_acc.set()
 
-                # Get integration time
-                int_time = time()
-
                 # We have all data for this accumulation, log it
                 self.logger.info("Received full accumulation #{:<4}".format(acc_n))
 
@@ -380,7 +378,7 @@ class SwarmDataCatcher:
                 self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
 		# Put data onto queue
-                out_queue.put((acc_n, data_pkg))
+                out_queue.put((acc_n, int_time, data_pkg))
 
 
 class SwarmDataHandler:
@@ -405,7 +403,7 @@ class SwarmDataHandler:
             while True:
 
                 try: # to check for data
-                    acc_n, data = self.queue.get_nowait()
+                    acc_n, int_time, data = self.queue.get_nowait()
                 except Empty: # none available
                     sleep(0.01)
                     continue
