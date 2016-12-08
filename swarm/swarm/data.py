@@ -36,10 +36,9 @@ class SwarmDataPackage:
     def __init__(self, swarm, time=0.0, length=0.0):
 
         # Set all initial members
-        self.swarm = swarm
         self.int_time = time
         self.int_length = length
-        self.inputs = list(quad[i][j] for quad in self.swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
+        self.inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
         self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
