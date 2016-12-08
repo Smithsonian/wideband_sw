@@ -61,14 +61,6 @@ class SwarmInput:
         self._ant = antenna
         self._chk = chunk
         self._pol = polarization
-        self.logger = parent_logger.getChild(
-            '{name}[ant={ant!r}, chk={chk!r}, pol={pol!r}]'.format(
-                name=self.__class__.__name__,
-                ant=self._ant,
-                chk=self._chk,
-                pol=self._pol,
-                )
-            )
 
     def __repr__(self):
         repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
