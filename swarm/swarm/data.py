@@ -37,7 +37,7 @@ class SwarmDataPackage:
         self.int_time = int_time
         self.int_length = length
         self.inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
-        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
+        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2) if SwarmBaseline(i, j).is_valid())
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
         self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
