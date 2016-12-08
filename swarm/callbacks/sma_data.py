@@ -9,9 +9,6 @@ class SMAData(SwarmDataCallback):
         # Send data to dataCatcher/corrSaver
         for baseline in data.baselines:
 
-            # Get our data arrays
-            baseline_data = data[baseline]
-
             # Send the appropriate chunk
             if baseline.is_valid():
 
@@ -27,11 +24,11 @@ class SMAData(SwarmDataCallback):
                 pol_right = baseline.right._pol
 
                 # Get each sidebands data
-                usb_data = baseline_data['USB']
+                usb_data = data[baseline, 'USB']
                 if baseline.is_auto():
                     lsb_data = usb_data.copy()
                 else:
-                    lsb_data = baseline_data['LSB']
+                    lsb_data = data[baseline, 'LSB']
 
                 # Send our integration
                 send_integration(data.int_time - (data.int_length/2.0), 

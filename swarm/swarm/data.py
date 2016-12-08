@@ -11,7 +11,7 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
 
-from numpy import array, nan, fromstring
+from numpy import array, nan, fromstring, empty
 
 from defines import *
 from xeng import (
@@ -29,8 +29,6 @@ INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
-EMPTY_DATA_ARRAY = array([nan,] * SWARM_CHANNELS * 2)
-
 class SwarmDataPackage:
 
     def __init__(self, swarm, time=0.0, length=0.0):
@@ -42,23 +40,27 @@ class SwarmDataPackage:
         self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
+        self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
         self._init_data()
 
-    def __getitem__(self, baseline):
-        return self.data[baseline]
+    def __getitem__(self, item):
+        return self.get(*item)
+
+    def get(self, *item):
+        try:
+            baseline, sideband = item
+            i = self.baselines_i[baseline]
+            j = SWARM_XENG_SIDEBANDS.index(sideband)
+            return self.array[i, j]
+        except:
+            raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def _init_data(self):
 
         # Initialize our data array
-        self.data = {}
-
-        # Initialize baselines
-        for baseline in self.baselines:
-            self.data[baseline] = {}
-
-            # Initialize sidebands
-            for sb in SWARM_XENG_SIDEBANDS:
-                self.data[baseline][sb] = EMPTY_DATA_ARRAY.copy()
+        data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS*2)
+        self.array = empty(shape=data_shape, dtype='float32')
+        self.array[:] = nan
 
     def set_data(self, xeng_word, fid, data):
 
@@ -72,11 +74,11 @@ class SwarmDataPackage:
         try: # normal conjugation first
 
             # Fill this baseline
-            self.data[baseline][sideband][slice_] = data.copy()
+            self.get(baseline, sideband)[slice_] = data.copy()
 
             # Special case for autos, fill imag with zeros
             if baseline.is_auto():
-                self.data[baseline][sideband][slice_+1] = 0.0
+                self.get(baseline, sideband)[slice_+1] = 0.0
 
         except KeyError:
 
@@ -84,7 +86,7 @@ class SwarmDataPackage:
             conj_baseline = SwarmBaseline(baseline.right, baseline.left)
 
             # Try the conjugated baseline
-            self.data[conj_baseline][sideband][slice_] = data.copy()
+            self.get(conj_baseline, sideband)[slice_] = data.copy()
 
 
 class SwarmDataCallback(object):
