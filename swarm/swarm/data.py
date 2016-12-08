@@ -242,7 +242,6 @@ class SwarmDataCatcher:
 
 	    # Unpack it to get packet # and accum #
             pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-            self.logger.debug("Received packet #%d for accumulation #%d from %s(QID=%d, FID=%d)" %(pkt_n, acc_n, addr, qid, fid))
 
             # Check if packet is wrong size
             if len(datar) <> SWARM_VISIBS_PKT_SIZE:
