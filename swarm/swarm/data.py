@@ -265,7 +265,7 @@ class SwarmDataCatcher:
                 mask[qid][fid][acc_n] = long(0)
 
             # Then store data in it
-            data[qid][fid][acc_n][pkt_n] = datar[8:]
+            data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
             mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
