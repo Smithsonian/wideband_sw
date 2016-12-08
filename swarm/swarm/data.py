@@ -74,7 +74,7 @@ class SwarmDataPackage:
         try: # normal conjugation first
 
             # Fill this baseline
-            self.get(baseline, sideband)[slice_] = data.copy()
+            self.get(baseline, sideband)[slice_] = data
 
             # Special case for autos, fill imag with zeros
             if baseline.is_auto():
@@ -86,7 +86,7 @@ class SwarmDataPackage:
             conj_baseline = SwarmBaseline(baseline.right, baseline.left)
 
             # Try the conjugated baseline
-            self.get(conj_baseline, sideband)[slice_] = data.copy()
+            self.get(conj_baseline, sideband)[slice_] = data
 
 
 class SwarmDataCallback(object):
