@@ -226,6 +226,11 @@ class SwarmDataCatcher:
             except timeout:
                 continue
 
+            # Check if packet is wrong size
+            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
+                self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
+		continue
+
             # Send sync if this is the first packet of the next accumulation
             if new_acc.is_set():
                 self.logger.info("First packet of new accumulation received")
@@ -243,11 +248,6 @@ class SwarmDataCatcher:
 
 	    # Unpack it to get packet # and accum #
             pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-
-            # Check if packet is wrong size
-            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-                self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-		continue
 
 	    # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
