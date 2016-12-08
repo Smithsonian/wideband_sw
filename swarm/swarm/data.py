@@ -31,10 +31,10 @@ DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
 class SwarmDataPackage:
 
-    def __init__(self, swarm, time=0.0, length=0.0):
+    def __init__(self, swarm, int_time=0.0, length=0.0):
 
         # Set all initial members
-        self.int_time = time
+        self.int_time = int_time
         self.int_length = length
         self.inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
         self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
@@ -285,7 +285,7 @@ class SwarmDataCatcher:
     def _reorder_data(self, datas_list, int_time, int_length):
 
         # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage(self.swarm, time=int_time, length=int_length)
+        data_pkg = SwarmDataPackage(self.swarm, int_time=int_time, length=int_length)
 
         for qid, quad in enumerate(self.swarm.quads):
 
