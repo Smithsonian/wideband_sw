@@ -297,6 +297,10 @@ class SwarmDataCatcher:
                 # Unpack this FID's data
                 data = fromstring(datas, dtype='>i4')
 
+                # We must convert to float efficiently
+                data_f = data.view('float32')
+                data_f[:] = data
+
                 # Reorder by Xengine word (per channel)
                 for offset, word in enumerate(order):
 
