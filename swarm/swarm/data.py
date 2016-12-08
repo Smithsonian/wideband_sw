@@ -1,4 +1,4 @@
-import math, logging, fcntl
+import gc, math, logging, fcntl
 from time import time, sleep
 from struct import pack, unpack
 from Queue import Queue, Empty
@@ -419,6 +419,9 @@ class SwarmDataHandler:
 
                 # Log that we're done with callbacks
                 self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
+
+                gc.collect() # Force garbage collection
+                self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
 
         except KeyboardInterrupt:
 
