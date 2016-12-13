@@ -16,13 +16,16 @@
 #define DSM_WAIT_HOST "hal9000"
 #define DSM_SCAN_LENGTH "SWARM_SCAN_LENGTH_L"
 
-#define DSM_WRITE_HOST "OBS"
-#define DSM_SCAN_PROGRESS "SWARM_SCAN_PROGRESS_F"
+#define DSM_SCAN_X "SWARM_SCAN_X"
+#define DSM_SCAN_X_LENGTH "LENGTH_L"
+#define DSM_SCAN_X_PROGRESS "PROGRESS_L"
+#define DSM_WRITE_HOST "SWARM_MONITOR"
 
 #define SWARM_TOTAL_WSTEPS 64
 #define SWARM_VECTORS_PER_WSTEP 11
 #define SWARM_XENG_CTRL "xeng_ctrl"
 #define SWARM_XENG_STAT "xeng_status"
+#define SWARM_XENG_XNUM "xeng_xn_num"
 
 /* Some global variables */
 pthread_mutex_t fpga_mutex;
@@ -35,15 +38,17 @@ volatile int waiting = FALSE;
 pthread_t waiting_thread;
 
 /* Some global variables for DSM writing */
+volatile int last_write_status = 0;
 volatile int writing = FALSE;
 pthread_t writing_thread;
 
 /* Scan progress writer */
 int write_scan_progress(struct tbs_raw *tr){
   int s;
-  float progress;
-  uint32_t xn_stat;
-  struct tbs_entry *te;
+  long xn_stat_l, xn_xnum_l;
+  uint32_t xn_stat, xn_xnum;
+  struct tbs_entry *te1, *te2;
+  dsm_structure swarm_scan_ds;
 
   /* Make sure we're programmed */
   if(tr->r_fpga != TBS_FPGA_MAPPED){
@@ -51,27 +56,60 @@ int write_scan_progress(struct tbs_raw *tr){
   }
 
   /* Get the xeng_status register pointer */
-  te = find_data_avltree(tr->r_registers, SWARM_XENG_STAT);
-  if(te == NULL){
+  te1 = find_data_avltree(tr->r_registers, SWARM_XENG_STAT);
+  if(te1 == NULL){
     return -2;
+  }
+
+  /* Get the xeng_xn_num register pointer */
+  te2 = find_data_avltree(tr->r_registers, SWARM_XENG_XNUM);
+  if(te2 == NULL){
+    return -3;
   }
 
   pthread_mutex_lock(&fpga_mutex);
 
-  /* Get current value of the register */
-  xn_stat = *((uint32_t *)(tr->r_map + te->e_pos_base));
+  /* Get current value of the registers */
+  xn_stat = *((uint32_t *)(tr->r_map + te1->e_pos_base));
+  xn_xnum = *((uint32_t *)(tr->r_map + te2->e_pos_base));
 
   pthread_mutex_unlock(&fpga_mutex);
 
-  /* Convert to scan progress in seconds */
-  progress = xn_stat * 128.0 * 2048.0 / (26.0 * SWARM_VECTORS_PER_WSTEP * 1e6);
+  /* Initialize our DSM structure */
+  s = dsm_structure_init(&swarm_scan_ds, DSM_SCAN_X);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_init()");
+    return -4;
+  }
+
+  /* Set the length element */
+  xn_xnum_l = (long) xn_xnum; // cast to long
+  s = dsm_structure_set_element(&swarm_scan_ds, DSM_SCAN_X_LENGTH, &xn_xnum_l);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_set_element()");
+    dsm_structure_destroy(&swarm_scan_ds);
+    return -5;
+  }
+
+  /* Set the progress element */
+  xn_stat_l = (long) xn_stat; // cast to long
+  s = dsm_structure_set_element(&swarm_scan_ds, DSM_SCAN_X_PROGRESS, &xn_stat_l);
+  if (s != DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_set_element()");
+    dsm_structure_destroy(&swarm_scan_ds);
+    return -6;
+  }
 
   /* Then write it to the DSM host */
-  s = dsm_write(DSM_WRITE_HOST, DSM_SCAN_PROGRESS, &progress);
+  s = dsm_write(DSM_WRITE_HOST, DSM_SCAN_X, &swarm_scan_ds);
   if (s != DSM_SUCCESS) {
     dsm_error_message(s, "dsm_write()");
-    return -3;
+    dsm_structure_destroy(&swarm_scan_ds);
+    return -7;
   }
+
+  /* Free the DSM structure */
+  dsm_structure_destroy(&swarm_scan_ds);
 
   return 0;
 }
@@ -226,14 +264,12 @@ int status_waiting_cmd(struct katcp_dispatch *d, int argc){
 
 /* Function that handles writing to DSM */
 void * dsm_write_dispatch(void * tr){
-  int status;
 
   /* Start the writing loop */
   while (writing) {
-    status = 0;
 
     /* Do our writing tasks in order */
-    status += write_scan_progress(tr);
+    last_write_status = write_scan_progress(tr);
 
     /* Sleep one second */
     sleep(1.0);
@@ -290,7 +326,8 @@ int status_writing_cmd(struct katcp_dispatch *d, int argc){
   /* Relay status back to the client */
   prepend_reply_katcp(d);
   append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_double_katcp(d, KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, writing);
+  append_double_katcp(d, KATCP_FLAG_DOUBLE, writing);
+  append_double_katcp(d, KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, last_write_status);
   return KATCP_RESULT_OWN;
 
 }
