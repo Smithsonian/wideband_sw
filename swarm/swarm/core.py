@@ -394,7 +394,13 @@ class SwarmMember(SwarmROACH):
     def get_itime(self):
         
         # Get the current integration time in spectra
-        xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
+        try: # use DSM first
+            xeng_time = pydsm.read(self.roach2.host, SWARM_SCAN_DSM_NAME)[SWARM_SCAN_LENGTH][0]
+            self.logger.debug("DSM scan length retrieved")
+        except: # in case of failure, use katcp
+            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
+
+        # Convert it to seconds and return
         cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
         return cycles * SWARM_WALSH_PERIOD
 
