@@ -61,6 +61,9 @@ class SwarmInput:
         self._ant = antenna
         self._chk = chunk
         self._pol = polarization
+        self.ant = self._ant
+        self.chk = self._chk
+        self.pol = self._pol
 
     def __repr__(self):
         repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
