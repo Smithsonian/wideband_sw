@@ -59,7 +59,7 @@ class SwarmDataPackage:
 
         # Initialize our data array
         data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS*2)
-        self.array = empty(shape=data_shape, dtype='float32')
+        self.array = empty(shape=data_shape, dtype='<f4')
         self.array[:] = nan
 
     def set_data(self, xeng_word, fid, data):
