@@ -29,7 +29,7 @@ INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
-class SwarmDataPackage:
+class SwarmDataPackage(object):
 
     def __init__(self, swarm, int_time=0.0, length=0.0):
 
@@ -42,6 +42,7 @@ class SwarmDataPackage:
         self.baselines = self._autos + self._cross
         self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
         self._init_data()
+        self._init_header()
 
     def __getitem__(self, item):
         return self.get(*item)
@@ -54,6 +55,20 @@ class SwarmDataPackage:
             return self.array[i, j]
         except:
             raise KeyError("Please only index data package using [baseline, sideband]!")
+
+    def __str__(self):
+        return ''.join([self.header, self.array.tostring()])
+
+    def _init_header(self):
+        hdr_fmt = '<IIIdd' + 'BBBBBB' * len(self.baselines)
+        self.header = pack(
+            hdr_fmt,
+            self.array.shape[0],
+            self.array.shape[1],
+            SWARM_CHANNELS,
+            self.int_time, self.int_length,
+            *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
+            )
 
     def _init_data(self):
 
