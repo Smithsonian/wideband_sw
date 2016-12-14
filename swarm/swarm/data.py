@@ -315,6 +315,9 @@ class SwarmDataCatcher:
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
+        # Get our starting scan length
+        int_length = self.swarm.get_itime()
+
         while not stop.is_set():
 
             # Receive a set of data
@@ -370,11 +373,19 @@ class SwarmDataCatcher:
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Reorder the xengine data
-                data_pkg = self._reorder_data(data.pop(acc_n), int_time, self.swarm.get_itime())
+                data_pkg = self._reorder_data(data.pop(acc_n), int_time, int_length)
                 self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
 		# Put data onto queue
                 out_queue.put((acc_n, int_time, data_pkg))
+
+                # Now that we're done get the current scan length
+                try:
+                    int_length = self.swarm.get_itime()
+                except ValueError:
+                    self.logger.warning("Mis-matching integration time seen; trying again after 1 second")
+                    sleep(1)
+                    int_length = self.swarm.get_itime()
 
 
 class SwarmDataHandler:
