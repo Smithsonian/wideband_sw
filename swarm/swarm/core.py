@@ -1075,7 +1075,7 @@ class SwarmQuadrant:
                 # If this is an auto or cross-chunk, 
                 # there is no sideband separation
                 if word.is_auto() or not word.is_valid():
-                    self.sideband_states.append(0)
+                    self.sideband_states.append(1)
                 else:
 
                     # Get 90/270 Walsh state for both antennas
