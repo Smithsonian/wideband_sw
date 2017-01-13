@@ -1,4 +1,4 @@
-import math, logging, fcntl
+import gc, math, logging, fcntl
 from time import time, sleep
 from struct import pack, unpack
 from Queue import Queue, Empty
@@ -11,7 +11,7 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
 
-from numpy import array, nan, fromstring
+from numpy import array, nan, fromstring, empty
 
 from defines import *
 from xeng import (
@@ -29,37 +29,53 @@ INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
-EMPTY_DATA_ARRAY = array([nan,] * SWARM_CHANNELS * 2)
+class SwarmDataPackage(object):
 
-class SwarmDataPackage:
-
-    def __init__(self, swarm, time=0.0, length=0.0):
+    def __init__(self, swarm, int_time=0.0, length=0.0):
 
         # Set all initial members
-        self.swarm = swarm
-        self.int_time = time
+        self.int_time = int_time
         self.int_length = length
-        self.inputs = list(quad[i][j] for quad in self.swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
-        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2))
+        self.inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
+        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2) if SwarmBaseline(i, j).is_valid())
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
+        self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
         self._init_data()
+        self._init_header()
 
-    def __getitem__(self, baseline):
-        return self.data[baseline]
+    def __getitem__(self, item):
+        return self.get(*item)
+
+    def get(self, *item):
+        try:
+            baseline, sideband = item
+            i = self.baselines_i[baseline]
+            j = SWARM_XENG_SIDEBANDS.index(sideband)
+            return self.array[i, j]
+        except:
+            raise KeyError("Please only index data package using [baseline, sideband]!")
+
+    def __str__(self):
+        return ''.join([self.header, self.array.tostring()])
+
+    def _init_header(self):
+        hdr_fmt = '<IIIdd' + 'BBBBBB' * len(self.baselines)
+        self.header = pack(
+            hdr_fmt,
+            self.array.shape[0],
+            self.array.shape[1],
+            SWARM_CHANNELS,
+            self.int_time, self.int_length,
+            *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
+            )
 
     def _init_data(self):
 
         # Initialize our data array
-        self.data = {}
-
-        # Initialize baselines
-        for baseline in self.baselines:
-            self.data[baseline] = {}
-
-            # Initialize sidebands
-            for sb in SWARM_XENG_SIDEBANDS:
-                self.data[baseline][sb] = EMPTY_DATA_ARRAY.copy()
+        data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS*2)
+        self.array = empty(shape=data_shape, dtype='<f4')
+        self.array[:] = nan
 
     def set_data(self, xeng_word, fid, data):
 
@@ -73,11 +89,11 @@ class SwarmDataPackage:
         try: # normal conjugation first
 
             # Fill this baseline
-            self.data[baseline][sideband][slice_] = data.copy()
+            self.get(baseline, sideband)[slice_] = data
 
             # Special case for autos, fill imag with zeros
             if baseline.is_auto():
-                self.data[baseline][sideband][slice_+1] = 0.0
+                self.get(baseline, sideband)[slice_+1] = 0.0
 
         except KeyError:
 
@@ -85,7 +101,7 @@ class SwarmDataPackage:
             conj_baseline = SwarmBaseline(baseline.right, baseline.left)
 
             # Try the conjugated baseline
-            self.data[conj_baseline][sideband][slice_] = data.copy()
+            self.get(conj_baseline, sideband)[slice_] = data
 
 
 class SwarmDataCallback(object):
@@ -215,6 +231,7 @@ class SwarmDataCatcher:
     def catch(self, stop, new_acc, in_queue, out_queue):
 
         data = {}
+        mask = {}
         udp_sock = self._create_socket()
         while not stop.is_set():
 
@@ -224,9 +241,15 @@ class SwarmDataCatcher:
             except timeout:
                 continue
 
+            # Check if packet is wrong size
+            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
+                self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
+		continue
+
             # Send sync if this is the first packet of the next accumulation
             if new_acc.is_set():
                 self.logger.info("First packet of new accumulation received")
+                int_time = time() # scan end time
                 new_acc.clear()
 
             # Parse the IP address
@@ -240,34 +263,33 @@ class SwarmDataCatcher:
 
 	    # Unpack it to get packet # and accum #
             pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-            self.logger.debug("Received packet #%d for accumulation #%d from %s(QID=%d, FID=%d)" %(pkt_n, acc_n, addr, qid, fid))
-
-            # Check if packet is wrong size
-            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-                self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-		continue
 
 	    # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
                 data[qid] = {}
+                mask[qid] = {}
 
 	    # Initialize fid data buffer, if necessary
             if not data[qid].has_key(fid):
                 data[qid][fid] = {}
+                mask[qid][fid] = {}
 
 	    # Initialize acc_n data buffer, if necessary
             if not data[qid][fid].has_key(acc_n):
                 data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
+                mask[qid][fid][acc_n] = long(0)
 
             # Then store data in it
-            data[qid][fid][acc_n][pkt_n] = datar[8:]
+            data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
+            mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
-            if not has_none(data[qid][fid][acc_n]):
+            if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
 
                 # Put data onto the queue
                 datas = ''.join(data[qid][fid].pop(acc_n))
-                out_queue.put((qid, fid, acc_n, datas))
+                out_queue.put((qid, fid, acc_n, int_time, datas))
+                mask[qid][fid].pop(acc_n)
 
         udp_sock.close()
 
@@ -278,7 +300,7 @@ class SwarmDataCatcher:
     def _reorder_data(self, datas_list, int_time, int_length):
 
         # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage(self.swarm, time=int_time, length=int_length)
+        data_pkg = SwarmDataPackage(self.swarm, int_time=int_time, length=int_length)
 
         for qid, quad in enumerate(self.swarm.quads):
 
@@ -308,11 +330,14 @@ class SwarmDataCatcher:
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
+        # Get our starting scan length
+        int_length = self.swarm.get_itime()
+
         while not stop.is_set():
 
             # Receive a set of data
             try:
-                qid, fid, acc_n, datas = in_queue.get_nowait()
+                qid, fid, acc_n, int_time, datas = in_queue.get_nowait()
             except Empty:
                 sleep(0.01)
                 continue
@@ -346,9 +371,6 @@ class SwarmDataCatcher:
                 # Flag this accumulation as done
                 new_acc.set()
 
-                # Get integration time
-                int_time = time()
-
                 # We have all data for this accumulation, log it
                 self.logger.info("Received full accumulation #{:<4}".format(acc_n))
 
@@ -366,11 +388,19 @@ class SwarmDataCatcher:
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Reorder the xengine data
-                data_pkg = self._reorder_data(data.pop(acc_n), int_time, self.swarm.get_itime())
+                data_pkg = self._reorder_data(data.pop(acc_n), int_time, int_length)
                 self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
 		# Put data onto queue
-                out_queue.put((acc_n, data_pkg))
+                out_queue.put((acc_n, int_time, data_pkg))
+
+                # Now that we're done get the current scan length
+                try:
+                    int_length = self.swarm.get_itime()
+                except ValueError:
+                    self.logger.warning("Mis-matching integration time seen; trying again after 1 second")
+                    sleep(1)
+                    int_length = self.swarm.get_itime()
 
 
 class SwarmDataHandler:
@@ -395,7 +425,7 @@ class SwarmDataHandler:
             while True:
 
                 try: # to check for data
-                    acc_n, data = self.queue.get_nowait()
+                    acc_n, int_time, data = self.queue.get_nowait()
                 except Empty: # none available
                     sleep(0.01)
                     continue
@@ -411,6 +441,9 @@ class SwarmDataHandler:
 
                 # Log that we're done with callbacks
                 self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
+
+                gc.collect() # Force garbage collection
+                self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
 
         except KeyboardInterrupt:
 

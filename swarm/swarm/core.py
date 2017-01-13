@@ -61,14 +61,9 @@ class SwarmInput:
         self._ant = antenna
         self._chk = chunk
         self._pol = polarization
-        self.logger = parent_logger.getChild(
-            '{name}[ant={ant!r}, chk={chk!r}, pol={pol!r}]'.format(
-                name=self.__class__.__name__,
-                ant=self._ant,
-                chk=self._chk,
-                pol=self._pol,
-                )
-            )
+        self.ant = self._ant
+        self.chk = self._chk
+        self.pol = self._pol
 
     def __repr__(self):
         repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
@@ -402,7 +397,13 @@ class SwarmMember(SwarmROACH):
     def get_itime(self):
         
         # Get the current integration time in spectra
-        xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
+        try: # use DSM first
+            xeng_time = pydsm.read(self.roach2.host, SWARM_SCAN_DSM_NAME)[SWARM_SCAN_LENGTH][0]
+            self.logger.debug("DSM scan length retrieved")
+        except: # in case of failure, use katcp
+            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
+
+        # Convert it to seconds and return
         cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
         return cycles * SWARM_WALSH_PERIOD
 
@@ -1077,7 +1078,7 @@ class SwarmQuadrant:
                 # If this is an auto or cross-chunk, 
                 # there is no sideband separation
                 if word.is_auto() or not word.is_valid():
-                    self.sideband_states.append(0)
+                    self.sideband_states.append(1)
                 else:
 
                     # Get 90/270 Walsh state for both antennas

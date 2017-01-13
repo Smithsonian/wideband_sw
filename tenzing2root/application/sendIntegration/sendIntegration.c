@@ -4,8 +4,8 @@
   First version, July 1, 2013
 
     This function accepts visibility data from the SWARM correlator, and
-transmits it to the process corrSaver (for display) and dataCatcher (for
-storage in the science data set).   The transfers are done via RPC client
+transmits it to the process corrSaver (for display) which sends to dataCatcher
+(for storage in the science data set).   The transfers are done via RPC client
 calls.   By default this function will not transmit data for baselines
 which include an antenna which is not in the array.   The forceTransfer
 parameter allows the caller to force the data to be transmitted whether or not
@@ -16,7 +16,6 @@ the antennas are in the project.
 #include <time.h>
 #include <rpc/rpc.h>
 #include "chunkPlot.h"
-#include "dataCatcher.h"
 
 #define N_ANTENNAS (8)
 #define N_SIDEBANDS (2)
@@ -46,19 +45,8 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
 		    float *lsbCross, float *usbCross, int forceTransfer)
 {
   int i, antennaInArray[11];
-  int dontPlot;
-  static CLIENT *corrSaverCl = NULL, *dataCatcherCl = NULL;
-  FILE *flagFile;
+  static CLIENT *corrSaverCl = NULL;
 
-  flagFile = fopen("/global/configFiles/dontPlotSWARM", "r");
-  if (flagFile != NULL) {
-    dontPlot = TRUE;
-    fclose(flagFile);
-  } else
-    dontPlot = FALSE;
-  if (!forceTransfer)
-    getAntennaList(antennaInArray);
-  
   if ((antennaInArray[ant1] && antennaInArray[ant2]) || forceTransfer) {
     if (chunk >= N_CHUNKS) {
       fprintf(stderr, "sendIntegration called with illegal chunk number (%d) - aborting\n", chunk);
@@ -82,32 +70,17 @@ int sendIntegration(int nPoints, double uT, float duration, int chunk,
       }
     }
 
-    if (!dontPlot) {
-      /* Send the data to corrPlotter */
-      if (corrSaverCl == NULL) {
-	if (!(corrSaverCl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
-	  clnt_pcreateerror("obscon");
-	  return(ERROR);
-	}
-      }
-      if (printResults(plot_swarm_data_1(&sWARMData, corrSaverCl))) {
-	fprintf(stderr, "Error returned from corrPlotter call\n");
-	clnt_destroy(corrSaverCl);
-	corrSaverCl = NULL;
-      }
-    }
-    /* Send the data to dataCatcher */
-    if (dataCatcherCl == NULL) {
-      printf("Establishing client handle for dataCatcher\n");
-      if (!(dataCatcherCl = clnt_create("hcn", DATACATCHERPROG, DATACATCHERVERS, "tcp"))) {
-	clnt_pcreateerror("hcn");
+    /* Send the data to obscon only */
+    if (corrSaverCl == NULL) {
+      if (!(corrSaverCl = clnt_create("obscon", CHUNKPLOTPROG, CHUNKPLOTVERS, "tcp"))) {
+	fprintf(stderr, clnt_spcreateerror("obscon"));
 	return(ERROR);
       }
     }
-    if (printResults((statusStructure *)catch_swarm_data_1((dSWARMUVBlock *)(&sWARMData), dataCatcherCl))) {
-      fprintf(stderr, "Error returned from dataCatcher call\n");
-      clnt_destroy(dataCatcherCl);
-      dataCatcherCl = NULL;
+    if (printResults(plot_swarm_data_1(&sWARMData, corrSaverCl))) {
+      fprintf(stderr, "Error returned from corrPlotter call\n");
+      clnt_destroy(corrSaverCl);
+      corrSaverCl = NULL;
     }
   }
   return OK;
