@@ -405,13 +405,8 @@ struct timespec wait_for(struct timespec time_in) {
 
 /* Add a certain amount of time to a timespec */
 void add_nsec(struct timespec *in, struct timespec *out, long long nsec) {
-  long delsec, delnsec;
-
-  delsec = (long)(((double)nsec) * 1e-9);
-  delnsec = (long)(nsec - delsec * 1e9);
-
-  out->tv_sec = in->tv_sec + delsec;
-  out->tv_nsec = in->tv_nsec + delnsec;
+  out->tv_sec = in->tv_sec + (long)((double)(in->tv_nsec + nsec) * 1e-9);
+  out->tv_nsec = (long)((in->tv_nsec + nsec) % 1000000000L);
 }
 
 /* Only this loop should access registers */
