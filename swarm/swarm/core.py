@@ -238,10 +238,6 @@ class SwarmMember(SwarmROACH):
         # Program the board
         self._program(self.bitcode)
 
-        # If software QDR cal., calibrate and verify QDRs
-        if self.soft_qdr_cal:
-            self.calibrate_and_verify_qdr(fail_hard=raise_qdr_err)
-
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
         self.reset_digital_noise()
@@ -254,6 +250,10 @@ class SwarmMember(SwarmROACH):
 
         # Calibrate the ADC MMCM phases
         self.calibrate_adc()
+
+        # If software QDR cal., calibrate and verify QDRs
+        if self.soft_qdr_cal:
+            self.calibrate_and_verify_qdr(fail_hard=raise_qdr_err)
 
         # Setup the F-engine
         self._setup_fengine()
