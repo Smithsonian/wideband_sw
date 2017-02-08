@@ -261,8 +261,10 @@ class SwarmDataCatcher:
             # Determine the FID
             fid = ip[3] & 0x7
 
-	    # Unpack it to get packet # and accum #
-            pkt_n, acc_n = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
+	    # Unpack it to get packet #, accum #, and scan length
+            pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
+            xnum = ((xnum_mb << 16) | xnum_lh) << 5
+            acc_n = (acc_n_mb << 16) | acc_n_lh
 
 	    # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
@@ -288,7 +290,7 @@ class SwarmDataCatcher:
 
                 # Put data onto the queue
                 datas = ''.join(data[qid][fid].pop(acc_n))
-                out_queue.put((qid, fid, acc_n, int_time, datas))
+                out_queue.put((qid, fid, acc_n, xnum, int_time, datas))
                 mask[qid][fid].pop(acc_n)
 
         udp_sock.close()
@@ -337,7 +339,7 @@ class SwarmDataCatcher:
 
             # Receive a set of data
             try:
-                qid, fid, acc_n, int_time, datas = in_queue.get_nowait()
+                qid, fid, acc_n, xnum, int_time, datas = in_queue.get_nowait()
             except Empty:
                 sleep(0.01)
                 continue
