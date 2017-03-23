@@ -94,10 +94,10 @@ if not args.listen_only:
     # Setup using the Swarm class and our parameters
     swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test, raise_qdr_err=args.raise_qdr_err, threaded=args.thread_setup)
 
-# Setup the data catcher class
-swarm_catcher = SwarmDataCatcher(swarm)
-
 if not args.setup_only:
+
+    # Setup the data catcher class
+    swarm_catcher = SwarmDataCatcher(swarm)
 
     # Create the data handler
     swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
