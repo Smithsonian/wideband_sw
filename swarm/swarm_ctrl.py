@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 
 import logging, argparse
+from time import sleep
 
 from swarm import (
     SWARM_LISTENER_INTERFACES,
@@ -25,7 +26,7 @@ logger = logging.getLogger()
 logger.handlers[0].setFormatter(formatter)
 
 # Parse the user's command line arguments
-parser = argparse.ArgumentParser(description='Catch and process visibility data from a set of SWARM ROACH2s')
+parser = argparse.ArgumentParser(description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
 parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
 parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
@@ -35,6 +36,8 @@ parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-
                     help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
 parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
                     help='use ANT,POL,CHUNK as a REFERENCE; POL and CHUNK are either 0 or 1 (default=2,0,0')
+parser.add_argument('--idle-only', dest='idle_only', action='store_true',
+                    help='only program with the idle bitcode; do not do full setup')
 parser.add_argument('--setup-only', dest='setup_only', action='store_true',
                     help='only program and setup the board; do not wait for data')
 parser.add_argument('--listen-only', dest='listen_only', action='store_true',
@@ -59,6 +62,10 @@ parser.add_argument('--silence-loggers', nargs='+', default=[],
 parser.add_argument('--thread-setup', dest='thread_setup', action='store_true',
                     help='multi-thread the setup to make it faster')
 args = parser.parse_args()
+
+# Require either setup, listen, or idle
+if not (args.idle_only or args.setup_only or args.listen_only):
+    parser.error('No action requested; either use --setup-only, --listen-only, or --idle-only')
 
 # Add file handler, if requested
 if args.log_file:
@@ -91,10 +98,24 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 
 if not args.listen_only:
 
-    # Setup using the Swarm class and our parameters
-    swarm.setup(args.itime, args.interfaces, delay_test=args.visibs_test, raise_qdr_err=args.raise_qdr_err, threaded=args.thread_setup)
+    # Idle the SWARM
+    swarm.idle()
 
-if not args.setup_only:
+    if not args.idle_only:
+
+        # Wait before starting setup
+        sleep(5)
+
+        # Setup using the Swarm class and our parameters
+        swarm.setup(
+            args.itime,
+            args.interfaces,
+            delay_test=args.visibs_test,
+            raise_qdr_err=args.raise_qdr_err,
+            threaded=args.thread_setup,
+            )
+
+else:
 
     # Setup the data catcher class
     swarm_catcher = SwarmDataCatcher(swarm)
