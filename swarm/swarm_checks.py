@@ -29,6 +29,10 @@ formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(mess
 stdout.setFormatter(formatter)
 logfile.setFormatter(formatter)
 
+# Silence all katcp messages
+katcp_logger = logging.getLogger('katcp')
+katcp_logger.setLevel(logging.CRITICAL)
+
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Read various SWARM registers and memory and write to Redis server')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Display debugging logs')
