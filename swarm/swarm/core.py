@@ -869,7 +869,7 @@ class SwarmQuadrant:
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
-            self.logger.info("The {0} is not a SwarmQuadrant method but it is a SwarmMember method; "
+            self.logger.debug("{0} is not a SwarmQuadrant method but it is a SwarmMember method; "
                              "calling on all members!".format(attr))
             return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
@@ -1318,7 +1318,7 @@ class Swarm:
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
-            self.logger.info("The {0} is not a Swarm method but it is a SwarmQuadrant method; "
+            self.logger.debug("{0} is not a Swarm method but it is a SwarmQuadrant method; "
                              "calling on all quadrants!".format(attr))
             return lambda *args, **kwargs: self.quadrants_do(lambda qid, quad: getattr(quad, attr)(*args, **kwargs))
 
