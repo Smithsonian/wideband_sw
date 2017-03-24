@@ -133,6 +133,13 @@ class SwarmROACH(object):
         self._bitcode = bitcode
         self.roach2.progdev(self._bitcode)
 
+    def idle(self, bitcode=SWARM_IDLE_BITCODE):
+
+        # Unload plugins and program with idle code
+        self.unload_plugins()
+        self.roach2.progdev(bitcode)
+        self.logger.info('Idled with {0}'.format(bitcode))
+
     def send_katcp_cmd(self, cmd, *args):
 
         # Create the message object

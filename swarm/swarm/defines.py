@@ -1,3 +1,5 @@
+SWARM_IDLE_BITCODE = 'idle.bof'
+
 SWARM_ROACH2_IP = 'roach2-%02x'
 
 SWARM_MAPPINGS = [
