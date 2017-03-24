@@ -9,7 +9,7 @@ from traceback import format_exception
 from collections import OrderedDict
 from ConfigParser import ConfigParser
 
-from numpy import clip, roll
+from numpy import array, clip, roll
 
 from corr.katcp_wrapper import FpgaClient
 from katcp import Message
@@ -1404,8 +1404,15 @@ class Swarm:
         for fid, member in self.get_valid_members():
             member.set_itime(itime)
 
-        # Reset the xengines
-        self.reset_xengines()
+        # Reset the xengines until window counters to by in sync
+        win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP)
+        win_sync = False
+        while not win_sync:
+            self.reset_xengines()
+            sleep(0.5)
+            win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
+            win_sync = len(set(c/win_period for c in win_count)) == 1
+            self.logger.info('Window sync: {0}'.format(win_sync))
 
         # Setup the visibility outputs per quad
         listener = SwarmListener('lo') # default to loopback
