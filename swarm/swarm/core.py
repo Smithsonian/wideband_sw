@@ -1390,7 +1390,6 @@ class Swarm:
 
         # Do the post-sync setup
         for fid, member in self.get_valid_members():
-            member.reset_digital_noise()
             member.set_source(3, 3)
             member.enable_network()
 
@@ -1413,6 +1412,9 @@ class Swarm:
             win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
             win_sync = len(set(c/win_period for c in win_count)) == 1
             self.logger.info('Window sync: {0}'.format(win_sync))
+
+        # Reset digital noise
+        self.reset_digital_noise()
 
         # Setup the visibility outputs per quad
         listener = SwarmListener('lo') # default to loopback
@@ -1473,6 +1475,18 @@ class Swarm:
 
         # Finally join all threads
         for thread in rstxeng_threads:
+            thread.join()
+
+    def reset_digital_noise(self):
+
+        # Do a threaded reset_digital_noise
+        rstnoise_threads = list(Thread(target=m.reset_digital_noise) for f, m in self.get_valid_members())
+        for thread in rstnoise_threads:
+            thread.start()
+        self.logger.info('Resetting the digital noise')
+
+        # Finally join all threads
+        for thread in rstnoise_threads:
             thread.join()
 
     def get_beamformer_inputs(self):
