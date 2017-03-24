@@ -56,6 +56,9 @@ while True:
 
     try: # Unless exception is caught
 
+        # Sleep first, in case we're in exception loop
+        time.sleep(PERIOD)
+
         # Track total errors
         errors = 0
 
@@ -92,7 +95,9 @@ while True:
             logger.warning('Total corner-turn errors, {0}, exceed threshold'.format(errors))
             pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
 
-        time.sleep(PERIOD)
+    except RuntimeError as err:
+        logger.error("Exception caught: {0}".format(err))
+        continue
 
     except (KeyboardInterrupt, SystemExit):
         logger.info("Exiting normally")
