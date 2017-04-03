@@ -676,6 +676,15 @@ class SwarmMember(SwarmROACH):
         self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
         self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
+    def sync_rtime(self):
+
+        # Twiddle bit 28
+        mask = 1 << 27 # reset bit location
+        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+
     def enable_network(self):
 
         # Enable the RX and TX
