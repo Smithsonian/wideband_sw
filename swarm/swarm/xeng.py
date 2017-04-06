@@ -44,9 +44,9 @@ class SwarmBaseline:
 
     def is_valid(self):
         valid_inputs = (self.left != None) and (self.right != None)
-        cross_chunk = self.left._chk != self.right._chk
-        cross_pol = self.left._pol != self.right._pol
-        cross_ant = self.left._ant != self.right._ant
+        cross_chunk = self.left.chk != self.right.chk
+        cross_pol = self.left.pol != self.right.pol
+        cross_ant = self.left.ant != self.right.ant
         if cross_ant:
             return valid_inputs and not cross_chunk
         else:

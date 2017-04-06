@@ -57,9 +57,9 @@ for fid, member in swarm.get_valid_members():
         roach = member.roach2
         scope = SWARM_SCOPE_SNAP % input_n
         input_inst = member.get_input(input_n)
-        polarization = input_inst._pol
-        antenna = input_inst._ant
-        chunk = input_inst._chk
+        polarization = input_inst.pol
+        antenna = input_inst.ant
+        chunk = input_inst.chk
 
         if args.polarizations and polarization not in args.polarizations:
             continue

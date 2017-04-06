@@ -171,7 +171,7 @@ class CalibrateVLBI(SwarmDataCallback):
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
         chunk_reference = copy(self.reference)
-        chunk_reference._chk = chunk
+        chunk_reference.chk = chunk
         referenced_solver = partial(solve_cgains, ref=inputs.index(chunk_reference))
         if self.normed:
             with errstate(invalid='ignore'):
@@ -197,7 +197,7 @@ class CalibrateVLBI(SwarmDataCallback):
         efficiencies = list(None for chunk in SWARM_MAPPING_CHUNKS)
         cal_solutions = list(None for chunk in SWARM_MAPPING_CHUNKS)
         for chunk in SWARM_MAPPING_CHUNKS:
-            eff, cal = self.solve_for(data, list(inp for inp in inputs if inp._chk==chunk), chunk)
+            eff, cal = self.solve_for(data, list(inp for inp in inputs if inp.chk==chunk), chunk)
             cal_solutions[chunk] = cal
             efficiencies[chunk] = eff
         cal_solution = hstack(cal_solutions)
@@ -225,7 +225,7 @@ class CalibrateVLBI(SwarmDataCallback):
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
-                    'inputs': list((inp._ant, inp._chk, inp._pol) for inp in inputs),
+                    'inputs': list((inp.ant, inp.chk, inp.pol) for inp in inputs),
                     'efficiencies': list(nanmean(eff) for eff in efficiencies),
                     'delays': new_delays, 'phases': new_phases,
                     'cal_solution': cal_solution.tolist(),

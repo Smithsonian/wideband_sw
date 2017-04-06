@@ -24,7 +24,7 @@ class LogStats(SwarmDataCallback):
         auto_amps = {}
         for baseline in data.baselines:
             if baseline.is_valid():
-                chunk = baseline.left._chk
+                chunk = baseline.left.chk
                 interleaved = array(list(p for p in data[baseline, sideband] if not isnan(p)))
                 complex_data = interleaved[0::2] + 1j * interleaved[1::2]
                 if baseline.is_auto():

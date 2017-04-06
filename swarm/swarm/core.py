@@ -58,27 +58,24 @@ class SwarmInput:
     def __init__(self, antenna=None, chunk=None, polarization=None, parent_logger=module_logger):
 
         # Set all initial members
-        self._ant = antenna
-        self._chk = chunk
-        self._pol = polarization
-        self.ant = self._ant
-        self.chk = self._chk
-        self.pol = self._pol
+        self.ant = antenna
+        self.chk = chunk
+        self.pol = polarization
 
     def __repr__(self):
         repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
-        return repr_str.format(name=self.__class__.__name__, ant=self._ant, chk=self._chk, pol=self._pol)
+        return repr_str.format(name=self.__class__.__name__, ant=self.ant, chk=self.chk, pol=self.pol)
 
     def __str__(self):
         repr_str = 'ant{ant!r}:chk{chk!r}:pol{pol!r}'
-        return repr_str.format(ant=self._ant, chk=self._chk, pol=self._pol)
+        return repr_str.format(ant=self.ant, chk=self.chk, pol=self.pol)
 
     def __hash__(self):
-        return hash((self._ant, self._chk, self._pol))
+        return hash((self.ant, self.chk, self.pol))
 
     def __eq__(self, other):
         if other is not None:
-            return (self._ant, self._chk, self._pol) == (other._ant, other._chk, other._pol)
+            return (self.ant, self.chk, self.pol) == (other.ant, other.chk, other.pol)
         else:
             return not self.is_valid()
 
@@ -86,7 +83,7 @@ class SwarmInput:
         return not self.__eq__(other)
 
     def is_valid(self):
-        return (self._ant != None) and (self._chk != None) and (self._pol != None)
+        return (self.ant != None) and (self.chk != None) and (self.pol != None)
 
 
 class SwarmROACH(object):
@@ -1059,7 +1056,7 @@ class SwarmQuadrant:
             for inp in SWARM_MAPPING_INPUTS:
 
                 # Get the antenna for this input
-                ant = member[inp]._ant
+                ant = member[inp].ant
 
                 # Get the pattern for the antenna
                 pattern = self.walsh_patterns[ant]
@@ -1098,8 +1095,8 @@ class SwarmQuadrant:
                 else:
 
                     # Get 90/270 Walsh state for both antennas
-                    state_left = int(self.walsh_patterns[word.left._ant][step]) & 1
-                    state_right = int(self.walsh_patterns[word.right._ant][step]) & 1
+                    state_left = int(self.walsh_patterns[word.left.ant][step]) & 1
+                    state_right = int(self.walsh_patterns[word.right.ant][step]) & 1
 
                     # Append the combined state
                     self.sideband_states.append(int(state_left == state_right))
