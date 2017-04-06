@@ -43,6 +43,7 @@ from redis import StrictRedis
 
 TODAY = datetime.utcnow()
 CALFILE = TODAY.strftime('/global/logs/vlbi_cal/vlbi_cal.%j-%Y.json')
+REDIS_PREFIX = 'swarm.calibrate_vlbi'
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -216,7 +217,7 @@ class CalibrateVLBI(SwarmDataCallback):
         for chunk in SWARM_MAPPING_CHUNKS:
             for pol in SWARM_MAPPING_POLS:
                 self.logger.info('Avg. phasing efficiency across chunk {}, pol {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))
-                self.redis.set('efficiency_chk%d_pol%d' % (chunk, pol), efficiencies[pol][chunk])
+                self.redis.setex('{0}.efficiency.chk{1}.pol{2}'.format(REDIS_PREFIX, chunk, pol), int(data.int_length*2), efficiencies[pol][chunk][0])
 
         if self.inputs != inputs:
             self.init_history(cal_solution)
