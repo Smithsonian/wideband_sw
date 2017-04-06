@@ -31,8 +31,10 @@ from numpy import (
 from swarm import (
     SwarmDataCallback,
     SwarmBaseline,
+    SwarmInput,
     SWARM_CHANNELS,
     SWARM_CLOCK_RATE,
+    SWARM_MAPPING_POLS,
     SWARM_MAPPING_CHUNKS,
 )
 from json_file import JSONListFile
@@ -160,7 +162,7 @@ class CalibrateVLBI(SwarmDataCallback):
         if not isnan(pid_phases).any():
             map(self.feedback_phase, inputs, pid_phases)
 
-    def solve_for(self, data, inputs, chunk, sideband='USB'):
+    def solve_for(self, data, inputs, chunk, pol, sideband='USB'):
         baselines = list(baseline for baseline in data.baselines if ((baseline.left in inputs) and (baseline.right in inputs)))
         corr_matrix = zeros([SWARM_CHANNELS, len(inputs), len(inputs)], dtype=complex128)
         for baseline in baselines:
@@ -170,9 +172,8 @@ class CalibrateVLBI(SwarmDataCallback):
             complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
-        chunk_reference = copy(self.reference)
-        chunk_reference.chk = chunk
-        referenced_solver = partial(solve_cgains, ref=inputs.index(chunk_reference))
+        this_reference = SwarmInput(self.reference.ant, chunk, pol)
+        referenced_solver = partial(solve_cgains, ref=inputs.index(this_reference))
         if self.normed:
             with errstate(invalid='ignore'):
                 corr_matrix = complex_nan_to_num(corr_matrix / abs(corr_matrix))
@@ -190,24 +191,28 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        inputs = self.swarm.get_beamformer_inputs()
+        inputs = sorted(self.swarm.get_beamformer_inputs(), key=lambda b: b.ant + b.chk*10 + b.pol*100)
         if not inputs:
             return
 
-        efficiencies = list(None for chunk in SWARM_MAPPING_CHUNKS)
-        cal_solutions = list(None for chunk in SWARM_MAPPING_CHUNKS)
+        efficiencies = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
+        cal_solutions = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
         for chunk in SWARM_MAPPING_CHUNKS:
-            eff, cal = self.solve_for(data, list(inp for inp in inputs if inp.chk==chunk), chunk)
-            cal_solutions[chunk] = cal
-            efficiencies[chunk] = eff
-        cal_solution = hstack(cal_solutions)
+            for pol in SWARM_MAPPING_POLS:
+                these_inputs = list(inp for inp in inputs if (inp.chk==chunk) and (inp.pol==pol))
+                eff, cal = self.solve_for(data, these_inputs, chunk, pol)
+                cal_solutions[pol][chunk] = cal
+                efficiencies[pol][chunk] = eff
+        cal_solution_tmp = vstack([cs for cs in cal_solutions])
+        cal_solution = hstack(cal_solution_tmp)
         amplitudes, delays, phases = cal_solution
 
         for i in range(len(inputs)):
             self.logger.debug('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         for chunk in SWARM_MAPPING_CHUNKS:
-            self.logger.info('Avg. phasing efficiency across chunk {}={:>8.2f} +/- {:.2f}'.format(chunk, nanmean(efficiencies[chunk]), nanstd(efficiencies[chunk])))
-            self.redis.set('efficiency_%d' % chunk, efficiencies[chunk])
+            for pol in SWARM_MAPPING_POLS:
+                self.logger.info('Avg. phasing efficiency across chunk {}, pol {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))
+                self.redis.set('efficiency_chk%d_pol%d' % (chunk, pol), efficiencies[pol][chunk])
 
         if self.inputs != inputs:
             self.init_history(cal_solution)
@@ -226,7 +231,7 @@ class CalibrateVLBI(SwarmDataCallback):
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp.ant, inp.chk, inp.pol) for inp in inputs),
-                    'efficiencies': list(nanmean(eff) for eff in efficiencies),
+                    'efficiencies': list(nanmean(eff) for pol_eff in efficiencies for eff in pol_eff),
                     'delays': new_delays, 'phases': new_phases,
                     'cal_solution': cal_solution.tolist(),
                     })
