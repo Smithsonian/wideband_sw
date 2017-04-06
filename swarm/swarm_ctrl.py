@@ -1,7 +1,8 @@
 #!/usr/bin/env python2.7
 
-import logging, argparse
+import sys, pickle, logging, argparse
 from time import sleep
+from redis import StrictRedis
 
 from swarm import (
     SWARM_LISTENER_INTERFACES,
@@ -19,11 +20,42 @@ from callbacks.log_stats import *
 from callbacks.sma_data import *
 
 
-# Setup some basic logging
-logging.basicConfig()
-formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
+# Global variables
+LOG_CHANNEL = "swarm.logs.ctrl"
+
+# Custom Redis logging handler
+class RedisHandler(logging.Handler):
+
+    def __init__(self, channel, host='localhost', port=6379):
+        self.redis = StrictRedis(host=host, port=port)
+        self.channel = channel
+        super(RedisHandler, self).__init__()
+
+    def emit(self, record):
+        self.redis.publish(self.channel, pickle.dumps(record))
+
+# Setup root logger
 logger = logging.getLogger()
-logger.handlers[0].setFormatter(formatter)
+logger.setLevel(logging.INFO)
+
+# Stream to stdout
+stdout = logging.StreamHandler(sys.stdout)
+stdout.setLevel(logging.INFO)
+logger.addHandler(stdout)
+
+# Also, log to a Redis channel
+logredis = RedisHandler(LOG_CHANNEL)
+logredis.setLevel(logging.INFO)
+logger.addHandler(logredis)
+
+# Create and set formatting
+formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
+stdout.setFormatter(formatter)
+logredis.setFormatter(formatter)
+
+# Silence all katcp messages
+katcp_logger = logging.getLogger('katcp')
+katcp_logger.setLevel(logging.CRITICAL)
 
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
@@ -75,13 +107,9 @@ if args.log_file:
 
 # Set logging level given verbosity
 if args.verbose:
-    logger.setLevel(logging.DEBUG)
+    stdout.setLevel(logging.DEBUG)
 else:
-    logger.setLevel(logging.INFO)
-
-# Silence all katcp messages
-katcp_logger = logging.getLogger('katcp')
-katcp_logger.setLevel(logging.CRITICAL)
+    stdout.setLevel(logging.INFO)
 
 # Silence user-defined loggers
 for logger_name in args.silence_loggers:
