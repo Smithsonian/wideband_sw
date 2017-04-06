@@ -7,7 +7,7 @@ import pyopmess
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/checks.log'
-ERROR_THRESHOLD = 100
+ERROR_THRESHOLD = 500
 PERIOD = 60
 
 # Setup root logger
