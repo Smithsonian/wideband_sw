@@ -1,6 +1,6 @@
 #!/usr/bin/env python2.7
 
-import sys, pickle, logging, argparse
+import sys, pickle, traceback, logging, argparse
 from time import sleep
 from redis import StrictRedis
 
@@ -32,6 +32,9 @@ class RedisHandler(logging.Handler):
         super(RedisHandler, self).__init__()
 
     def emit(self, record):
+        if record.exc_info: # this is an exception
+            record.msg += '\n' + traceback.format_exc(record.exc_info)
+            record.exc_info = None # clear the traceback
         self.redis.publish(self.channel, pickle.dumps(record))
 
 # Setup root logger
