@@ -1,4 +1,5 @@
 from copy import copy
+from datetime import datetime
 from functools import partial
 from signal import signal, SIGINT, SIG_IGN
 from multiprocessing import Pool, cpu_count
@@ -39,6 +40,9 @@ from swarm import (
 )
 from json_file import JSONListFile
 from redis import StrictRedis
+
+TODAY = datetime.utcnow()
+CALFILE = TODAY.strftime('/global/logs/vlbi_cal/vlbi_cal.%j-%Y.json')
 
 def solve_cgains(mat, ref=0):
     vals, vecs = eig(mat)
@@ -93,7 +97,7 @@ def wrap_phase(in_phase):
 
 class CalibrateVLBI(SwarmDataCallback):
 
-    def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename="vlbi_cal.json"):
+    def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename=CALFILE):
         self.reference = reference if reference is not None else swarm[0][0].get_input(0)
         self.redis = StrictRedis(host='localhost', port=6379)
         super(CalibrateVLBI, self).__init__(swarm)
