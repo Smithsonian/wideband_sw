@@ -85,23 +85,13 @@ class SwarmDataPackage(object):
         baseline = xeng_word.baseline
         sideband = xeng_word.sideband
 
+        # Fill this baseline
         slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
-        try: # normal conjugation first
+        self.get(baseline, sideband)[slice_] = data
 
-            # Fill this baseline
-            self.get(baseline, sideband)[slice_] = data
-
-            # Special case for autos, fill imag with zeros
-            if baseline.is_auto():
-                self.get(baseline, sideband)[slice_+1] = 0.0
-
-        except KeyError:
-
-            # Conjugate the baseline
-            conj_baseline = SwarmBaseline(baseline.right, baseline.left)
-
-            # Try the conjugated baseline
-            self.get(conj_baseline, sideband)[slice_] = data
+        # Special case for autos, fill imag with zeros
+        if baseline.is_auto():
+            self.get(baseline, sideband)[slice_+1] = 0.0
 
 
 class SwarmDataCallback(object):

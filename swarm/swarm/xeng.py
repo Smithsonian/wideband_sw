@@ -121,13 +121,19 @@ class SwarmXengine:
 
             if clock < inputs:
                 valid_stages = range(min(clock, top_stage), -1, -1)
+                conjugate = True
             else:
                 valid_stages = range(top_stage-1, input, -1)
+                conjugate = False
 
             for stage in valid_stages:
 
-                left = self.mapping[input]
-                right = self.mapping[input-stage]
+                if not conjugate:
+                    left = self.mapping[input]
+                    right = self.mapping[input-stage]
+                else:
+                    right = self.mapping[input]
+                    left = self.mapping[input-stage]
 
                 if left is right: # auto-correlation
 
@@ -145,9 +151,9 @@ class SwarmXengine:
                     yield SwarmXengineWord(left[1], right[1], imag=False) # pol1xpol1 real
                     yield SwarmXengineWord(left[1], right[1],  imag=True) # pol1xpol1 imag
 
-                    yield SwarmXengineWord(left[1], right[0], imag=False) # pol1xpol0 real
-                    yield SwarmXengineWord(left[1], right[0],  imag=True) # pol1xpol0 imag
-
                     yield SwarmXengineWord(left[0], right[1], imag=False) # pol0xpol1 real
                     yield SwarmXengineWord(left[0], right[1],  imag=True) # pol0xpol1 imag
+
+                    yield SwarmXengineWord(left[1], right[0], imag=False) # pol1xpol0 real
+                    yield SwarmXengineWord(left[1], right[0],  imag=True) # pol1xpol0 imag
 
