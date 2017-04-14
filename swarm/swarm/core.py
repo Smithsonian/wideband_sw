@@ -25,9 +25,9 @@ from adc5g import (
 import pydsm
 
 from defines import *
-from xeng import SwarmXengine
-from data import SwarmListener
-from qdr import SwarmQDR
+import xeng
+import data
+import qdr
 
 
 class ExceptingThread(Thread):
@@ -202,7 +202,7 @@ class SwarmMember(SwarmROACH):
                  parent_logger=module_logger):
         super(SwarmMember, self).__init__(roach2_host)
         if self.roach2_host:
-            self.qdrs = [SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
+            self.qdrs = [qdr.SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
         self._inputs = [SwarmInput(parent_logger=self.logger),] * len(SWARM_MAPPING_INPUTS)
         assert len(dc_if_freqs) == 2, \
             "DC IF Frequencies given are invalid: %r" % dc_if_freqs
@@ -1073,7 +1073,7 @@ class SwarmQuadrant:
         self.sideband_states = list()
 
         # Get the Xengine output order
-        order = list(SwarmXengine(self).xengine_order())
+        order = list(xeng.SwarmXengine(self).xengine_order())
 
         # For each HB in a single SOWF cycle
         for hb in range(SWARM_INT_HB_PER_SOWF):
@@ -1423,12 +1423,12 @@ class Swarm:
         self.reset_digital_noise()
 
         # Setup the visibility outputs per quad
-        listener = SwarmListener('lo') # default to loopback
+        listener = data.SwarmListener('lo') # default to loopback
         for qid, quad in enumerate(self.quads):
 
             # Pop an interface (should be at least one)
             try:
-                listener = SwarmListener(interfaces.pop(0))
+                listener = data.SwarmListener(interfaces.pop(0))
             except IndexError:
                 self.logger.debug('Reached end of interface list; using last given')
 
