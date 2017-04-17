@@ -43,8 +43,8 @@ class SwarmDataPackage(object):
         self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
         self.baselines = self._autos + self._cross
         self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
-        self._init_data()
-        self._init_header()
+        self.init_data()
+        self.init_header()
 
     def __getitem__(self, item):
         return self.get(*item)
@@ -61,7 +61,7 @@ class SwarmDataPackage(object):
     def __str__(self):
         return ''.join([self.header, self.array.tostring()])
 
-    def _init_header(self):
+    def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
         self.header = pack(
             hdr_fmt,
@@ -72,7 +72,7 @@ class SwarmDataPackage(object):
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
             )
 
-    def _init_data(self):
+    def init_data(self):
 
         # Initialize our data array
         data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS*2)
