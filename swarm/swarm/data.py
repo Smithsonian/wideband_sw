@@ -31,6 +31,8 @@ DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
 class SwarmDataPackage(object):
 
+    header_prefix_fmt = '<IIIdd'
+
     def __init__(self, swarm, int_time=0.0, length=0.0):
 
         # Set all initial members
@@ -60,7 +62,7 @@ class SwarmDataPackage(object):
         return ''.join([self.header, self.array.tostring()])
 
     def _init_header(self):
-        hdr_fmt = '<IIIdd' + 'BBBBBB' * len(self.baselines)
+        hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
         self.header = pack(
             hdr_fmt,
             self.array.shape[0],
