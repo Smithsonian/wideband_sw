@@ -1,6 +1,6 @@
 import gc, math, logging, fcntl
 from time import time, sleep
-from struct import pack, unpack
+from struct import calcsize, pack, unpack
 from Queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
@@ -11,8 +11,9 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
     )
 
-from numpy import array, nan, fromstring, empty
+from numpy import array, nan, fromstring, empty, reshape
 
+import core
 from defines import *
 from xeng import (
     SwarmBaseline, 
@@ -54,6 +55,24 @@ class SwarmDataPackage(object):
         inst = cls(baselines, int_time, int_length)
         inst.init_header()
         inst.init_data()
+        return inst
+
+    @classmethod
+    def from_string(cls, str_):
+
+        # Generate baselines list
+        header_prefix_size = calcsize(cls.header_prefix_fmt)
+        n_baselines, n_sidebands, n_channels, int_time, int_length  = unpack(
+            cls.header_prefix_fmt, str_[0:header_prefix_size])
+        header_size = header_prefix_size + 6 * n_baselines
+        baselines_s = reshape(unpack('BBBBBB' * n_baselines, str_[header_prefix_size:header_size]), (n_baselines, 6))
+        baselines = list(SwarmBaseline(core.SwarmInput(a, b, c), core.SwarmInput(d, e, f)) for a, b, c, d, e, f in baselines_s)
+
+        # Create an instance, populate header & data, and return it
+        data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS*2)
+        inst = cls(baselines, int_time, int_length)
+        inst.header = str_[:header_size]
+        inst.array = fromstring(str_[header_size:], dtype='<f4').reshape(data_shape)
         return inst
 
     def __getitem__(self, item):
