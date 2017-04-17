@@ -65,8 +65,8 @@ class SwarmDataPackage(object):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
         self.header = pack(
             hdr_fmt,
-            self.array.shape[0],
-            self.array.shape[1],
+            len(self.baselines),
+            len(SWARM_XENG_SIDEBANDS),
             SWARM_CHANNELS,
             self.int_time, self.int_length,
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
