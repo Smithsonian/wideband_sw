@@ -100,7 +100,7 @@ args = parser.parse_args()
 swarm = Swarm(map_filenames=args.swarm_mappings)
 
 # Start the IPython embedded shell
-ipshell = InteractiveShellEmbed(config=cfg)
+ipshell = InteractiveShellEmbed.instance(config=cfg)
 swarm_shell_magics = magics.SwarmShellMagics(ipshell, swarm)
 ipshell.register_magics(swarm_shell_magics)
 ipshell()
