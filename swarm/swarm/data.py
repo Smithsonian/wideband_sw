@@ -33,18 +33,28 @@ class SwarmDataPackage(object):
 
     header_prefix_fmt = '<IIIdd'
 
-    def __init__(self, swarm, int_time=0.0, length=0.0):
+    def __init__(self, baselines, int_time, int_length):
 
         # Set all initial members
         self.int_time = int_time
-        self.int_length = length
-        self.inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
-        self._cross = list(SwarmBaseline(i, j) for i, j in combinations(self.inputs, r=2) if SwarmBaseline(i, j).is_valid())
-        self._autos = list(SwarmBaseline(i, i) for i in self.inputs)
-        self.baselines = self._autos + self._cross
+        self.int_length = int_length
+        self.baselines = baselines
         self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
-        self.init_data()
-        self.init_header()
+
+    @classmethod
+    def from_swarm(cls, swarm, int_time=0.0, int_length=0.0):
+
+        # Generate baselines list
+        inputs = list(quad[i][j] for quad in swarm for i in range(quad.fids_expected) for j in SWARM_MAPPING_INPUTS)
+        cross = list(SwarmBaseline(i, j) for i, j in combinations(inputs, r=2) if SwarmBaseline(i, j).is_valid())
+        autos = list(SwarmBaseline(i, i) for i in inputs)
+        baselines = autos + cross
+
+        # Create an instance, populate header & data, and return it
+        inst = cls(baselines, int_time, int_length)
+        inst.init_header()
+        inst.init_data()
+        return inst
 
     def __getitem__(self, item):
         return self.get(*item)
@@ -294,7 +304,7 @@ class SwarmDataCatcher:
     def _reorder_data(self, datas_list, int_time, int_length):
 
         # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage(self.swarm, int_time=int_time, length=int_length)
+        data_pkg = SwarmDataPackage.from_swarm(self.swarm, int_time=int_time, int_length=int_length)
 
         for qid, quad in enumerate(self.swarm.quads):
 
