@@ -405,7 +405,7 @@ class SwarmMember(SwarmROACH):
             xeng_time = pydsm.read(self.roach2.host, SWARM_SCAN_DSM_NAME)[SWARM_SCAN_LENGTH][0]
             self.logger.debug("DSM scan length retrieved")
         except: # in case of failure, use katcp
-            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1ffff
+            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
 
         # Convert it to seconds and return
         cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
@@ -415,7 +415,7 @@ class SwarmMember(SwarmROACH):
 
         # Set the integration (SWARM_ELEVENTHS spectra per step * steps per cycle)
         self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
-        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime))
+        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
 
     def _reset_corner_turn(self):
 
