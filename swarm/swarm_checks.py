@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 import time, sys, logging, logging.handlers, argparse
-from redis import StrictRedis
+from redis import StrictRedis, ConnectionError
 from swarm import *
 import pyopmess
 
@@ -95,7 +95,7 @@ while True:
             logger.warning('Total corner-turn errors, {0}, exceed threshold'.format(errors))
             pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
 
-    except RuntimeError as err:
+    except (RuntimeError, ConnectionError) as err:
         logger.error("Exception caught: {0}".format(err))
         continue
 

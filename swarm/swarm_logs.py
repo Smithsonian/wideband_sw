@@ -1,10 +1,11 @@
 #!/usr/bin/env python2.7
 
-import  sys, pickle, logging, logging.handlers, argparse
-from redis import StrictRedis
+import time, sys, pickle, logging, logging.handlers, argparse
+from redis import StrictRedis, ConnectionError
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/all.log'
+RETRY_PERIOD = 60
 
 # Setup root logger
 logger = logging.getLogger()
@@ -35,27 +36,36 @@ args = parser.parse_args()
 # Create our Redis client instance
 redis = StrictRedis(args.redis_host, args.redis_port)
 
-# Create our PubSub object and subscribe to swarm channels
-pubsub = redis.pubsub()
-pubsub.psubscribe('swarm.logs.*')
+# Loop continously, in case of errors
+while True:
 
-try: # Exit if exception is caught
+    try: # Unless exception is caught
 
-    # Loop continously
-    logger.info('Starting redis->file logging')
-    for msg in pubsub.listen():
+        # Create our PubSub object and subscribe to swarm channels
+        pubsub = redis.pubsub()
+        pubsub.psubscribe('swarm.logs.*')
 
-        # Only respond to actual messages
-        if msg['type'] == 'pmessage':
+        # Loop over every published message
+        logger.info('Starting redis->file logging')
+        for msg in pubsub.listen():
 
-            # De-pickle the message
-            try:
-                record = pickle.loads(msg['data'])
-            except:
-                logger.error('Message cannot be unpickled!')
+            # Only respond to actual messages
+            if msg['type'] == 'pmessage':
 
-            # Then handle the message
-            logger.handle(record)
+                # De-pickle the message
+                try:
+                    record = pickle.loads(msg['data'])
+                except:
+                    logger.error('Message cannot be unpickled!')
 
-except (KeyboardInterrupt, SystemExit):
-    logger.info("Exiting normally")
+                # Then handle the message
+                logger.handle(record)
+
+    except (RuntimeError, ConnectionError) as err:
+        logger.error("Exception caught: {0}".format(err))
+        time.sleep(RETRY_PERIOD)
+        continue
+
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Exiting normally")
+        break

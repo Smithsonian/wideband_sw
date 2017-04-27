@@ -2,7 +2,7 @@
 
 import sys, pickle, traceback, logging, argparse
 from time import sleep
-from redis import StrictRedis
+from redis import StrictRedis, ConnectionError
 
 from swarm import (
     SWARM_LISTENER_INTERFACES,
@@ -35,7 +35,10 @@ class RedisHandler(logging.Handler):
         if record.exc_info: # this is an exception
             record.msg += '\n' + traceback.format_exc(record.exc_info)
             record.exc_info = None # clear the traceback
-        self.redis.publish(self.channel, pickle.dumps(record))
+        try:
+            self.redis.publish(self.channel, pickle.dumps(record))
+        except ConnectionError:
+            pass
 
 # Setup root logger
 logger = logging.getLogger()
