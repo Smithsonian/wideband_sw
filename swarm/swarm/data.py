@@ -360,10 +360,18 @@ class SwarmDataCatcher:
 
             # Receive a set of data
             try:
-                qid, fid, acc_n, xnum, int_time, datas = in_queue.get_nowait()
+                message = in_queue.get_nowait()
             except Empty:
                 sleep(0.01)
                 continue
+
+            # Check if we received an exception
+            if isinstance(message, Exception):
+                out_queue.put(message)
+                continue # pass on exemption and move on
+
+            # Otherwise, continue and parse message
+            qid, fid, acc_n, xnum, int_time, datas = message
 
             # Initialize acc_n data buffer, if necessary
             if not data.has_key(acc_n):
@@ -446,10 +454,17 @@ class SwarmDataHandler:
         while True:
 
             try: # to check for data
-                acc_n, int_time, data = self.queue.get_nowait()
+                message = self.queue.get_nowait()
             except Empty: # none available
                 sleep(0.01)
                 continue
+
+            # Check if we received an exception
+            if isinstance(message, Exception):
+                raise message
+
+            # Otherwise, continue and parse message
+            acc_n, int_time, data = message
 
             # Finally, do user callbacks
             for callback in self.callbacks:
