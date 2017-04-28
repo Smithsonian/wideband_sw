@@ -410,8 +410,6 @@ class SwarmDataCatcher:
 
                     try: # catch callback error
                         rawback(data[acc_n])
-                    except KeyboardInterrupt:
-                        raise
                     except: # and log if needed
                         self.logger.exception("Exception from rawback: {}".format(rawback))
 
@@ -470,8 +468,6 @@ class SwarmDataHandler:
             for callback in self.callbacks:
                 try: # catch callback error
                     callback(data)
-                except KeyboardInterrupt:
-                    raise
                 except: # and log if needed
                     self.logger.exception("Exception from callback: {}".format(callback))
 
