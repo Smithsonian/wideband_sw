@@ -442,33 +442,26 @@ class SwarmDataHandler:
 
     def loop(self):
 
-        try:
+        # Loop until user quits
+        while True:
 
-            # Loop until user quits
-            while True:
+            try: # to check for data
+                acc_n, int_time, data = self.queue.get_nowait()
+            except Empty: # none available
+                sleep(0.01)
+                continue
 
-                try: # to check for data
-                    acc_n, int_time, data = self.queue.get_nowait()
-                except Empty: # none available
-                    sleep(0.01)
-                    continue
+            # Finally, do user callbacks
+            for callback in self.callbacks:
+                try: # catch callback error
+                    callback(data)
+                except KeyboardInterrupt:
+                    raise
+                except: # and log if needed
+                    self.logger.exception("Exception from callback: {}".format(callback))
 
-                # Finally, do user callbacks
-                for callback in self.callbacks:
-                    try: # catch callback error
-                        callback(data)
-                    except KeyboardInterrupt:
-                        raise
-                    except: # and log if needed
-                        self.logger.exception("Exception from callback: {}".format(callback))
+            # Log that we're done with callbacks
+            self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
 
-                # Log that we're done with callbacks
-                self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
-
-                gc.collect() # Force garbage collection
-                self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
-
-        except KeyboardInterrupt:
-
-            # User wants to quit
-            self.logger.info("Ctrl-C detected. Quitting loop.")
+            gc.collect() # Force garbage collection
+            self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))

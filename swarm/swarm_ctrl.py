@@ -197,8 +197,15 @@ else:
     # Start the data catcher
     swarm_catcher.start()
 
-    # Start the main loop
-    swarm_handler.loop()
+    try:
+
+        # Start the main loop
+        swarm_handler.loop()
+
+    except KeyboardInterrupt:
+
+        # User wants to quit
+        logger.info("Ctrl-C detected. Quitting loop.")
 
     # Stop the data catcher
     swarm_catcher.stop()
