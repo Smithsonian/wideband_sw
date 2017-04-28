@@ -207,5 +207,10 @@ else:
         # User wants to quit
         logger.info("Ctrl-C detected. Quitting loop.")
 
+    except:
+
+        # Some other exception detected
+        logger.exception("Exception caught, logging it and cleaning up")
+
     # Stop the data catcher
     swarm_catcher.stop()
