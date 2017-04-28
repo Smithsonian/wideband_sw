@@ -410,8 +410,10 @@ class SwarmDataCatcher:
 
                     try: # catch callback error
                         rawback(data[acc_n])
-                    except: # and log if needed
-                        self.logger.exception("Exception from rawback: {}".format(rawback))
+                    except Exception as exception: # and log if needed
+                        self.logger.error("Exception from rawback: {}".format(rawback))
+                        out_queue.put(exception)
+                        continue
 
                 # Log that we're done with rawbacks
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
@@ -469,7 +471,8 @@ class SwarmDataHandler:
                 try: # catch callback error
                     callback(data)
                 except: # and log if needed
-                    self.logger.exception("Exception from callback: {}".format(callback))
+                    self.logger.error("Exception from callback: {}".format(callback))
+                    raise
 
             # Log that we're done with callbacks
             self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
