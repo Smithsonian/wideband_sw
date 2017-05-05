@@ -264,7 +264,7 @@ class SwarmDataCatcher:
 
             # Check if packet is wrong size
             if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-                self.logger.error("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
+                self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
 		continue
 
             # Send sync if this is the first packet of the next accumulation
