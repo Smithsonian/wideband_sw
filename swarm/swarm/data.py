@@ -30,6 +30,8 @@ INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
+XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
+
 class SwarmDataPackage(object):
 
     header_prefix_fmt = '<IIIdd'
@@ -253,12 +255,14 @@ class SwarmDataCatcher:
 
         data = {}
         mask = {}
+        meta = {}
         udp_sock = self._create_socket()
         while not stop.is_set():
 
             # Receive a packet and get host info
             try:
                 datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
+                pkt_time = time() # packet arrival time
             except timeout:
                 continue
 
@@ -291,16 +295,23 @@ class SwarmDataCatcher:
             if not data.has_key(qid):
                 data[qid] = {}
                 mask[qid] = {}
+                meta[qid] = {}
 
 	    # Initialize fid data buffer, if necessary
             if not data[qid].has_key(fid):
                 data[qid][fid] = {}
                 mask[qid][fid] = {}
+                meta[qid][fid] = {}
 
-	    # Initialize acc_n data buffer, if necessary
+	    # First packet of new accumulation, initalize data buffers
             if not data[qid][fid].has_key(acc_n):
                 data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
                 mask[qid][fid][acc_n] = long(0)
+                meta[qid][fid][acc_n] = {
+                    'time': pkt_time, # these values correspond to those
+                    'xnum': xnum,     # of the first packet of this acc
+                    }
+
 
             # Then store data in it
             data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
@@ -310,9 +321,9 @@ class SwarmDataCatcher:
             if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
 
                 # Put data onto the queue
-                datas = ''.join(data[qid][fid].pop(acc_n))
-                out_queue.put((qid, fid, acc_n, xnum, int_time, datas))
                 mask[qid][fid].pop(acc_n)
+                datas = ''.join(data[qid][fid].pop(acc_n))
+                out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), int_time, datas))
 
         udp_sock.close()
 
@@ -371,7 +382,10 @@ class SwarmDataCatcher:
                 continue # pass on exemption and move on
 
             # Otherwise, continue and parse message
-            qid, fid, acc_n, xnum, int_time, datas = message
+            qid, fid, acc_n, meta, int_time, datas = message
+            this_length = meta['xnum'] * XNUM_TO_LENGTH
+            this_time = meta['time']
+
 
             # Initialize acc_n data buffer, if necessary
             if not data.has_key(acc_n):
