@@ -43,7 +43,7 @@
 #define DSM_FSTOP_UT  "FSTOP_UT_D"
 
 /* DSM host names, may be changed by user */
-volatile char dds_host[DSM_NAME_LENGTH] = "newdds";
+volatile char dds_host[DSM_NAME_LENGTH] = "tenzing";
 volatile char obs_host[DSM_NAME_LENGTH] = "obscon";
 
 /* These are the constant, user-programmable delays and phases */
