@@ -3,6 +3,7 @@
 import sys, pickle, traceback, logging, argparse
 from time import sleep
 from redis import StrictRedis, ConnectionError
+import pyopmess
 
 from swarm import (
     SWARM_LISTENER_INTERFACES,
@@ -210,7 +211,8 @@ else:
     except:
 
         # Some other exception detected
-        logger.exception("Exception caught, logging it and cleaning up")
+        logger.error("Exception caught, logging it and cleaning up")
+        pyopmess.send(1, 1, 100, 'Listener crashed; try swarm.reset_xengines() in swarm_shell')
 
     # Stop the data catcher
     swarm_catcher.stop()
