@@ -393,7 +393,7 @@ class SwarmDataCatcher:
                     if primordial:
                         continue
                     else: # error out otherwise
-                        err_msg = "Accumulation #{0} started with qid={1], fid={2}! Should start with 0, 0!".format(acc_n, qid, fid)
+                        err_msg = "Accumulation #{0} started with qid={1}, fid={2}! Should start with 0, 0!".format(acc_n, qid, fid)
                         exception = ValueError(err_msg)
                         self.logger.error(err_msg)
                         out_queue.put(exception)
