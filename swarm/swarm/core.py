@@ -1392,7 +1392,7 @@ class Swarm:
                 raise RuntimeError('{0} quadrant(s) had an error during Swarm setup!'.format(exceptions))
 
         # Sync the SWARM
-        self.sync()
+        self._sync()
 
         # Do the post-sync setup
         for fid, member in self.get_valid_members():
@@ -1437,6 +1437,57 @@ class Swarm:
                 member.setup_visibs(qid, listener, delay_test=delay_test)
 
     def sync(self):
+
+        # Check to make sure corner-turn is in nominal state
+        for fid, member in self.get_valid_members():
+            if member.roach2.read_uint(SWARM_NETWORK_CTRL) != 0x00000030:
+                err_msg = "Corner-turn is in unknown state! Aborting sync".format(member.roach2_host)
+                member.logger.error(err_msg)
+                raise ValueError(err_msg)
+
+        # Disable corner-turn Rx
+        self.logger.info('Disabling the corner-turn Rx')
+        for fid, member in self.get_valid_members():
+            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
+        sleep(5)
+
+        # Disable corner-turn Tx
+        self.logger.info('Disabling the corner-turn Tx')
+        for fid, member in self.get_valid_members():
+            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+        sleep(5)
+
+        # Do the usual sync operation
+        self._sync()
+
+        # Wait for a long while here
+        self.logger.info('Waiting for 1 minute; please be patient')
+        sleep(60)
+
+        # Reset the corner-turn
+        self.logger.info('Resetting the corner-turn Rx')
+        for fid, member in self.get_valid_members():
+            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x40000000))
+        sleep(5)
+
+        # Enable the corner-turn Tx
+        self.logger.info('Enabling the corner-turn Tx')
+        for fid, member in self.get_valid_members():
+            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
+        sleep(5)
+
+        # Enable the corner-turn Rx
+        self.logger.info('Enabling the corner-turn Rx')
+        for fid, member in self.get_valid_members():
+            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000030))
+        sleep(5)
+
+        # Finally reset the DDR3 just in case
+        self.logger.info('And finally resetting the DDR3')
+        for fid, member in self.get_valid_members():
+            member.reset_ddr3()
+
+    def _sync(self):
 
         # Do a threaded sync of SOWF
         sowf_threads = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
