@@ -46,6 +46,8 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 def copy_source_geom(source_geom, member):
 
     # Create our dict first (copied from dsm_allocation)
+    rx0 = member[0].pol
+    rx1 = member[1].pol
     ant0 = member[0].ant
     ant1 = member[1].ant
     geom_dict = {
@@ -53,8 +55,8 @@ def copy_source_geom(source_geom, member):
         'SOURCE_NAME_C24'   : source_geom['SOURCE_NAME_C24'][0],
         'UT1MUTC_D'         : source_geom['UT1MUTC_D'][0],
         'GEOM_DELAY_A_V2_D' : (
-            source_geom['GEOM_DELAY_A_V9_D'][0][ant0],
-            source_geom['GEOM_DELAY_A_V9_D'][0][ant1],
+            source_geom['GEOM_DELAY_A_V9_D'][0][ant0] + source_geom['RX_DELAY_V2_V9_F'][0][rx0][ant0],
+            source_geom['GEOM_DELAY_A_V9_D'][0][ant1] + source_geom['RX_DELAY_V2_V9_F'][0][rx1][ant1],
             ),
         'GEOM_DELAY_B_V2_D' : (
             source_geom['GEOM_DELAY_B_V9_D'][0][ant0],
