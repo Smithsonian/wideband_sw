@@ -1449,21 +1449,11 @@ class Swarm:
         for thread in rstnoise_threads:
             thread.join()
 
-    def get_beamformer_inputs(self):
-
-        inputs = []
+    def set_beamformer_inputs(self, inputs=None):
 
         # Go through all quadrants get inputs
         for quad in self.quads:
-            inputs.extend(quad.get_beamformer_inputs())
-
-        return inputs
-
-    def set_beamformer_inputs(self, inputs):
-
-        # Go through all quadrants get inputs
-        for quad in self.quads:
-            quad.set_beamformer_inputs(inputs)
+            quad.set_beamformer_inputs(inputs[quad.qid] if inputs else ())
 
     def get_itime(self):
 

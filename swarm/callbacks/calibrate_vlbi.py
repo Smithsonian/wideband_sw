@@ -196,7 +196,8 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        inputs = sorted(self.swarm.get_beamformer_inputs(), key=lambda b: b.ant + b.chk*10 + b.pol*100)
+        beam = [inp for quad in self.swarm.quads for inp in quad.get_beamformer_inputs()]
+        inputs = sorted(beam, key=lambda b: b.ant + b.chk*10 + b.pol*100)
         if not inputs:
             return
 
