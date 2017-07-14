@@ -351,7 +351,7 @@ class SwarmMember(base.SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beam_former(self, qid, fid, dbe, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def setup_beamformer(self, qid, dest, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
@@ -361,19 +361,22 @@ class SwarmMember(base.SwarmROACH):
         macbase = 0x000f530ce500 + (qid<<8)
 
         # Set the MAC for our destinatino IP
-        arp[dbe.ip & 0xff] = dbe.mac
+        arp[dest.ip & 0xff] = dest.mac
 
         # Configure 10 GbE device
-        last_byte = (fid << 4) + 0b1100
+        last_byte = (self.fid << 4) + 0b1100
         self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, SWARM_BENGINE_PORT, arp)
 
         # Configure the B-engine destination IPs
-        self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dbe.ip))
+        self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dest.ip))
 
         # Reset the 10 GbE cores before enabling
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x40000000))
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+
+        # Configure the B-engine gains (for optimal state counts)
+        self.set_bengine_gains(10.0, 10.0)
 
         # Lastly enable the TX 
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x80000000))
@@ -1019,6 +1022,22 @@ class SwarmQuadrant:
 
             # En(dis)able fringe stoppiner per member
             member.fringe_stop(enable)
+
+    def setup_beamformer(self):
+
+        # Don't do anything if this quadrant doesn't have SDBE
+        if not hasattr(self, 'sdbe'):
+            return
+        else: # we have an SBDE continue
+
+            # Create the SDBE interface object and pass it along
+            for fid, member in self.get_valid_members():
+                core = fid >> 1
+                iface = base.Interface(
+                    0x000f9d9d9d00 + ((self.qid+1) << 4) + core,    # the SDBE's MAC and IP values
+                    0xc0a80000 + ((self.qid+11) << 8) + core + 100, # are hard-coded for now so make sure
+                    SWARM_BENGINE_PORT)                        # they match what the SDBE is set up for
+                member.setup_beamformer(self.qid, iface)
 
     def get_beamformer_inputs(self):
 
