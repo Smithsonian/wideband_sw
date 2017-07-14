@@ -923,21 +923,35 @@ class SwarmQuadrant:
                 # Checks if this line is a comment
                 is_comment = entry[0].startswith(SWARM_MAPPING_COMMENT)
 
-                # Checks if our line is a parameter
-                is_parameter = entry[0].startswith(SWARM_MAPPING_PARAM)
+                # Checks if our line is a SwarmQuadrant parameter
+                is_quadrant_parameter = entry[0].startswith(SWARM_MAPPING_QUAD_PARAM)
+
+                # Checks if our line is a SwarmMember parameter
+                is_member_parameter = entry[0].startswith(SWARM_MAPPING_MEM_PARAM)
 
                 if is_comment:
 
                     # Display map comment
                     self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
 
-                elif is_parameter:
+                elif is_quadrant_parameter:
+
+                    # Set the attribute but DO NOT override
+                    if not hasattr(self, entry[1]):
+                        setattr(self, entry[1], True if len(entry[2:]) == 0 else ' '.join(entry[2:]))
+                    else:
+                        self.logger.warning('Ignoring quadrant parameter {0}; will not override existing attributes'.format(entry[1]))
+
+                    # Display map parameter
+                    self.logger.debug('Quadrant attribute set: {0}={1}'.format(entry[1], getattr(self, entry[1])))
+
+                elif is_member_parameter:
 
                     # Set the parameter
                     parameters[entry[1]] = entry[2] if len(entry[2:]) == 1 else entry[2:]
 
                     # Display map parameter
-                    self.logger.debug('Mapping parameters updated: {0}'.format(parameters))
+                    self.logger.debug('Member parameters updated: {0}'.format(parameters))
 
                 else:
 
