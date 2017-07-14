@@ -84,17 +84,17 @@ cfg.IPCompleter.greedy = True
 # Enable the autocall feature
 cfg.TerminalInteractiveShell.autocall = 2
 
-# Setup logging
-logging.basicConfig()
-logging.getLogger('katcp').setLevel(logging.CRITICAL)
-logging.getLogger('').setLevel(logging.INFO)
-
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Run an interactive SWARM shell')
 parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
 parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 args = parser.parse_args()
+
+# Setup logging
+logging.basicConfig()
+logging.getLogger('katcp').setLevel(logging.CRITICAL)
+logging.getLogger('').setLevel(logging.DEBUG if args.verbose else logging.INFO)
 
 # Set up SWARM 
 swarm = Swarm(map_filenames=args.swarm_mappings)
