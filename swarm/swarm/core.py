@@ -940,7 +940,7 @@ class SwarmQuadrant:
                 if is_comment:
 
                     # Display map comment
-                    self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
+                    self.logger.debug('Mapping comment found: %s' % walsh_line.rstrip())
 
                 else:
 
@@ -1369,7 +1369,7 @@ class Swarm:
         # Check to make sure corner-turn is in nominal state
         for fid, member in self.get_valid_members():
             if member.roach2.read_uint(SWARM_NETWORK_CTRL) != 0x00000030:
-                err_msg = "Corner-turn is in unknown state! Aborting sync".format(member.roach2_host)
+                err_msg = "Corner-turn is in unknown state! Aborting sync"
                 member.logger.error(err_msg)
                 raise ValueError(err_msg)
 
