@@ -760,6 +760,9 @@ class SwarmQuadrant:
     def __str__(self):
         return os.linesep.join('[qid={0!r}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
 
+    def __dir__(self):
+        return self.__dict__.keys() + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
+
     def __getattr__(self, attr):
 
         # See if the non-SwarmQuadrant attribute is a SwarmMember method
@@ -1238,6 +1241,9 @@ class Swarm:
         # Return the results, if present
         if any(rv is not None for rv in return_values):
             return return_values
+
+    def __dir__(self):
+        return self.__dict__.keys() + dir(Swarm) + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
 
     def __getattr__(self, attr):
 
