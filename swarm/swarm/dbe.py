@@ -8,6 +8,8 @@ from socket import (
     )
 from Queue import Queue, Empty
 from threading import Thread, Event
+from datetime import datetime
+from time import sleep
 
 from numpy import nan, array, empty, uint8, complex128
 
@@ -19,7 +21,40 @@ SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
 
 
+def compute_vdif_time():
 
+    # calculate reference epoch
+    utcnow = datetime.utcnow()
+    ref_start = datetime(2000,1,1,0,0,0)
+    nyrs = utcnow.year - ref_start.year
+    ref_ep_num = 2*nyrs+1*(utcnow.month>6)
+    ref_ep_date = datetime(utcnow.year,6*(utcnow.month>6)+1,1,0,0,0)
+
+    # rapidly calculate current time and reset hdr (~10 ms)
+    delta       = datetime.utcnow()-ref_ep_date
+    sec_ref_ep  = delta.seconds + 24*3600*delta.days
+
+    return (ref_ep_num,sec_ref_ep)
+
+
+def sync_rtime(member):
+
+    # wait until near-middle of second
+    while abs(datetime.utcnow().microsecond  - 500000) > 10000:
+        sleep(0.01)
+
+    # get present VDIF time and UNIX timestamp
+    ref_ep, sec_ref = compute_vdif_time()
+
+    # write in sec_ref for the next second tick
+    # and re-sync the 1PPS
+    member.roach2.write_int('sync_rtime_gen_epoch_sec', sec_ref)
+    member.sync_rtime()
+
+    # critical stuff done, now write in the ref epoch
+    member.roach2.write_int('sync_rtime_gen_ref_epoch', ref_ep)
+
+    return sec_ref
 
 
 class LocalInterface(base.Interface):

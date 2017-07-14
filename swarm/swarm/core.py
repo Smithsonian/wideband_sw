@@ -27,6 +27,7 @@ import base
 import xeng
 import data
 import qdr
+import dbe
 
 
 class ExceptingThread(Thread):
@@ -1473,6 +1474,31 @@ class Swarm:
         # Finally join all threads
         for thread in rstnoise_threads:
             thread.join()
+
+    def setup_beamformer(self):
+
+        # Do a threaded sync_beng
+        beng_threads = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
+        for thread in beng_threads:
+            thread.start()
+        self.logger.info('Synced the B-engines')
+        sleep(1)
+
+        # Do a threaded dbe.sync_rtime
+        rtime_threads = list(Thread(target=dbe.sync_rtime, args=(m, )) for f, m in self.get_valid_members())
+        for thread in rtime_threads:
+            thread.start()
+        self.logger.info('Synced the rtime generators')
+        sleep(1)
+
+        # Join all the threads
+        for thread in beng_threads + rtime_threads:
+            thread.join()
+
+        # Finally setup the individual quadrant beamformers
+        for quad in self.quads:
+            quad.setup_beamformer()
+        self.logger.info('Configured the beamformers')
 
     def set_beamformer_inputs(self, inputs=None):
 
