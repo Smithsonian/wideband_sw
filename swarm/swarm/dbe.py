@@ -11,25 +11,18 @@ from threading import Thread, Event
 
 from numpy import nan, array, empty, uint8, complex128
 
-from core import SwarmROACH
 from defines import *
+import base
 
 
 SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR  = 0x8927
 
 
-class Interface(object):
-
-    def __init__(self, mac, ip, port):
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.port = port
-        self.mac = mac
-        self.arp = []
-        self.ip = ip
 
 
-class LocalInterface(Interface):
+
+class LocalInterface(base.Interface):
 
     def __init__(self, interface, port):
         mac, ip, host = self.get_netinfo(interface)
@@ -61,10 +54,10 @@ class MK6Imposter(LocalInterface):
         super(MK6Imposter, self).__init__(interface, port)
 
 
-class SwarmDBE(SwarmROACH):
+class SwarmDBE(base.SwarmROACH):
 
     def __init__(self, swarm, roach2_host):
-        super(SwarmROACH, self).__init__(roach2_host)
+        super(base.SwarmROACH, self).__init__(roach2_host)
         self.swarm = swarm
 
     def setup(self, ipbase=0x9d000000, macbase=0x000f9d9d9d00):
@@ -84,11 +77,11 @@ class SwarmDBE(SwarmROACH):
 
         # Determine our TX interfaces first
         fids = range(self.swarm.fids_expected)
-        tx_ifaces = list(Interface(macbase + fid, ipbase + fid, SWARM_BENG_PORT) for fid in fids)
+        tx_ifaces = list(base.Interface(macbase + fid, ipbase + fid, SWARM_BENG_PORT) for fid in fids)
 
         # The determine our RX interfaces
         cores = range(SWARM_DBE_N_RX_CORE)
-        rx_ifaces = list(Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
+        rx_ifaces = list(base.Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
 
         # Fill the ARP table
         for iface in tx_ifaces + rx_ifaces:
