@@ -6,20 +6,19 @@ from threading import Event
 from redis import StrictRedis, ConnectionError
 import pyopmess
 
+from swarm.defines import *
 from swarm import (
-    SWARM_LISTENER_INTERFACES,
-    SWARM_MAPPINGS,
     SwarmDataCatcher,
     SwarmDataHandler,
     SwarmQuadrant,
     SwarmInput,
     Swarm,
     )
-from rawbacks.check_ramp import *
-from rawbacks.save_rawdata import *
-from callbacks.calibrate_vlbi import *
-from callbacks.log_stats import *
-from callbacks.sma_data import *
+from rawbacks.check_ramp import CheckRamp
+from rawbacks.save_rawdata import SaveRawData
+from callbacks.calibrate_vlbi import CalibrateVLBI
+from callbacks.log_stats import LogStats
+from callbacks.sma_data import SMAData
 
 
 # Global variables
