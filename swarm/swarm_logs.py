@@ -9,7 +9,7 @@ RETRY_PERIOD = 60
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
@@ -32,6 +32,12 @@ parser.add_argument('-v', dest='verbose', action='store_true', help='Display deb
 parser.add_argument('--redis-host', dest='redis_host', help='Redis host name (defailt="localhost")', default='localhost')
 parser.add_argument('--redis-port', dest='redis_port', help='Redis port number (defailt=6379)', type=int, default=6379)
 args = parser.parse_args()
+
+# Set logging level given verbosity
+if args.verbose:
+    stdout.setLevel(logging.DEBUG)
+else:
+    stdout.setLevel(logging.INFO)
 
 # Create our Redis client instance
 redis = StrictRedis(args.redis_host, args.redis_port)

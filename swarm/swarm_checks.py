@@ -12,7 +12,7 @@ PERIOD = 60
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
@@ -21,7 +21,7 @@ logger.addHandler(stdout)
 
 # Also, log to rotating file handler
 logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=10)
-logfile.setLevel(logging.DEBUG)
+logfile.setLevel(logging.INFO)
 logger.addHandler(logfile)
 
 # Create and set formatting
@@ -41,6 +41,12 @@ parser.add_argument('--redis-port', dest='redis_port', help='Redis port number (
 parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 args = parser.parse_args()
+
+# Set logging level given verbosity
+if args.verbose:
+    stdout.setLevel(logging.DEBUG)
+else:
+    stdout.setLevel(logging.INFO)
 
 # Create our SWARM instance
 swarm = Swarm(map_filenames=args.swarm_mappings)

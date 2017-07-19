@@ -44,7 +44,7 @@ class RedisHandler(logging.Handler):
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
