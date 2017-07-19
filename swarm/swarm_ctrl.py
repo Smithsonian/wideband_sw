@@ -2,6 +2,7 @@
 
 import sys, pickle, traceback, logging, argparse
 from time import sleep
+from threading import Event
 from redis import StrictRedis, ConnectionError
 import pyopmess
 
@@ -23,6 +24,7 @@ from callbacks.sma_data import *
 
 # Global variables
 LOG_CHANNEL = "swarm.logs.ctrl"
+RUNNING = Event()
 
 # Custom Redis logging handler
 class RedisHandler(logging.Handler):
@@ -201,7 +203,8 @@ else:
     try:
 
         # Start the main loop
-        swarm_handler.loop()
+        RUNNING.set()
+        swarm_handler.loop(RUNNING)
 
     except KeyboardInterrupt:
 

@@ -496,10 +496,10 @@ class SwarmDataHandler:
         inst = callback(self.swarm, *args, **kwargs)
         self.callbacks.append(inst)
 
-    def loop(self):
+    def loop(self, running):
 
         # Loop until user quits
-        while True:
+        while running.is_set():
 
             try: # to check for data
                 message = self.queue.get_nowait()
