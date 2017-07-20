@@ -248,7 +248,9 @@ signal(SIGURG, cold_start_handler)
 # Signal handler to do a re-sync
 def sync_handler(signum, frame):
     logger.info('Received signal #{0}; syncing SWARM...'.format(signum))
-    swarm.sync()
+    swarm_catcher.stop() # stop waiting on data
+    swarm.sync() # do the sync
+    swarm_catcher.start() # start waiting on data
     pyopmess.send(1, 1, 100, 'SWARM has been re-synced')
 
 # Register it to SIGCONT
