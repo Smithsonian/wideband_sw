@@ -204,6 +204,7 @@ class SwarmDataCatcher:
 
     def start_catch(self):
         if not self.catch_thread:
+            self.catch_stop.clear()
             self.catch_thread = Thread(target=self.catch, 
                                        args=(self.catch_stop,
                                              None,
@@ -211,10 +212,11 @@ class SwarmDataCatcher:
             self.catch_thread.start()
             self.logger.info('Catching thread has started')
         else:
-            self.logger.error('Catch thread has not been started!')
+            self.logger.error('Catch thread has not been stopped!')
 
     def start_order(self):
         if not self.order_thread:
+            self.order_stop.clear()
             self.order_thread = Thread(target=self.order, 
                                        args=(self.order_stop, 
                                              self.catch_queue,
@@ -222,7 +224,7 @@ class SwarmDataCatcher:
             self.order_thread.start()
             self.logger.info('Ordering thread has started')
         else:
-            self.logger.error('Order thread has not been started!')
+            self.logger.error('Order thread has not been stopped!')
 
     def start(self):
         self.start_catch()
@@ -232,6 +234,7 @@ class SwarmDataCatcher:
         if self.catch_thread:
             self.catch_stop.set()
             self.catch_thread.join()
+            self.catch_thread = None
             self.logger.info('Catch thread has stopped')
         else:
             self.logger.error('Catch thread has not been started!')
@@ -240,6 +243,7 @@ class SwarmDataCatcher:
         if self.order_thread:
             self.order_stop.set()
             self.order_thread.join()
+            self.order_thread = None
             self.logger.info('Order thread has stopped')
         else:
             self.logger.error('Order thread has not been started!')
