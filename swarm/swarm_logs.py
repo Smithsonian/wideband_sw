@@ -5,6 +5,7 @@ from threading import Event
 from swarm.defines import *
 
 # Global variables
+SHORTLOG_NAME = '/global/logs/swarm/all.short.log'
 LOGFILE_NAME = '/global/logs/swarm/all.log'
 RETRY_PERIOD = 60
 RUNNING = Event()
@@ -27,6 +28,15 @@ logger.addHandler(logfile)
 formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
 stdout.setFormatter(formatter)
 logfile.setFormatter(formatter)
+
+# And a short version of the log handler
+shortlog = logging.handlers.RotatingFileHandler(SHORTLOG_NAME, maxBytes=5*1024*1024, backupCount=1)
+shortlog.setLevel(logging.DEBUG)
+logger.addHandler(shortlog)
+
+# Use shorter width formatting for short log
+shortform = logging.Formatter('%(asctime)s:%(levelname)s:%(message)s', '%m-%d %H:%M:%S')
+shortlog.setFormatter(shortform)
 
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Read various SWARM registers and memory and write to Redis server')
