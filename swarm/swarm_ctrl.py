@@ -1,12 +1,22 @@
-#!/usr/bin/env python2.7
-
 import sys, pickle, traceback, logging, argparse
 from time import sleep
 from threading import Event
+from Queue import Queue, Empty
+from collections import OrderedDict
+from traceback import format_exception
 from redis import StrictRedis, ConnectionError
-from signal import signal, SIGQUIT, SIGTERM, SIGINT
+from signal import (
+    signal,
+    SIGQUIT,
+    SIGTERM,
+    SIGINT,
+    SIGHUP,
+    SIGURG,
+    SIGCONT,
+    )
 import pyopmess
 
+from swarm.core import ExceptingThread
 from swarm.defines import *
 from swarm import (
     SwarmDataCatcher,
@@ -83,16 +93,10 @@ parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SW
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES', nargs='+', default=SWARM_LISTENER_INTERFACES,
                     help='listen for UDP data on INTERFACES (default="{0}")'.format(SWARM_LISTENER_INTERFACES))
-parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=28.45,
+parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=10.0,
                     help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
 parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
                     help='use ANT,POL,CHUNK as a REFERENCE; POL and CHUNK are either 0 or 1 (default=2,0,0')
-parser.add_argument('--idle-only', dest='idle_only', action='store_true',
-                    help='only program with the idle bitcode; do not do full setup')
-parser.add_argument('--setup-only', dest='setup_only', action='store_true',
-                    help='only program and setup the board; do not wait for data')
-parser.add_argument('--listen-only', dest='listen_only', action='store_true',
-                    help='do NOT setup the board; only wait for data')
 parser.add_argument('--continue-on-qdr-error', dest='raise_qdr_err', action='store_false',
                     help='do NOT terminate program on a QDR calibration error.')
 parser.add_argument('--no-data-catcher', dest='disable_data_catcher', action='store_true',
@@ -110,13 +114,9 @@ parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
                     help='Write logger output to LOGFILE')
 parser.add_argument('--silence-loggers', nargs='+', default=[],
                     help='silence the output from C extensions such as pysendint')
-parser.add_argument('--thread-setup', dest='thread_setup', action='store_true',
+parser.add_argument('--no-thread-setup', dest='thread_setup', action='store_false',
                     help='multi-thread the setup to make it faster')
 args = parser.parse_args()
-
-# Require either setup, listen, or idle
-if not (args.idle_only or args.setup_only or args.listen_only):
-    parser.error('No action requested; either use --setup-only, --listen-only, or --idle-only')
 
 # Add file handler, if requested
 if args.log_file:
@@ -143,87 +143,179 @@ reference = SwarmInput(**dict(reference_args))
 # Create our SWARM instance
 swarm = Swarm(map_filenames=args.swarm_mappings)
 
-if not args.listen_only:
+# Setup the data catcher class
+swarm_catcher = SwarmDataCatcher(swarm)
 
-    # Idle the SWARM
-    swarm.idle()
+# Create the data handler
+swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
 
-    if not args.idle_only:
+# Signal handler for idling SWARM
+def idle_handler(signum, frame):
+    logger.info('Received signal #{0}; idling SWARM...'.format(signum))
+    pyopmess.send(1, 1, 100, 'SWARM is now being idled')
+    swarm_catcher.stop() # stop waiting on data
+    swarm.members_do(lambda fid, mbr: mbr.idle())
 
-        # Wait before starting setup
-        sleep(5)
+# Register it to SIGHUP
+signal(SIGHUP, idle_handler)
 
-        # Setup using the Swarm class and our parameters
-        swarm.setup(
-            args.itime,
-            args.interfaces,
-            delay_test=args.visibs_test,
-            raise_qdr_err=args.raise_qdr_err,
-            threaded=args.thread_setup,
+# Signal handler for "cold-starting" SWARM
+def cold_start_handler(signum, frame):
+
+    # Idle SWARM first, this also stops catcher
+    idle_handler(signum, frame)
+
+    # Wait some time for switch state to clear
+    sleep(5)
+
+    # Do the intial setup
+    logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
+    pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
+    swarm.setup(
+        args.itime,
+        args.interfaces,
+        delay_test=args.visibs_test,
+        raise_qdr_err=args.raise_qdr_err,
+        threaded=args.thread_setup,
+        )
+
+    # Switch to IF input
+    swarm.members_do(lambda fid, mbr: mbr.set_source(2, 2))
+
+    # Load all plugins
+    swarm.members_do(lambda fid, mbr: mbr.reload_plugins())
+
+    # Enable Walshing and fringe rotation
+    swarm.quadrants_do(lambda qid, quad: quad.set_walsh_patterns())
+    swarm.quadrants_do(lambda qid, quad: quad.set_sideband_states())
+    swarm.quadrants_do(lambda qid, quad: quad.fringe_stopping(True))
+
+    # Wait some time for things to warm up
+    logger.info('Waiting 2 minutes for FPGAs to warm up; please be patient')
+    sleep(120)
+
+    # Disable the ADC monitor
+    swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
+
+    # Do a threaded calibration
+    pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
+    exceptions_queue = Queue()
+    adccal_threads = OrderedDict()
+    for fid, member in swarm.get_valid_members():
+        thread = ExceptingThread(
+            exceptions_queue,
+            logger=logger,
+            target=member.warm_calibrate_adc,
             )
+        adccal_threads[thread] = member
 
-else:
+    # Now start them all
+    for thread in adccal_threads.iterkeys():
+        thread.start()
 
-    # Setup the data catcher class
-    swarm_catcher = SwarmDataCatcher(swarm)
+    # ...and immediately join them
+    for thread in adccal_threads.iterkeys():
+        thread.join()
 
-    # Create the data handler
-    swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
+    # If there were exceptions log them
+    exceptions = 0
+    while not exceptions_queue.empty():
+        exceptions += 1
+        thread, exc = exceptions_queue.get()
+        fmt_exc = format_exception(*exc)
+        tb_str = ''.join(fmt_exc[0:-1])
+        exc_str = ''.join(fmt_exc[-1])
+        for line in tb_str.splitlines():
+            adccal_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+        for line in exc_str.splitlines():
+            adccal_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
-    if not args.disable_data_catcher:
+    # If any exception occurred raise error
+    if exceptions > 0:
+        pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
+        raise RuntimeError('{0} member(s) had an error during ADC warm-calibration!'.format(exceptions))
 
-        # Use a callback to send data to dataCatcher/corrSaver
-        swarm_handler.add_callback(SMAData)
+    # Re-enable the ADC monitor
+    swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('start-adc-monitor'))
 
-    if args.log_stats:
-
-        # Use a callback to show visibility stats
-        swarm_handler.add_callback(LogStats, reference=reference)
-
-    if args.calibrate_vlbi:
-
-        # Use a callback to calibrate fringes for VLBI
-
-        if args.calibrate_vlbi == 'low':
-
-            # Low SNR. Use single-channel solver and normalize corr. matrix
-            swarm_handler.add_callback(CalibrateVLBI, single_chan=True, normed=True, reference=reference)
-
-        elif args.calibrate_vlbi == 'high':
-
-            # High SNR. Use full spectrum solver and do not normalize corr. matrix
-            swarm_handler.add_callback(CalibrateVLBI, single_chan=False, normed=False, reference=reference)
-
-        else:
-            raise argparse.ArugmentError('--calibrate-vlbi must be either "low" or "high"!')
-
-    if args.save_rawdata:
-
-        # Give a rawback that saves the raw data
-        swarm_catcher.add_rawback(SaveRawData)
-
-    if args.visibs_test:
-
-        # Give a rawback that checks for ramp errors
-        swarm_catcher.add_rawback(CheckRamp)
-
-    # Start the data catcher
+    # Start up catcher again
     swarm_catcher.start()
+    pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
 
-    try:
+# Register it to SIGURG
+signal(SIGURG, cold_start_handler)
 
-        # Start the main loop
-        RUNNING.set()
-        swarm_handler.loop(RUNNING)
+# Signal handler to do a re-sync
+def sync_handler(signum, frame):
+    logger.info('Received signal #{0}; syncing SWARM...'.format(signum))
+    swarm.sync()
+    pyopmess.send(1, 1, 100, 'SWARM has been re-synced')
 
-    except:
+# Register it to SIGCONT
+signal(SIGCONT, sync_handler)
 
-        # Some other exception detected
-        logger.error("Exception caught, logging it and cleaning up")
-        pyopmess.send(1, 1, 100, 'Listener crashed; try swarm.reset_xengines() in swarm_shell')
+# Signal handler to do a X-engine reset
+def xeng_reset_handler(signum, frame):
+    logger.info('Received signal #{0}; resetting X-eninges...'.format(signum))
+    swarm.reset_xengines()
+    pyopmess.send(1, 1, 100, 'SWARM X-engines reset')
 
-    # Stop the data catcher
-    swarm_catcher.stop()
+# Register it to #24
+signal(24, xeng_reset_handler)
+
+if not args.disable_data_catcher:
+
+    # Use a callback to send data to dataCatcher/corrSaver
+    swarm_handler.add_callback(SMAData)
+
+if args.log_stats:
+
+    # Use a callback to show visibility stats
+    swarm_handler.add_callback(LogStats, reference=reference)
+
+if args.calibrate_vlbi:
+
+    # Use a callback to calibrate fringes for VLBI
+    if args.calibrate_vlbi == 'low':
+
+        # Low SNR. Use single-channel solver and normalize corr. matrix
+        swarm_handler.add_callback(CalibrateVLBI, single_chan=True, normed=True, reference=reference)
+
+    elif args.calibrate_vlbi == 'high':
+
+        # High SNR. Use full spectrum solver and do not normalize corr. matrix
+        swarm_handler.add_callback(CalibrateVLBI, single_chan=False, normed=False, reference=reference)
+
+    else:
+        raise argparse.ArugmentError('--calibrate-vlbi must be either "low" or "high"!')
+
+if args.save_rawdata:
+
+    # Give a rawback that saves the raw data
+    swarm_catcher.add_rawback(SaveRawData)
+
+if args.visibs_test:
+
+    # Give a rawback that checks for ramp errors
+    swarm_catcher.add_rawback(CheckRamp)
+
+# Start the data catcher
+swarm_catcher.start()
+
+try:
+
+    # Start the main loop
+    RUNNING.set()
+    swarm_handler.loop(RUNNING)
+
+except Exception as err:
+
+    # Some other exception detected
+    logger.error("Exception caught: {0}".format(err))
+    pyopmess.send(1, 1, 100, 'Listener crashed; try swarm.reset_xengines() in swarm_shell')
+
+# Stop the data catcher
+swarm_catcher.stop()
 
 # Finish up and get out
 logger.info("Exiting normally")
