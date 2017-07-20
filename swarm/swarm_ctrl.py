@@ -33,6 +33,7 @@ from callbacks.sma_data import SMAData
 
 
 # Global variables
+RETURN_VALUE = SMAINIT_QUIT_RTN
 LOG_CHANNEL = "swarm.logs.ctrl"
 RUNNING = Event()
 
@@ -301,6 +302,9 @@ if args.visibs_test:
     # Give a rawback that checks for ramp errors
     swarm_catcher.add_rawback(CheckRamp)
 
+# Reset the X-engines every restart
+swarm.reset_xengines()
+
 # Start the data catcher
 swarm_catcher.start()
 
@@ -313,12 +317,13 @@ try:
 except Exception as err:
 
     # Some other exception detected
+    RETURN_VALUE = SMAINIT_SYSERR_RTN
     logger.error("Exception caught: {0}".format(err))
-    pyopmess.send(1, 1, 100, 'Listener crashed; try swarm.reset_xengines() in swarm_shell')
+    pyopmess.send(1, 1, 100, 'Listener crashed; should restart but check smainit status')
 
 # Stop the data catcher
 swarm_catcher.stop()
 
 # Finish up and get out
 logger.info("Exiting normally")
-sys.exit(SMAINIT_QUIT_RTN)
+sys.exit(RETURN_VALUE)
