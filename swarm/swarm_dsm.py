@@ -1,16 +1,27 @@
-#!/usr/bin/env python2.7
-
 import time, sys, logging, logging.handlers, argparse
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
+from threading import Event
 from swarm import *
 import pydsm
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
+RUNNING = Event()
 PERIOD = 1
 
 # Setup root logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+# Exit signal handler
+def quit_handler(signum, frame):
+    logger.info("Received signal #{0}; Quitting...".format(signum))
+    RUNNING.clear()
+
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, quit_handler)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
@@ -79,12 +90,17 @@ def copy_source_geom(source_geom, member):
 
 # Loop continously
 logger.info('Starting DSM copy loop')
-while True:
+RUNNING.set()
+while RUNNING.is_set():
 
     try: # Unless exception is caught
 
         # Sleep first, in case we're in exception loop
         time.sleep(PERIOD)
+
+        # Check again if we should run
+        if not RUNNING.is_set():
+            break
 
         # Read source info from newdds
         source_geom = pydsm.read("newdds", "DDS_TO_TENZING_X")
@@ -96,6 +112,5 @@ while True:
         logger.error("Exception caught: {0}".format(err))
         continue
 
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Exiting normally")
-        break
+logger.info("Exiting normally")
+sys.exit(SMAINIT_QUIT_RTN)

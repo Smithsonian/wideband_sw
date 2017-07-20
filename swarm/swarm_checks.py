@@ -1,18 +1,29 @@
-#!/usr/bin/env python2.7
-
 import time, sys, logging, logging.handlers, argparse
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from redis import StrictRedis, ConnectionError
+from threading import Event
 from swarm import *
 import pyopmess
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/checks.log'
 ERROR_THRESHOLD = 500
+RUNNING = Event()
 PERIOD = 60
 
 # Setup root logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+# Exit signal handler
+def quit_handler(signum, frame):
+    logger.info("Received signal #{0}; Quitting...".format(signum))
+    RUNNING.clear()
+
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, quit_handler)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
@@ -57,13 +68,24 @@ redis = StrictRedis(args.redis_host, args.redis_port)
 key_fmt = 'swarm.monitor.corner-turn.{3}.qid{0}.fid{1}.core{2}'
 
 # Loop continously
+RUNNING.set()
 logger.info('Starting checks loop')
-while True:
+while RUNNING.is_set():
 
     try: # Unless exception is caught
 
+        # Log the wait period
+        logger.debug('Waiting {0} seconds'.format(PERIOD))
+
         # Sleep first, in case we're in exception loop
         time.sleep(PERIOD)
+
+        # Check again if we should run
+        if not RUNNING.is_set():
+            break
+
+        # Log that the iteration is starting
+        logger.debug("Checks starting")
 
         # Track total errors
         errors = 0
@@ -101,10 +123,12 @@ while True:
             logger.warning('Total corner-turn errors, {0}, exceed threshold'.format(errors))
             pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
 
+        # Log that the iteration is done
+        logger.debug("Checks done")
+
     except (RuntimeError, ConnectionError) as err:
         logger.error("Exception caught: {0}".format(err))
         continue
 
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Exiting normally")
-        break
+logger.info("Exiting normally")
+sys.exit(SMAINIT_QUIT_RTN)

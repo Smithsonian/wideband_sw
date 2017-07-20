@@ -4,6 +4,7 @@ import sys, pickle, traceback, logging, argparse
 from time import sleep
 from threading import Event
 from redis import StrictRedis, ConnectionError
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
 import pyopmess
 
 from swarm.defines import *
@@ -45,6 +46,16 @@ class RedisHandler(logging.Handler):
 # Setup root logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
+# Exit signal handler
+def quit_handler(signum, frame):
+    logger.info("Received signal #{0}; Quitting...".format(signum))
+    RUNNING.clear()
+
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, quit_handler)
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
@@ -205,11 +216,6 @@ else:
         RUNNING.set()
         swarm_handler.loop(RUNNING)
 
-    except KeyboardInterrupt:
-
-        # User wants to quit
-        logger.info("Ctrl-C detected. Quitting loop.")
-
     except:
 
         # Some other exception detected
@@ -218,3 +224,7 @@ else:
 
     # Stop the data catcher
     swarm_catcher.stop()
+
+# Finish up and get out
+logger.info("Exiting normally")
+sys.exit(SMAINIT_QUIT_RTN)

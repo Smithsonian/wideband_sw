@@ -1,11 +1,13 @@
-#!/usr/bin/env python2.7
-
 import time, sys, pickle, logging, logging.handlers, argparse
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from redis import StrictRedis, ConnectionError
+from threading import Event
+from swarm.defines import *
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/all.log'
 RETRY_PERIOD = 60
+RUNNING = Event()
 
 # Setup root logger
 logger = logging.getLogger()
@@ -42,8 +44,20 @@ else:
 # Create our Redis client instance
 redis = StrictRedis(args.redis_host, args.redis_port)
 
+# Exit signal handler
+def quit_handler(signum, frame):
+    logger.info("Received signal #{0}; Quitting...".format(signum))
+    RUNNING.clear() # clear first, then send message to cause a check
+    redis.publish('swarm.logs.kill', '')
+
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, quit_handler)
+
 # Loop continously, in case of errors
-while True:
+RUNNING.set()
+while RUNNING.is_set():
 
     try: # Unless exception is caught
 
@@ -54,6 +68,10 @@ while True:
         # Loop over every published message
         logger.info('Starting redis->file logging')
         for msg in pubsub.listen():
+
+            # Check again if we should run
+            if not RUNNING.is_set():
+                break
 
             # Only respond to actual messages
             if msg['type'] == 'pmessage':
@@ -72,6 +90,5 @@ while True:
         time.sleep(RETRY_PERIOD)
         continue
 
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Exiting normally")
-        break
+logger.info("Exiting normally")
+sys.exit(SMAINIT_QUIT_RTN)
