@@ -1277,6 +1277,9 @@ class Swarm:
 
     def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True, threaded=False):
 
+        # Copy interfaces over, and make sure it's a list
+        interfaces = list(nterfaces[:])
+
         # Setup each quadrant
         if not threaded:
             for quad in self.quads:
