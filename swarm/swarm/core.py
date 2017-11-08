@@ -260,10 +260,11 @@ class SwarmMember(base.SwarmROACH):
         self.roach2.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
 
 
-    def set_bengine_gains(self, psum_gain_0, psum_gain_1):
+    def set_bengine_gains(self, psum_gain_pol0_sb0, psum_gain_pol1_sb0, psum_gain_pol0_sb1, psum_gain_pol1_sb1):
 
         # Scale the user value by the fractional bits and concatenate
-        psum_reg = (int(round(psum_gain_1 * 16)) << 8) + int(round(psum_gain_0 * 16))
+        psum_reg =  (int(round(psum_gain_pol1_sb1 * 16)) << 24) + (int(round(psum_gain_pol0_sb1 * 16)) << 16) \
+          + (int(round(psum_gain_pol1_sb0 * 16)) << 8) + int(round(psum_gain_pol0_sb0 * 16))
 
         # Write value to the register
         self.roach2.write_int(SWARM_BENGINE_GAIN, psum_reg)
@@ -280,12 +281,12 @@ class SwarmMember(base.SwarmROACH):
     def get_bengine_mask(self):
 
         # Get the phased sum mask
-        return self.roach2.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffff
+        return self.roach2.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffffffff
 
     def set_bengine_mask(self, mask):
 
         # Set the phased sum mask
-        disable = (mask & 0xffff) ^ 0xffff
+        disable = (mask & 0xffffffff) ^ 0xffffffff
         return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
 
     def get_itime(self):
@@ -352,7 +353,7 @@ class SwarmMember(base.SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beamformer(self, qid, dest, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def setup_beamformer(self, qid, dest_list, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
@@ -362,14 +363,16 @@ class SwarmMember(base.SwarmROACH):
         macbase = 0x000f530ce500 + (qid<<8)
 
         # Set the MAC for our destinatino IP
-        arp[dest.ip & 0xff] = dest.mac
+        for dest in dest_list:
+            arp[dest.ip & 0xff] = dest.mac
 
         # Configure 10 GbE device
         last_byte = (self.fid << 4) + 0b1100
         self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, SWARM_BENGINE_PORT, arp)
 
         # Configure the B-engine destination IPs
-        self.roach2.write(SWARM_BENGINE_SENDTO_IP, pack(SWARM_REG_FMT, dest.ip))
+        for ii,dest in enumerate(dest_list):
+            self.roach2.write(SWARM_BENGINE_SENDTO_IP%ii, pack(SWARM_REG_FMT, dest.ip))
 
         # Reset the 10 GbE cores before enabling
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
@@ -377,7 +380,7 @@ class SwarmMember(base.SwarmROACH):
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
 
         # Configure the B-engine gains (for optimal state counts)
-        self.set_bengine_gains(10.0, 10.0)
+        self.set_bengine_gains(10.0, 10.0, 10.0, 10.0)
 
         # Lastly enable the TX 
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x80000000))
@@ -1037,11 +1040,11 @@ class SwarmQuadrant:
             # Create the SDBE interface object and pass it along
             for fid, member in self.get_valid_members():
                 core = fid >> 1
-                iface = base.Interface(
-                    0x000f9d9d9d00 + ((self.qid+1) << 4) + core,    # the SDBE's MAC and IP values
-                    0xc0a80000 + ((self.qid+11) << 8) + core + 100, # are hard-coded for now so make sure
-                    SWARM_BENGINE_PORT)                        # they match what the SDBE is set up for
-                member.setup_beamformer(self.qid, iface)
+                # SDBE's MAC & IP hard-coded for now, make sure they match SDBE setup
+                ifaces = [base.Interface(0x000f9d9d9d00 + ((self.qid+1) << 4) + core + ss,
+                  0xc0a80000 + ((self.qid+11) << 8) + core + 100 + ss,
+                  SWARM_BENGINE_PORT) for ss in [0,4]]
+                member.setup_beamformer(self.qid, ifaces)
 
     def get_beamformer_inputs(self):
 
@@ -1069,16 +1072,19 @@ class SwarmQuadrant:
 
         return inputs
 
-    def set_beamformer_inputs(self, inputs):
+    def set_beamformer_inputs(self, inputs_sb0, inputs_sb1):
 
         mask = 0x0
 
         # Convert list of inputs to a mask
         for input_n in SWARM_MAPPING_INPUTS:
             for fid in SWARM_ALL_FID:
-                if self[fid][input_n] in inputs:
+                if self[fid][input_n] in inputs_sb0:
                     input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
                     mask |= input_mask
+                if self[fid][input_n] in inputs_sb1:
+                    input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
+                    mask |= input_mask << 16
 
         # Set the mask on all members
         for fid, member in self.get_valid_members():
@@ -1503,11 +1509,12 @@ class Swarm:
             quad.setup_beamformer()
         self.logger.info('Configured the beamformers')
 
-    def set_beamformer_inputs(self, inputs=None):
+    def set_beamformer_inputs(self, inputs_sb0, inputs_sb1):
 
         # Go through all quadrants get inputs
         for quad in self.quads:
-            quad.set_beamformer_inputs(inputs[quad.qid] if inputs else ())
+            quad.set_beamformer_inputs(inputs_sb0[quad.qid] if inputs_sb0 else (),
+               inputs_sb1[quad.qid] if inputs_sb1 else())
 
     def get_itime(self):
 
