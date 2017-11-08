@@ -374,6 +374,14 @@ class SwarmMember(base.SwarmROACH):
         for ii,dest in enumerate(dest_list):
             self.roach2.write(SWARM_BENGINE_SENDTO_IP%ii, pack(SWARM_REG_FMT, dest.ip))
 
+        self.logger.info("Configuring Q%d.F%d with MAC=0x%x, IP=%s; send to %s"%(
+          qid,self.fid,
+          macbase+last_byte,inet_ntoa(pack('>I',ipbase+last_byte)),
+          '+'.join(['(MAC=0x%x,IP=%s)'%(dest.mac,inet_ntoa(pack('>I',dest.ip))) for dest in dest_list])
+        ))
+
+
+
         # Reset the 10 GbE cores before enabling
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x40000000))
@@ -1049,7 +1057,8 @@ class SwarmQuadrant:
     def get_beamformer_inputs(self):
 
         mask = None
-        inputs = []
+        inputs_sb0 = []
+        inputs_sb1 = []
 
         # Get the phased sum mask from all members
         for fid, member in self.get_valid_members():
@@ -1067,10 +1076,12 @@ class SwarmQuadrant:
         for input_n in SWARM_MAPPING_INPUTS:
             for fid in SWARM_ALL_FID:
                 if mask & 0x1:
-                    inputs.append(self[fid][input_n])
+                    inputs_sb0.append(self[fid][input_n])
+                if mask & 0x10000:
+                    inputs_sb1.append(self[fid][input_n])
                 mask >>= 1
 
-        return inputs
+        return inputs_sb0, inputs_sb1
 
     def set_beamformer_inputs(self, inputs_sb0, inputs_sb1):
 
@@ -1284,7 +1295,7 @@ class Swarm:
     def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True, threaded=False):
 
         # Copy interfaces over, and make sure it's a list
-        interfaces = list(nterfaces[:])
+        interfaces = list(interfaces[:])
 
         # Setup each quadrant
         if not threaded:
