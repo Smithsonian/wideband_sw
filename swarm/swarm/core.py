@@ -8,7 +8,7 @@ from Queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import array, clip, roll
+from numpy import array, cos, clip, roll, sin, uint16, zeros
 
 from corr.katcp_wrapper import FpgaClient
 
@@ -737,6 +737,36 @@ class SwarmMember(base.SwarmROACH):
         except:
             self.logger.exception("DSM read failed")
 
+    def set_beng_sb1demodphase_phase(self, phase_per_fid_input):
+
+        # Convert floating-point phase to 7+7-bit Re/Im
+        phase_uint16 = zeros(SWARM_N_FIDS,dtype=uint16)
+        for fid in range(SWARM_N_FIDS):
+            re = cos(phase_per_fid_input[fid,0])
+            im = sin(phase_per_fid_input[fid,0])
+            # convert float to Fix_7_5 representation
+            re_7b = ord(array(re*64,'>b').tostring())>>1
+            im_7b = ord(array(im*64,'>b').tostring())>>1
+            phase_uint16[fid] = (re_7b<<7) + im_7b
+
+        # Now repeat Re/Im for each Walsh step (pattern repeats in memory)
+        pattern_update = array(list(phase_uint16)*SWARM_INT_HB_PER_SOWF,dtype=uint16)
+
+        # Read existing pattern (to preserve de-Walshing)
+        pattern = array(
+          unpack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+            self.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,2*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+          dtype=uint16)
+
+        # Mask out phase in existing pattern
+        pattern &= 0x8000
+
+        # Mask in update phase
+        pattern |= pattern_update
+
+        # Write back the result
+        self.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+          pack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
 class SwarmQuadrant:
 
@@ -1100,6 +1130,28 @@ class SwarmQuadrant:
         # Set the mask on all members
         for fid, member in self.get_valid_members():
             member.set_bengine_mask(mask)
+
+    def set_second_sideband_phase(self, inputs, phases):
+
+        # Phase for second sideband beam are set at the quadrant level
+        # since each FID should have the phase coefficients for all other
+        # FIDs in the same quadrant
+
+        # Initialize phase to apply (currently only supports single phase
+        # for both inputs, but write software to easily extend to separate
+        # phase for each input)
+        phase_per_fid_input = zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
+
+        # Find FIDs that match each input
+        for ii, inp in enumerate(inputs):
+            for fid, member in self.get_valid_members():
+                if inp not in member._inputs:
+                    continue
+                inp_n = member._inputs.index(inp)
+                phase_per_fid_input[fid, inp_n] = phases[ii]
+
+        # Apply to each member
+        self.set_beng_sb1demodphase_phase(phase_per_fid_input)
 
     def get_itime(self):
 
