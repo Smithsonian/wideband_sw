@@ -8,7 +8,7 @@ from Queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import array, cos, clip, roll, sin, uint16, zeros
+from numpy import array, cos, clip, roll, sin, uint16, uint32, zeros
 
 from corr.katcp_wrapper import FpgaClient
 
@@ -1152,6 +1152,56 @@ class SwarmQuadrant:
 
         # Apply to each member
         self.set_beng_sb1demodphase_phase(phase_per_fid_input)
+
+    def set_second_sideband_walsh(self):
+
+        # Initialize pattern storage
+        walsh_per_fid_input = SWARM_N_INPUTS*[zeros((SWARM_N_FIDS,SWARM_INT_HB_PER_SOWF),dtype=uint32)]
+
+        # Get Walsh pattern for each FID / input
+        for fid, member in self.get_valid_members():
+            for ii, inp in enumerate(member):
+                ant = inp.ant
+                this_pattern = array([int(step) for step in self.walsh_patterns[ant]])
+
+                # Make all 90/270 steps 180, and all 0/180 steps 0: this
+                # undoes the pre-corner-turn de-Walshing and applies the
+                # Walsh demodulation for the second sideband
+                w_is_0 = this_pattern == 0
+                w_is_90 = this_pattern == 1
+                w_is_180 = this_pattern == 2
+                w_is_270 = this_pattern == 3
+                this_pattern[w_is_0] = 0
+                this_pattern[w_is_180] = 0
+                this_pattern[w_is_90] = 1
+                this_pattern[w_is_270] = 1
+                walsh_per_fid_input[ii][fid,:] = this_pattern
+
+        # Apply in each member
+        for fid, member in self.get_valid_members():
+
+            # Read existing pattern (to preserve phasing)
+            pattern = array(
+              unpack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,2*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+              dtype=uint16)
+
+            # Mask out Walsh-phase in existing pattern
+            pattern &= 0x7FFF7FFF
+
+            # Mask in updated Walsh-phase (loop over inputs, but only the
+            # first for now until dual-input is supported)
+            for ii, wpat in enumerate(walsh_per_fid_input[:1]):
+
+                # Flatten so that FID index changes most rapidly, then Walsh step
+                wpat_flat = wpat.flatten(order='F')
+
+                # The outer bitshift is for the second input
+                pattern |= (wpat_flat<<15)<<ii*16
+
+            # Write back the result
+            member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+              pack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
     def get_itime(self):
 
