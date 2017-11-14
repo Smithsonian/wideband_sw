@@ -738,33 +738,34 @@ class SwarmMember(base.SwarmROACH):
     def set_beng_sb1demodphase_phase(self, phase_per_fid_input):
 
         # Convert floating-point phase to 7+7-bit Re/Im
-        phase_uint16 = zeros(SWARM_N_FIDS,dtype=uint16)
+        phase_uint32 = zeros(SWARM_N_FIDS,dtype=uint32)
         for fid in range(SWARM_N_FIDS):
-            re = cos(phase_per_fid_input[fid,0])
-            im = sin(phase_per_fid_input[fid,0])
-            # convert float to Fix_7_5 representation
-            re_7b = ord(array(re*64,'>b').tostring())>>1
-            im_7b = ord(array(im*64,'>b').tostring())>>1
-            phase_uint16[fid] = (re_7b<<7) + im_7b
+            for inp_n in range(SWARM_N_INPUTS):
+                re = cos(phase_per_fid_input[fid,inp_n])
+                im = sin(phase_per_fid_input[fid,inp_n])
+                # convert float to Fix_7_5 representation
+                re_7b = ord(array(re*64,'>b').tostring())>>1
+                im_7b = ord(array(im*64,'>b').tostring())>>1
+                phase_uint32[fid] |= ((re_7b<<7) + im_7b)<<(inp_n*16)
 
         # Now repeat Re/Im for each Walsh step (pattern repeats in memory)
-        pattern_update = array(list(phase_uint16)*SWARM_INT_HB_PER_SOWF,dtype=uint16)
+        pattern_update = array(list(phase_uint32)*SWARM_INT_HB_PER_SOWF,dtype=uint32)
 
         # Read existing pattern (to preserve de-Walshing)
         pattern = array(
-          unpack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-            self.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,2*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
-          dtype=uint16)
+          unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+            self.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+          dtype=uint32)
 
         # Mask out phase in existing pattern
-        pattern &= 0x8000
+        pattern &= 0x80008000
 
         # Mask in update phase
         pattern |= pattern_update
 
         # Write back the result
         self.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
-          pack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
+          pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
 class SwarmQuadrant:
 
@@ -1130,9 +1131,7 @@ class SwarmQuadrant:
         # since each FID should have the phase coefficients for all other
         # FIDs in the same quadrant
 
-        # Initialize phase to apply (currently only supports single phase
-        # for both inputs, but write software to easily extend to separate
-        # phase for each input)
+        # Initialize phase to apply
         phase_per_fid_input = zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
 
         # Find FIDs that match each input
@@ -1175,16 +1174,15 @@ class SwarmQuadrant:
 
             # Read existing pattern (to preserve phasing)
             pattern = array(
-              unpack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,2*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
-              dtype=uint16)
+              unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+              dtype=uint32)
 
             # Mask out Walsh-phase in existing pattern
             pattern &= 0x7FFF7FFF
 
-            # Mask in updated Walsh-phase (loop over inputs, but only the
-            # first for now until dual-input is supported)
-            for ii, wpat in enumerate(walsh_per_fid_input[:1]):
+            # Mask in updated Walsh-phase
+            for ii, wpat in enumerate(walsh_per_fid_input):
 
                 # Flatten so that FID index changes most rapidly, then Walsh step
                 wpat_flat = wpat.flatten(order='F')
@@ -1194,7 +1192,7 @@ class SwarmQuadrant:
 
             # Write back the result
             member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
-              pack('>%dH'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
+              pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
     def get_itime(self):
 
