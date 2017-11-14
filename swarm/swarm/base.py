@@ -19,6 +19,27 @@ class Interface(object):
         self.arp = []
         self.ip = ip
 
+class SwarmDBEInterface(Interface):
+
+    def __init__(self, qid, fid, sideband="USB"):
+
+        # Set base values
+        core = fid >> 1
+        my_mac = SWARM_DBE_MACBASE + (qid << 8) + 0x20 + core
+        my_ip = SWARM_DBE_IPBASE + (qid << 8) + 0x20 + core
+
+        # Check if sideband specification is valid
+        sideband_upper = sideband.upper()
+        if sideband_upper not in SWARM_BENGINE_SIDEBANDS:
+            raise RuntimeError("{0} sideband should be one of {1}".format(self.__class__,SWARM_BENGINE_SIDEBANDS))
+
+        # Determine offset per sideband
+        mac_ip_offset = SWARM_BENGINE_SIDEBANDS.index(sideband_upper) * SWARM_BENGINE_SIDEBAND_MACIP_OFFSET
+        my_mac += mac_ip_offset
+        my_ip += mac_ip_offset
+
+        # Create interface
+        super(SwarmDBEInterface,self).__init__(my_mac, my_ip, SWARM_BENGINE_PORT)
 
 class SwarmROACH(object):
 

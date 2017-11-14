@@ -353,26 +353,29 @@ class SwarmMember(base.SwarmROACH):
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
-    def setup_beamformer(self, qid, dest_list, bh_mac=SWARM_BLACK_HOLE_MAC):
+    def setup_beamformer(self, dest_list, bh_mac=SWARM_BLACK_HOLE_MAC):
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
 
-        # Set up initial parametrs
-        ipbase = 0xc0a80b00 + (qid<<8)
-        macbase = 0x000f530ce500 + (qid<<8)
+        # Set the IP address to be in the same net as Swarm DBE(s)
+        ip = (dest_list[0].ip & 0xffffff00) + 0x10 + self.fid
+
+        # Set the MAC address based on quadrant information in the Swarm DBE(s) MAC
+        qid = (dest_list[0].mac & 0x0f00) >> 8
+        mac = SWARM_BENGINE_MACBASE + (qid << 8) + 0x10 + self.fid
 
         # Set the MAC for our destinatino IP
         for dest in dest_list:
             arp[dest.ip & 0xff] = dest.mac
 
         # Configure 10 GbE device
-        last_byte = (self.fid << 4) + 0b1100
-        self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, macbase + last_byte, ipbase + last_byte, SWARM_BENGINE_PORT, arp)
+        self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, mac, ip, SWARM_BENGINE_PORT, arp)
 
         # Configure the B-engine destination IPs
-        for ii,dest in enumerate(dest_list):
-            self.roach2.write(SWARM_BENGINE_SENDTO_IP%ii, pack(SWARM_REG_FMT, dest.ip))
+        for dest in dest_list:
+            ip_reg_id = 1 if dest.mac & SWARM_BENGINE_SIDEBAND_MACIP_OFFSET else 0
+            self.roach2.write(SWARM_BENGINE_SENDTO_IP%ip_reg_id, pack(SWARM_REG_FMT, dest.ip))
 
         # Reset the 10 GbE cores before enabling
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
@@ -382,8 +385,11 @@ class SwarmMember(base.SwarmROACH):
         # Configure the B-engine gains (for optimal state counts)
         self.set_bengine_gains(10.0, 10.0, 10.0, 10.0)
 
-        # Lastly enable the TX 
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x80000000))
+        # Then enable the global B-engine TX, followed by per-sideband enable
+        tx_enable = 0x80000000
+        for dest in dest_list:
+            tx_enable |= 0x02 if dest.mac & SWARM_BENGINE_SIDEBAND_MACIP_OFFSET else 0x01
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_enable))
 
     def reset_ddr3(self):
 
@@ -1065,16 +1071,11 @@ class SwarmQuadrant:
         # Don't do anything if this quadrant doesn't have SDBE
         if not hasattr(self, 'sdbe'):
             return
-        else: # we have an SBDE continue
 
-            # Create the SDBE interface object and pass it along
-            for fid, member in self.get_valid_members():
-                core = fid >> 1
-                # SDBE's MAC & IP hard-coded for now, make sure they match SDBE setup
-                ifaces = [base.Interface(0x000f9d9d9d00 + ((self.qid+1) << 4) + core + ss,
-                  0xc0a80000 + ((self.qid+11) << 8) + core + 100 + ss,
-                  SWARM_BENGINE_PORT) for ss in [0,4]]
-                member.setup_beamformer(self.qid, ifaces)
+        # Create the SDBE interface object and pass it along
+        for fid, member in self.get_valid_members():
+            ifaces = [base.SwarmDBEInterface(self.qid, fid, sideband=sb) for sb in self.sdbe]
+            member.setup_beamformer(ifaces)
 
     def get_beamformer_inputs(self):
 
