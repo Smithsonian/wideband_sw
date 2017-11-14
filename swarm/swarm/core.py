@@ -1081,8 +1081,8 @@ class SwarmQuadrant:
     def get_beamformer_inputs(self):
 
         mask = None
-        inputs_sb0 = []
-        inputs_sb1 = []
+        inputs = {SWARM_BENGINE_SIDEBANDS[0]: [],
+          SWARM_BENGINE_SIDEBANDS[1]: []}
 
         # Get the phased sum mask from all members
         for fid, member in self.get_valid_members():
@@ -1100,24 +1100,24 @@ class SwarmQuadrant:
         for input_n in SWARM_MAPPING_INPUTS:
             for fid in SWARM_ALL_FID:
                 if mask & 0x1:
-                    inputs_sb0.append(self[fid][input_n])
+                    inputs[SWARM_BENGINE_SIDEBANDS[0]].append(self[fid][input_n])
                 if mask & 0x10000:
-                    inputs_sb1.append(self[fid][input_n])
+                    inputs[SWARM_BENGINE_SIDEBANDS[1]].append(self[fid][input_n])
                 mask >>= 1
 
-        return inputs_sb0, inputs_sb1
+        return inputs
 
-    def set_beamformer_inputs(self, inputs_sb0, inputs_sb1):
+    def set_beamformer_inputs(self, inputs):
 
         mask = 0x0
 
         # Convert list of inputs to a mask
         for input_n in SWARM_MAPPING_INPUTS:
             for fid in SWARM_ALL_FID:
-                if self[fid][input_n] in inputs_sb0:
+                if self[fid][input_n] in inputs[SWARM_BENGINE_SIDEBANDS[0]]:
                     input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
                     mask |= input_mask
-                if self[fid][input_n] in inputs_sb1:
+                if self[fid][input_n] in inputs[SWARM_BENGINE_SIDEBANDS[1]]:
                     input_mask = 0x1 << (fid + input_n * SWARM_N_FIDS)
                     mask |= input_mask << 16
 
@@ -1613,12 +1613,11 @@ class Swarm:
             quad.setup_beamformer()
         self.logger.info('Configured the beamformers')
 
-    def set_beamformer_inputs(self, inputs_sb0, inputs_sb1):
+    def set_beamformer_inputs(self, inputs):
 
         # Go through all quadrants get inputs
         for quad in self.quads:
-            quad.set_beamformer_inputs(inputs_sb0[quad.qid] if inputs_sb0 else (),
-               inputs_sb1[quad.qid] if inputs_sb1 else())
+            quad.set_beamformer_inputs(inputs[quad.qid])
 
     def get_itime(self):
 
