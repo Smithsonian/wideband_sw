@@ -8,7 +8,7 @@ from Queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import array, cos, clip, roll, sin, uint16, uint32, zeros
+from numpy import angle, array, cos, clip, roll, sin, uint16, uint32, zeros
 
 from corr.katcp_wrapper import FpgaClient
 
@@ -735,6 +735,36 @@ class SwarmMember(base.SwarmROACH):
         except:
             self.logger.exception("DSM read failed")
 
+    def get_beng_sb1demodphase_phase(self):
+
+        # Read the phase pattern, only need the first SWARM_N_FIDS entries
+        pattern_partial = array(
+          unpack('>%dI'%(SWARM_N_FIDS),self.roach2.read(
+            SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS)),
+          dtype=uint32)
+
+        # Initialize return array
+        phases = zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
+
+        # Get phases
+        for fid in range(SWARM_N_FIDS):
+            for input_n in range(SWARM_N_INPUTS):
+                # Extract the entry for this FID and input_
+                w_ua_re_im = (pattern_partial[fid] >> input_n*16) & 0x0000ffff
+
+                # Extract unsigned integer real / imag components
+                im_7b = w_ua_re_im & 0x007f
+                re_7b = (w_ua_re_im >> 7) & 0x007f
+
+                # Convert to signed float
+                re = unpack('>b', pack('>B', re_7b << 1))[0] / 64.0
+                im = unpack('>b', pack('>B', im_7b << 1))[0] / 64.0
+
+                # Convert to phase and store
+                phases[fid, input_n] = angle(re + 1j*im)
+
+        return phases
+
     def set_beng_sb1demodphase_phase(self, phase_per_fid_input):
 
         # Convert floating-point phase to 7+7-bit Re/Im
@@ -744,8 +774,8 @@ class SwarmMember(base.SwarmROACH):
                 re = cos(phase_per_fid_input[fid,inp_n])
                 im = sin(phase_per_fid_input[fid,inp_n])
                 # convert float to Fix_7_5 representation
-                re_7b = ord(array(re*64,'>b').tostring())>>1
-                im_7b = ord(array(im*64,'>b').tostring())>>1
+                re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
+                im_7b = (ord(array(im*64,'>b').tostring())>>1) & 0x7f
                 phase_uint32[fid] |= ((re_7b<<7) + im_7b)<<(inp_n*16)
 
         # Now repeat Re/Im for each Walsh step (pattern repeats in memory)
@@ -1125,7 +1155,39 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.set_bengine_mask(mask)
 
-    def set_second_sideband_phase(self, inputs, phases):
+    def get_beamformer_second_sideband_phase(self, inputs):
+
+        # Initialize phases
+        phases = []
+
+        # Read phases for all inputs in this quadrant
+        all_phases = None
+        for fid, member in self.get_valid_members():
+
+            # Only need to read from one FID, if successful we're done
+            all_phases = member.get_beng_sb1demodphase_phase()
+
+            if all_phases is not None:
+                break
+
+        # Loop through requested inputs, and append the phase for each
+        for inp in inputs:
+
+            # Find the FID to which the input belongs
+            for fid, member in self.get_valid_members():
+
+                if inp not in member._inputs:
+                    continue
+
+                # Get the input index
+                inp_n = member._inputs.index(inp)
+
+                # Append the phase
+                phases.append(all_phases[fid, inp_n])
+
+        return phases
+
+    def set_beamformer_second_sideband_phase(self, inputs, phases):
 
         # Phase for second sideband beam are set at the quadrant level
         # since each FID should have the phase coefficients for all other
@@ -1145,7 +1207,7 @@ class SwarmQuadrant:
         # Apply to each member
         self.set_beng_sb1demodphase_phase(phase_per_fid_input)
 
-    def set_second_sideband_walsh(self):
+    def set_beamformer_second_sideband_walsh(self):
 
         # Initialize pattern storage
         walsh_per_fid_input = SWARM_N_INPUTS*[zeros((SWARM_N_FIDS,SWARM_INT_HB_PER_SOWF),dtype=uint32)]
