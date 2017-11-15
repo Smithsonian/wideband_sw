@@ -8,7 +8,7 @@ from Queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import angle, array, cos, clip, roll, sin, uint16, uint32, zeros
+from numpy import angle, array, cos, clip, isnan, nan, roll, sin, uint16, uint32, zeros
 
 from corr.katcp_wrapper import FpgaClient
 
@@ -767,25 +767,39 @@ class SwarmMember(base.SwarmROACH):
 
     def set_beng_sb1demodphase_phase(self, phase_per_fid_input):
 
-        # Convert floating-point phase to 7+7-bit Re/Im
-        phase_uint32 = zeros(SWARM_N_FIDS,dtype=uint32)
-        for fid in range(SWARM_N_FIDS):
-            for inp_n in range(SWARM_N_INPUTS):
-                re = cos(phase_per_fid_input[fid,inp_n])
-                im = sin(phase_per_fid_input[fid,inp_n])
-                # convert float to Fix_7_5 representation
-                re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
-                im_7b = (ord(array(im*64,'>b').tostring())>>1) & 0x7f
-                phase_uint32[fid] |= ((re_7b<<7) + im_7b)<<(inp_n*16)
-
-        # Now repeat Re/Im for each Walsh step (pattern repeats in memory)
-        pattern_update = array(list(phase_uint32)*SWARM_INT_HB_PER_SOWF,dtype=uint32)
-
-        # Read existing pattern (to preserve de-Walshing)
+        # Read existing pattern
         pattern = array(
           unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
             self.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
           dtype=uint32)
+
+        # Intialize update to current phase settings
+        phase_uint32 = pattern[:SWARM_N_FIDS]
+
+        # Convert floating-point phase to 7+7-bit Re/Im
+        for fid in range(SWARM_N_FIDS):
+            for inp_n in range(SWARM_N_INPUTS):
+
+                # If this entry is nan, keep existing setting
+                if isnan(phase_per_fid_input[fid,inp_n]):
+                    continue
+
+                # Otherwise, set update phase
+                re = cos(phase_per_fid_input[fid,inp_n])
+                im = sin(phase_per_fid_input[fid,inp_n])
+
+                # Convert float to Fix_7_5 representation
+                re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
+                im_7b = (ord(array(im*64,'>b').tostring())>>1) & 0x7f
+
+                # Zero out existing phase
+                phase_uint32[fid] &= 0xffff << ((1-inp_n)*16)
+
+                # Update with new phase
+                phase_uint32[fid] |= ((re_7b<<7) + im_7b)<<(inp_n*16)
+
+        # Now repeat Re/Im for each Walsh step (pattern repeats in memory)
+        pattern_update = array(list(phase_uint32)*SWARM_INT_HB_PER_SOWF,dtype=uint32)
 
         # Mask out phase in existing pattern
         pattern &= 0x80008000
@@ -1194,7 +1208,7 @@ class SwarmQuadrant:
         # FIDs in the same quadrant
 
         # Initialize phase to apply
-        phase_per_fid_input = zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
+        phase_per_fid_input = nan*zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
 
         # Find FIDs that match each input
         for ii, inp in enumerate(inputs):
