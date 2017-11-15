@@ -802,7 +802,7 @@ class SwarmMember(base.SwarmROACH):
         pattern_update = array(list(phase_uint32)*SWARM_INT_HB_PER_SOWF,dtype=uint32)
 
         # Mask out phase in existing pattern
-        pattern &= 0x80008000
+        pattern &= 0xc000c000
 
         # Mask in update phase
         pattern |= pattern_update
