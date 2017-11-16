@@ -8,7 +8,7 @@ from Queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import angle, array, cos, clip, isnan, nan, roll, sin, uint16, uint32, zeros
+from numpy import angle, array, cos, clip, isnan, nan, pi, roll, sin, uint16, uint32, zeros
 
 from corr.katcp_wrapper import FpgaClient
 
@@ -761,7 +761,7 @@ class SwarmMember(base.SwarmROACH):
                 im = unpack('>b', pack('>B', im_7b << 1))[0] / 64.0
 
                 # Convert to phase and store
-                phases[fid, input_n] = angle(re + 1j*im)
+                phases[fid, input_n] = 180.0/pi * angle(re + 1j*im)
 
         return phases
 
@@ -785,8 +785,8 @@ class SwarmMember(base.SwarmROACH):
                     continue
 
                 # Otherwise, set update phase
-                re = cos(phase_per_fid_input[fid,inp_n])
-                im = sin(phase_per_fid_input[fid,inp_n])
+                re = cos(phase_per_fid_input[fid,inp_n] * pi/180.0)
+                im = sin(phase_per_fid_input[fid,inp_n] * pi/180.0)
 
                 # Convert float to Fix_7_5 representation
                 re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
