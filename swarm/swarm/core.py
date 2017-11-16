@@ -1813,3 +1813,31 @@ class Swarm:
         # Return different values depending on how many instances found
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
+
+    def get_beamformer_second_sideband_phase(self, inputs):
+
+        # Initialize return phases, default to zero for unfound inputs
+        phases = [0.0]*len(inputs)
+
+        # Request phases per quadrant
+        for quad in self.quads:
+
+            # Gather all requested inputs for this quadrant
+            inputs_per_quad = []
+            for fid, member in quad.get_valid_members():
+
+                for input_inst in member._inputs:
+
+                    if input_inst in inputs:
+                        inputs_per_quad.append(input_inst)
+
+            # Get the phases for those inputs
+            phases_per_quad = quad.get_beamformer_second_sideband_phase(inputs_per_quad)
+
+            # Insert phase for each input at the appropriate location
+            for idx_per_quad, inp_per_quad in enumerate(inputs_per_quad):
+
+                idx = inputs.index(inp_per_quad)
+                phases[idx] = phases_per_quad[idx_per_quad]
+
+        return phases
