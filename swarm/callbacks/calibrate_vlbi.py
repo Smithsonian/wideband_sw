@@ -37,6 +37,7 @@ from swarm import (
     SWARM_CLOCK_RATE,
     SWARM_MAPPING_POLS,
     SWARM_MAPPING_CHUNKS,
+    SWARM_BENGINE_SIDEBANDS,
 )
 from json_file import JSONListFile
 from redis import StrictRedis
@@ -99,28 +100,36 @@ def wrap_phase(in_phase):
 class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename=CALFILE):
-        self.reference = reference if reference is not None else swarm[0][0].get_input(0)
+        if reference is None:
+            self.reference = dict(zip(SWARM_BENGINE_SIDEBANDS,[None]*len(SWARM_BENGINE_SIDEBANDS)))
+            for beam_per_quad in swarm.get_beamformer_inputs():
+                for sb in SWARM_BENGINE_SIDEBANDS:
+                    if self.reference[sb] == None and beam_per_quad[sb] is not None:
+                        self.reference[sb] = beam_per_quad[sb][0]
+        else:
+            self.reference = dict(zip(SWARM_BENGINE_SIDEBANDS,[reference]*len(SWARM_BENGINE_SIDEBANDS)))
         self.redis = StrictRedis(host='localhost', port=6379)
         super(CalibrateVLBI, self).__init__(swarm)
-        self.skip_next = zeros(2, dtype=bool)
+        self.skip_next = len(SWARM_BENGINE_SIDEBANDS)*[zeros(2, dtype=bool)]
         self.history_size = history_size
         self.outfilename = outfilename
         self.single_chan = single_chan
         self.PID_coeffs = PID_coeffs
         self.normed = normed
         self.init_pool()
-        self.inputs = []
+        self.inputs = len(SWARM_BENGINE_SIDEBANDS)*[[]]
+        self.history = len(SWARM_BENGINE_SIDEBANDS)*[[]]
 
-    def init_history(self, first):
+    def init_history(self, first, sb_idx):
         hist_shape = [self.history_size,] + list(first.shape)
         self.logger.info("Initializing history to shape {0}".format(hist_shape))
-        self.history = empty(hist_shape, dtype=first.dtype)
-        self.history[:] = nan
-        self.history[0] = first
+        self.history[sb_idx] = empty(hist_shape, dtype=first.dtype)
+        self.history[sb_idx][:] = nan
+        self.history[sb_idx][0] = first
 
-    def append_history(self, point):
-        self.history = roll(self.history, 1, axis=0)
-        self.history[0] = point
+    def append_history(self, point, sb_idx):
+        self.history[sb_idx] = roll(self.history[sb_idx], 1, axis=0)
+        self.history[sb_idx][0] = point
 
     def __del__(self):
         self.term_pool()
@@ -139,33 +148,52 @@ class CalibrateVLBI(SwarmDataCallback):
         async_reply = self.process_pool.map_async(function, iterable, *args, **kwargs)
         return async_reply.get(0xffff)
 
-    def feedback_delay(self, this_input, feedback_delay):
+    def feedback_delay_usb(self, this_input, feedback_delay):
         current_delay = self.swarm.get_delay(this_input)
         updated_delay = current_delay + feedback_delay
         if feedback_delay > 1.0:
             self.skip_next[:] = True
-        if not this_input==self.reference:
+        if not this_input==self.reference['USB']:
             self.swarm.set_delay(this_input, updated_delay)
             self.logger.debug('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
 
-    def feedback_phase(self, this_input, feedback_phase):
+    def feedback_phase_usb(self, this_input, feedback_phase):
         current_phase = self.swarm.get_phase(this_input)
         updated_phase = current_phase + feedback_phase
-        if not this_input==self.reference:
+        if not this_input==self.reference['USB']:
             self.swarm.set_phase(this_input, wrap_phase(updated_phase))
-            self.logger.debug('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
+            self.logger.debug('{0}:USB : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
 
-    def pid_servo(self, inputs):
+    def feedback_phase_lsb(self, inputs, feedback_phases):
+        # Do the phase update per quadrant
+        for chunk in SWARM_MAPPING_CHUNKS:
+            # First filter the inputs that belongs to this quadrant
+            these_inputs = list(inp for inp in inputs if inp.chk==chunk)
+            # For debug logging, get the current phases for this quadrant
+            current_phases = self.swarm.get_beamformer_second_sideband_phase(these_inputs)[0]
+            # Then extract the phases for those inputs
+            these_phases = []
+            for inp in these_inputs:
+                these_phases.append(feedback_phases[inputs.index(inp)])
+            # And set the phases
+            self.swarm.set_beamformer_second_sideband_phase(these_inputs, these_phases)
+            for ii, this_input in enumerate(these_inputs):
+                self.logger.debug('{0}:LSB : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phases[ii], feedback_phases[ii], feedback_phases[ii]))
+
+    def pid_servo(self, inputs, sb_idx):
         p, i, d = self.PID_coeffs
-        p_amplitudes, p_delays, p_phases = self.history[0]
-        i_amplitudes, i_delays, i_phases = self.history.sum(axis=0)
-        d_amplitudes, d_delays, d_phases = self.history[0] - self.history[1]
+        p_amplitudes, p_delays, p_phases = self.history[sb_idx][0]
+        i_amplitudes, i_delays, i_phases = self.history[sb_idx].sum(axis=0)
+        d_amplitudes, d_delays, d_phases = self.history[sb_idx][0] - self.history[sb_idx][1]
         pid_delays = p * p_delays + i * i_delays + d * d_delays
         pid_phases = p * p_phases + i * i_phases + d * d_phases
-        if not isnan(pid_delays).any():
-            map(self.feedback_delay, inputs, pid_delays)
-        if not isnan(pid_phases).any():
-            map(self.feedback_phase, inputs, pid_phases)
+        if SWARM_BENGINE_SIDEBANDS[sb_idx] == 'USB':
+            if not isnan(pid_delays).any():
+                map(self.feedback_delay_usb, inputs, pid_delays)
+            if not isnan(pid_phases).any():
+                map(self.feedback_phase_usb, inputs, pid_phases)
+        elif SWARM_BENGINE_SIDEBANDS[sb_idx] == 'LSB':
+            self.feedback_phase_lsb(inputs, pid_phases)
 
     def solve_for(self, data, inputs, chunk, pol, sideband='USB'):
         baselines = list(baseline for baseline in data.baselines if ((baseline.left in inputs) and (baseline.right in inputs)))
@@ -177,7 +205,7 @@ class CalibrateVLBI(SwarmDataCallback):
             complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
-        this_reference = SwarmInput(self.reference.ant, chunk, pol)
+        this_reference = SwarmInput(self.reference[sideband].ant, chunk, pol)
         referenced_solver = partial(solve_cgains, ref=inputs.index(this_reference))
         if self.normed:
             with errstate(invalid='ignore'):
@@ -196,48 +224,53 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __call__(self, data):
         """ Callback for VLBI calibration """
-        beam = [inp for quad in self.swarm.quads for inp in quad.get_beamformer_inputs()]
-        inputs = sorted(beam, key=lambda b: b.ant + b.chk*10 + b.pol*100)
-        if not inputs:
-            return
+        for sb_idx, sb_str in enumerate(SWARM_BENGINE_SIDEBANDS):
+            beam = [inp for quad in self.swarm.quads for inp in quad.get_beamformer_inputs()[sb_str]]
+            inputs = sorted(beam, key=lambda b: b.ant + b.chk*10 + b.pol*100)
+            if not inputs:
+                continue
 
-        efficiencies = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
-        cal_solutions = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
-        for chunk in SWARM_MAPPING_CHUNKS:
-            for pol in SWARM_MAPPING_POLS:
-                these_inputs = list(inp for inp in inputs if (inp.chk==chunk) and (inp.pol==pol))
-                eff, cal = self.solve_for(data, these_inputs, chunk, pol)
-                cal_solutions[pol][chunk] = cal
-                efficiencies[pol][chunk] = eff
-        cal_solution_tmp = vstack([cs for cs in cal_solutions])
-        cal_solution = hstack(cal_solution_tmp)
-        amplitudes, delays, phases = cal_solution
+            efficiencies = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
+            cal_solutions = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
+            for chunk in SWARM_MAPPING_CHUNKS:
+                for pol in SWARM_MAPPING_POLS:
+                    these_inputs = list(inp for inp in inputs if (inp.chk==chunk) and (inp.pol==pol))
+                    eff, cal = self.solve_for(data, these_inputs, chunk, pol, sideband=sb_str)
+                    cal_solutions[pol][chunk] = cal
+                    efficiencies[pol][chunk] = eff
+            cal_solution_tmp = vstack([cs for cs in cal_solutions])
+            cal_solution = hstack(cal_solution_tmp)
+            amplitudes, delays, phases = cal_solution
 
-        for i in range(len(inputs)):
-            self.logger.debug('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
-        for chunk in SWARM_MAPPING_CHUNKS:
-            for pol in SWARM_MAPPING_POLS:
-                self.logger.info('Avg. phasing efficiency across chunk {}, pol {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))
-                self.redis.setex('{0}.efficiency.chk{1}.pol{2}'.format(REDIS_PREFIX, chunk, pol), int(data.int_length*2), efficiencies[pol][chunk][0])
+            for i in range(len(inputs)):
+                self.logger.debug('{}:{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], sb_str, amplitudes[i], delays[i], phases[i]))
+            for chunk in SWARM_MAPPING_CHUNKS:
+                for pol in SWARM_MAPPING_POLS:
+                    self.logger.info('Avg. phasing efficiency across chunk {}, pol {}, sideband {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, sb_str, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))
+                    self.redis.setex('{0}.efficiency.chk{1}.pol{2}.{3}'.format(REDIS_PREFIX, chunk, pol, sb_str), int(data.int_length*2), efficiencies[pol][chunk][0])
 
-        if self.inputs != inputs:
-            self.init_history(cal_solution)
-            self.inputs = inputs
-        elif self.skip_next[0]:
-            self.logger.info("Ignoring this integration for historical purposes")
-            self.skip_next[0] = False
-            self.skip_next = roll(self.skip_next, 1)
-        else:
-            self.append_history(cal_solution)
-            self.pid_servo(inputs)
-        new_delays = map(self.swarm.get_delay, inputs)
-        new_phases = map(self.swarm.get_phase, inputs)
+            if self.inputs[sb_idx] != inputs:
+                self.init_history(cal_solution,sb_idx)
+                self.inputs[sb_idx] = inputs
+            elif self.skip_next[sb_idx][0]:
+                self.logger.info("Ignoring this integration for historical purposes")
+                self.skip_next[sb_idx][0] = False
+                self.skip_next[sb_idx] = roll(self.skip_next[sb_idx], 1)
+            else:
+                self.append_history(cal_solution,sb_idx)
+                self.pid_servo(inputs,sb_idx)
+
+            if sb_str == "USB":
+                new_delays_usb = map(self.swarm.get_delay, inputs)
+                new_phases_usb = map(self.swarm.get_phase, inputs)
+            elif sb_str == "LSB":
+                new_phases_lsb = self.swarm.get_beamformer_second_sideband_phase(inputs)
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
                     'inputs': list((inp.ant, inp.chk, inp.pol) for inp in inputs),
                     'efficiencies': list(nanmean(eff) for pol_eff in efficiencies for eff in pol_eff),
-                    'delays': new_delays, 'phases': new_phases,
+                    'delays_usb': new_delays_usb, 'phases_usb': new_phases_usb, 'phases_lsb': new_phases_lsb,
                     'cal_solution': cal_solution.tolist(),
                     })
