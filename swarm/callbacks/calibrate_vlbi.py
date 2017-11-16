@@ -166,11 +166,12 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def feedback_phase_lsb(self, inputs, feedback_phases):
         # Do the phase update per quadrant
-        for chunk in SWARM_MAPPING_CHUNKS:
+        chunk_list = set([inp.chk for inp in inputs])
+        for ichunk, chunk in enumerate(chunk_list):
             # First filter the inputs that belongs to this quadrant
             these_inputs = list(inp for inp in inputs if inp.chk==chunk)
             # For debug logging, get the current phases for this quadrant
-            current_phases = self.swarm.get_beamformer_second_sideband_phase(these_inputs)[0]
+            current_phases = self.swarm.get_beamformer_second_sideband_phase(these_inputs)
             # Then extract the phases for those inputs
             these_phases = []
             for inp in these_inputs:
@@ -230,24 +231,28 @@ class CalibrateVLBI(SwarmDataCallback):
             if not inputs:
                 continue
 
-            efficiencies = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
-            cal_solutions = list([None for chunk in SWARM_MAPPING_CHUNKS] for pol in SWARM_MAPPING_POLS)
-            for chunk in SWARM_MAPPING_CHUNKS:
-                for pol in SWARM_MAPPING_POLS:
+            listed_chunks = set([inp.chk for inp in inputs])
+            listed_pols = set([inp.pol for inp in inputs])
+            efficiencies = list([None for chunk in listed_chunks] for pol in listed_pols)
+            cal_solutions = list([None for chunk in listed_chunks] for pol in listed_pols)
+            for ichunk, chunk in enumerate(listed_chunks):
+                for ipol, pol in enumerate(listed_pols):
                     these_inputs = list(inp for inp in inputs if (inp.chk==chunk) and (inp.pol==pol))
+                    if not these_inputs:
+                        continue
                     eff, cal = self.solve_for(data, these_inputs, chunk, pol, sideband=sb_str)
-                    cal_solutions[pol][chunk] = cal
-                    efficiencies[pol][chunk] = eff
+                    cal_solutions[ipol][ichunk] = cal
+                    efficiencies[ipol][ichunk] = eff
             cal_solution_tmp = vstack([cs for cs in cal_solutions])
             cal_solution = hstack(cal_solution_tmp)
             amplitudes, delays, phases = cal_solution
 
             for i in range(len(inputs)):
                 self.logger.debug('{}:{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], sb_str, amplitudes[i], delays[i], phases[i]))
-            for chunk in SWARM_MAPPING_CHUNKS:
-                for pol in SWARM_MAPPING_POLS:
-                    self.logger.info('Avg. phasing efficiency across chunk {}, pol {}, sideband {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, sb_str, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))
-                    self.redis.setex('{0}.efficiency.chk{1}.pol{2}.{3}'.format(REDIS_PREFIX, chunk, pol, sb_str), int(data.int_length*2), efficiencies[pol][chunk][0])
+            for ichunk, chunk in enumerate(listed_chunks):
+                for ipol, pol in enumerate(listed_pols):
+                    self.logger.info('Avg. phasing efficiency across chunk {}, pol {}, sideband {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, sb_str, nanmean(efficiencies[ipol][ichunk]), nanstd(efficiencies[ipol][ichunk])))
+                    self.redis.setex('{0}.efficiency.chk{1}.pol{2}.{3}'.format(REDIS_PREFIX, chunk, pol, sb_str), int(data.int_length*2), efficiencies[ipol][ichunk][0])
 
             if self.inputs[sb_idx] != inputs:
                 self.init_history(cal_solution,sb_idx)
@@ -263,14 +268,23 @@ class CalibrateVLBI(SwarmDataCallback):
             if sb_str == "USB":
                 new_delays_usb = map(self.swarm.get_delay, inputs)
                 new_phases_usb = map(self.swarm.get_phase, inputs)
+                efficiencies_usb = efficiencies
+                inputs_usb = inputs
+                cal_solution_usb = cal_solution
             elif sb_str == "LSB":
                 new_phases_lsb = self.swarm.get_beamformer_second_sideband_phase(inputs)
+                efficiencies_lsb = efficiencies
+                inputs_lsb = inputs
+                cal_solution_lsb = cal_solution
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,
                     'int_length': data.int_length,
-                    'inputs': list((inp.ant, inp.chk, inp.pol) for inp in inputs),
-                    'efficiencies': list(nanmean(eff) for pol_eff in efficiencies for eff in pol_eff),
+                    'inputs_usb': list((inp.ant, inp.chk, inp.pol) for inp in inputs_usb),
+                    'inputs_lsb': list((inp.ant, inp.chk, inp.pol) for inp in inputs_lsb),
+                    'efficiencies_usb': list(nanmean(eff) for pol_eff in efficiencies_usb for eff in pol_eff),
+                    'efficiencies_lsb': list(nanmean(eff) for pol_eff in efficiencies_lsb for eff in pol_eff),
                     'delays_usb': new_delays_usb, 'phases_usb': new_phases_usb, 'phases_lsb': new_phases_lsb,
-                    'cal_solution': cal_solution.tolist(),
+                    'cal_solution_usb': cal_solution_usb.tolist(),
+                    'cal_solution_lsb': cal_solution_lsb.tolist(),
                     })
