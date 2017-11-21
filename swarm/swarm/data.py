@@ -92,6 +92,18 @@ class SwarmDataPackage(object):
         except:
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
+    def __setitem__(self, item, value):
+        self.set(item, value)
+
+    def set(self, item, value):
+        try:
+            baseline, sideband = item
+            i = self.baselines_i[baseline]
+            j = SWARM_XENG_SIDEBANDS.index(sideband)
+            self.array[i, j] = value
+        except:
+            raise KeyError("Please only index data package using [baseline, sideband]!")
+
     def __str__(self):
         return ''.join([self.header, self.array.tostring()])
 

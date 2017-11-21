@@ -268,8 +268,14 @@ signal(24, xeng_reset_handler)
 
 if not args.disable_data_catcher:
 
+    # If VLBI calibration is running, 2nd sideband phases need to be applied to correlator data
+    rephase_2nd_sideband_data = False
+
+    if args.calibrate_vlbi:
+        rephase_2nd_sideband_data = True
+
     # Use a callback to send data to dataCatcher/corrSaver
-    swarm_handler.add_callback(SMAData)
+    swarm_handler.add_callback(SMAData, rephase_2nd_sideband_data=rephase_2nd_sideband_data)
 
 if args.log_stats:
 
