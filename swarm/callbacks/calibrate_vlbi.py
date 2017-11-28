@@ -170,16 +170,18 @@ class CalibrateVLBI(SwarmDataCallback):
         for ichunk, chunk in enumerate(chunk_list):
             # First filter the inputs that belongs to this quadrant
             these_inputs = list(inp for inp in inputs if inp.chk==chunk)
-            # For debug logging, get the current phases for this quadrant
+            # Get the current phases for this quadrant
             current_phases = self.swarm.get_beamformer_second_sideband_phase(these_inputs)
             # Then extract the phases for those inputs
-            these_phases = []
-            for inp in these_inputs:
-                these_phases.append(feedback_phases[inputs.index(inp)])
+            updated_phases = []
+            for ii, inp in enumerate(these_inputs):
+                this_current_phase = current_phases[ii]
+                this_updated_phase = this_current_phase + feedback_phases[inputs.index(inp)]
+                updated_phases.append(this_updated_phase)
             # And set the phases
-            self.swarm.set_beamformer_second_sideband_phase(these_inputs, these_phases)
+            self.swarm.set_beamformer_second_sideband_phase(these_inputs, updated_phases)
             for ii, this_input in enumerate(these_inputs):
-                self.logger.debug('{0}:LSB : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phases[ii], feedback_phases[ii], feedback_phases[ii]))
+                self.logger.debug('{0}:LSB : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phases[ii], updated_phases[ii], feedback_phases[ii]))
 
     def pid_servo(self, inputs, sb_idx):
         p, i, d = self.PID_coeffs
