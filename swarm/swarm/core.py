@@ -391,6 +391,13 @@ class SwarmMember(base.SwarmROACH):
             tx_enable |= 0x02 if dest.mac & SWARM_BENGINE_SIDEBAND_MACIP_OFFSET else 0x01
         self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_enable))
 
+    def disable_beamformer(self):
+
+        tx_disable = 0x7FFFFFFC
+        ctrl = unpack(SWARM_REG_FMT,self.roach2.read(SWARM_BENGINE_CTRL,4))[0]
+        ctrl = ctrl & tx_disable
+        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_disable))
+
     def reset_ddr3(self):
 
         # Twiddle bit 30
@@ -1113,8 +1120,11 @@ class SwarmQuadrant:
 
     def setup_beamformer(self):
 
-        # Don't do anything if this quadrant doesn't have SDBE
+        # Make sure beamformer is disabled if this quadrant doens't have an SDBE
         if not hasattr(self, 'sdbe'):
+            for fid, member in self.get_valid_members():
+                member.disable_beamformer()
+            # and do nothing further
             return
 
         # Create the SDBE interface object and pass it along
