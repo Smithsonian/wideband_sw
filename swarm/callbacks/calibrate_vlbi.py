@@ -199,6 +199,14 @@ class CalibrateVLBI(SwarmDataCallback):
             self.feedback_phase_lsb(inputs, pid_phases)
 
     def solve_for(self, data, inputs, chunk, pol, sideband='USB'):
+        # Check if reference is in beam
+        ref_in_beam = True
+        this_reference = SwarmInput(self.reference[sideband].ant, chunk, pol)
+        if this_reference not in inputs:
+            self.logger.warn('Reference {ref!r} not in beam, adding it for the purpose of phase solution'.format(ref=this_reference))
+            inputs.append(this_reference)
+            ref_in_beam = False
+
         baselines = list(baseline for baseline in data.baselines if ((baseline.left in inputs) and (baseline.right in inputs)))
         corr_matrix = zeros([SWARM_CHANNELS, len(inputs), len(inputs)], dtype=complex128)
         for baseline in baselines:
@@ -208,7 +216,6 @@ class CalibrateVLBI(SwarmDataCallback):
             complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
             corr_matrix[:, left_i, right_i] = complex_data
             corr_matrix[:, right_i, left_i] = complex_data.conj()
-        this_reference = SwarmInput(self.reference[sideband].ant, chunk, pol)
         referenced_solver = partial(solve_cgains, ref=inputs.index(this_reference))
         if self.normed:
             with errstate(invalid='ignore'):
@@ -221,6 +228,13 @@ class CalibrateVLBI(SwarmDataCallback):
             phases = (180.0/pi) * angle(full_spec_gains.mean(axis=0))
             delays = zeros(len(inputs))
         amplitudes = abs(full_spec_gains).mean(axis=0)
+
+        # Remove reference solution if it is not in beam
+        if not ref_in_beam:
+            delays = delays[:-1]
+            phases = phases[:-1]
+            amplitudes = amplitudes[:-1]
+
         with errstate(invalid='ignore'):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
         return efficiency, vstack([amplitudes, delays, phases])
