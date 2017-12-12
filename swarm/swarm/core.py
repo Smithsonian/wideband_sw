@@ -259,6 +259,17 @@ class SwarmMember(base.SwarmROACH):
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *gains)
         self.roach2.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
 
+    def get_bengine_gains(self):
+
+        # read value from the register
+        psum_reg = self.roach2.read_uint(SWARM_BENGINE_GAIN)
+
+        # interpret to floating point gains per sideband / polarization
+        gains = [None, ]*4
+        for ii in range(4):
+            gains[ii] = ((psum_reg >> 8*ii) & 0xFF) / 16.0
+
+        return tuple(gains)
 
     def set_bengine_gains(self, psum_gain_pol0_sb0, psum_gain_pol1_sb0, psum_gain_pol0_sb1, psum_gain_pol1_sb1):
 
