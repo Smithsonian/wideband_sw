@@ -1856,9 +1856,9 @@ class Swarm:
             phases_per_quad = quad.get_beamformer_second_sideband_phase(inputs_per_quad)
 
             # Insert phase for each input at the appropriate location
-            for idx_per_quad, inp_per_quad in enumerate(inputs_per_quad):
-
-                idx = inputs.index(inp_per_quad)
-                phases[idx] = phases_per_quad[idx_per_quad]
+            for idx_global, inp_global in enumerate(inputs):
+                if inp_global in inputs_per_quad:
+                    idx_per_quad = inputs_per_quad.index(inp_global)
+                    phases[idx_global] = phases_per_quad[idx_per_quad]
 
         return phases
