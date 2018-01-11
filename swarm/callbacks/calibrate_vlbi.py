@@ -28,6 +28,7 @@ from numpy import (
     sum,
     nan,
     pi,
+    exp,
     )
 from swarm import (
     SwarmDataCallback,
@@ -39,6 +40,7 @@ from swarm import (
     SWARM_MAPPING_CHUNKS,
     SWARM_BENGINE_SIDEBANDS,
 )
+from swarm.data import SwarmDataPackage
 from json_file import JSONListFile
 from redis import StrictRedis
 
@@ -239,7 +241,37 @@ class CalibrateVLBI(SwarmDataCallback):
             efficiency = (abs(full_spec_gains.sum(axis=1)) / abs(full_spec_gains).sum(axis=1)).real
         return efficiency, vstack([amplitudes, delays, phases])
 
+    def apply_beamformer_second_sideband_phase(self, data, sideband="LSB"):
+
+        # Get the phases that need to be applied to each baseline
+        left_inputs = [bl.left for bl in data.baselines]
+        left_phases = array(self.swarm.get_beamformer_second_sideband_phase(left_inputs))
+        right_inputs = [bl.right for bl in data.baselines]
+        right_phases = array(self.swarm.get_beamformer_second_sideband_phase(right_inputs))
+        bl_phases = exp(-1j * pi/180.0 * (left_phases - right_phases))
+
+        # Apply transformation to each baseline
+        new_data = SwarmDataPackage.from_string(str(data))
+        for ibl, bl in enumerate(data.baselines):
+
+            # Extract complex correlator data
+            baseline_data = new_data[bl, sideband]
+            complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
+
+            # Apply phases
+            complex_data = complex_data * bl_phases[ibl]
+
+            # Reformat to original format and store
+            baseline_data = vstack((complex_data.real,complex_data.imag)).flatten(order='F')
+            new_data[bl, sideband] = baseline_data
+
+        return new_data
+
     def __call__(self, data):
+
+        # First apply 2nd sideband phase data
+        data = self.apply_beamformer_second_sideband_phase(data)
+
         """ Callback for VLBI calibration """
         for sb_idx, sb_str in enumerate(SWARM_BENGINE_SIDEBANDS):
             beam = [inp for quad in self.swarm.quads for inp in quad.get_beamformer_inputs()[sb_str]]
