@@ -38,7 +38,7 @@ class SMAData(SwarmDataCallback):
         left_phases = array(self.swarm.get_beamformer_second_sideband_phase(left_inputs))
         right_inputs = [bl.right for bl in data.baselines]
         right_phases = array(self.swarm.get_beamformer_second_sideband_phase(right_inputs))
-        bl_phases = exp(1j * pi/180.0 * (left_phases - right_phases))
+        bl_phases = exp(-1j * pi/180.0 * (left_phases - right_phases))
 
         # Apply transformation to each baseline
         new_data = SwarmDataPackage.from_string(str(data))
