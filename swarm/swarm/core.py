@@ -1242,7 +1242,7 @@ class SwarmQuadrant:
         # Apply to each member
         self.set_beng_sb1demodphase_phase(phase_per_fid_input)
 
-    def set_beamformer_second_sideband_walsh(self):
+    def set_beamformer_second_sideband_walsh(self,offset=0):
 
         # Initialize pattern storage
         walsh_per_fid_input = SWARM_N_INPUTS*[zeros((SWARM_N_FIDS,SWARM_INT_HB_PER_SOWF),dtype=uint32)]
@@ -1265,6 +1265,9 @@ class SwarmQuadrant:
                 this_pattern[w_is_90] = 1
                 this_pattern[w_is_270] = 1
                 walsh_per_fid_input[ii][fid,:] = this_pattern
+
+        # Apply pattern offset
+        walsh_per_fid_input = [roll(walsh_per_fid_input[ii],offset,axis=-1) for ii in range(SWARM_N_INPUTS)]
 
         # Apply in each member
         for fid, member in self.get_valid_members():
