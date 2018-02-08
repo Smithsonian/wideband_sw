@@ -1294,6 +1294,64 @@ class SwarmQuadrant:
             member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
               pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
+    def set_beamformer_second_sideband_walsh_patterns(self, input_n, patterns, offset=0):
+
+        # Apply in each member
+        for fid, member in self.get_valid_members():
+
+            # Read existing pattern (to preserve phasing)
+            pattern = array(
+              unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+              dtype=uint32)
+
+            # Mask out Walsh-phase in existing pattern
+            pattern &= (0x7FFF7FFF | (0x8000 << ((1-input_n)*16)))
+
+            # Flatten so that FID index changes most rapidly, then Walsh step
+            wpat_flat = patterns.flatten(order='F')
+
+            # Mask in updated Walsh-phase (The outer bitshift is for the second input)
+            pattern |= (wpat_flat<<15)<<(input_n*16)
+
+            # Write back the result
+            member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+              pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
+
+    def get_beamformer_second_sideband_walsh_patterns(self, input_n):
+
+        # Initialize reference pattern
+        ref_pattern = None
+
+        for fid, member in self.get_valid_members():
+
+            # Read existing patterns
+            pattern = array(
+              unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
+                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+              dtype=uint32)
+
+            # Mask out complex phase
+            pattern &= 0x80008000
+
+            # Set reference pattern to the first one read
+            if ref_pattern is None:
+                ref_pattern = pattern
+                continue
+
+            if not all(pattern == ref_pattern):
+                err_msg = 'FID #%d has mismatching Walsh pattern in 2nd sideband beamformer!' % fid
+                self.logger.error(err_msg)
+                raise ValueError(err_msg)
+
+        # Extract 0/180 flag for particular input
+        pattern = ((pattern>>15) >> (input_n*16)) & 0x01
+
+        # Reshape to have FID along 1st dimension and Walsh step along 2nd
+        wpat = pattern.reshape((SWARM_INT_HB_PER_SOWF, -1)).transpose()
+
+        return wpat
+
     def get_itime(self):
 
         itime = None
