@@ -635,7 +635,7 @@ class SwarmMember(base.SwarmROACH):
     def dewalsh(self, enable_0, enable_1, walsh_mask=0x3ff, sb1_sowf_ph11=10):
 
         # Set the Walsh control register
-        self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + (sb1_sowf_ph11<<10) + walsh_mask)
+        self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + (sb1_sowf_ph11<<10) + walsh_mask))
 
     def set_walsh_pattern(self, input_n, pattern, offset=0):
 
