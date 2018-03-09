@@ -778,8 +778,8 @@ class SwarmMember(base.SwarmROACH):
                 re = unpack('>b', pack('>B', re_7b << 1))[0] / 64.0
                 im = unpack('>b', pack('>B', im_7b << 1))[0] / 64.0
 
-                # Convert to phase and store
-                phases[fid, input_n] = 180.0/pi * angle(re + 1j*im)
+                # Convert to phase and store; note the convention here is e^(-j * phase)
+                phases[fid, input_n] = 180.0/pi * angle(re + 1j*(-1)*im)
 
         return phases
 
@@ -802,9 +802,9 @@ class SwarmMember(base.SwarmROACH):
                 if isnan(phase_per_fid_input[fid,inp_n]):
                     continue
 
-                # Otherwise, set update phase
+                # Otherwise, set update phase; note the convention here is e^(-j * phase)
                 re = cos(phase_per_fid_input[fid,inp_n] * pi/180.0)
-                im = sin(phase_per_fid_input[fid,inp_n] * pi/180.0)
+                im = -sin(phase_per_fid_input[fid,inp_n] * pi/180.0)
 
                 # Convert float to Fix_7_5 representation
                 re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
