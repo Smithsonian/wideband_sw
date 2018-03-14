@@ -1079,6 +1079,9 @@ class SwarmQuadrant:
             # Enable de-Walshing
             member.dewalsh(enable_0=3, enable_1=3)
 
+        # Set Walsh patterns in second sideband beamformer
+        self.set_beamformer_second_sideband_walsh()
+
     def load_sideband_states(self):
 
         # Initialize sideband states
@@ -1138,9 +1141,19 @@ class SwarmQuadrant:
             # and do nothing further
             return
 
+        # Parse attribute parameters, space-delimited list
+        beamformer_sidebands = self.sdbe.strip().split()
+
+        # Set zero phase in 2nd sideband beamformer
+        beam_all = []
+        for fid, member in self.get_valid_members():
+            for inp in member:
+                beam_all.append(inp)
+        self.set_beamformer_second_sideband_phase(beam_all, [0.0, ]*len(beam_all))
+
         # Create the SDBE interface object and pass it along
         for fid, member in self.get_valid_members():
-            ifaces = [base.SwarmDBEInterface(self.qid, fid, sideband=sb) for sb in self.sdbe]
+            ifaces = [base.SwarmDBEInterface(self.qid, fid, sideband=sb.upper()) for sb in beamformer_sidebands]
             member.setup_beamformer(ifaces)
 
     def get_beamformer_inputs(self):
