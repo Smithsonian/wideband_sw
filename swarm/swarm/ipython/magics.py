@@ -106,7 +106,12 @@ class SwarmShellMagics(Magics):
                 gain = eval(gain_val)
 
         # Build beams structure
-        beams = [dict(zip(SWARM_BENGINE_SIDEBANDS,[[]]*len(SWARM_BENGINE_SIDEBANDS))),] * len(SWARM_MAPPING_CHUNKS)
+        beams = [None]*len(SWARM_MAPPING_CHUNKS)
+        for quad in self.swarm.quads:
+            qid = quad.qid
+            beams[qid] = {}
+            for sb in SWARM_BENGINE_SIDEBANDS:
+                beams[qid][sb] = []
         for quad in self.swarm.quads:
             qid = quad.qid
             if hasattr(quad,'sdbe'):
