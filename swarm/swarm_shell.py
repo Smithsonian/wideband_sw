@@ -12,7 +12,7 @@ from IPython.terminal.embed import InteractiveShellEmbed
 swarm_shell_banner = """
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDNNNNNNNN
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDNNNNNN
-DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+DDDDDDDDDDDDDDDDDDDDDDDDDDDD   We miss Rurik! DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD8D88DD8DDDDDDDDDDDDDDDDDDDDDDDDD
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD=D8888888888DDDDDDDDDDDDDDDDDDDDDD
 DDDDDDDDDDDDDDDDDDDDDDDDDDDDD~DD8888888:D8DDDDDDDD~:7888888888DDDDDDDDDDDDDDDDDD
@@ -98,6 +98,19 @@ logging.getLogger('').setLevel(logging.DEBUG if args.verbose else logging.INFO)
 
 # Set up SWARM 
 swarm = Swarm(map_filenames=args.swarm_mappings)
+
+# Commands added by Taco:
+def takeNoiseData():
+    print "Enabling noise source - type takeSkyData() to undo this"
+    swarm.members_do(lambda i,m: m.dewalsh(False,False))
+    swarm.send_katcp_cmd("sma-astro-fstop-set","7.85","-12.15","-2.71359","0","0")
+
+def takeSkyData():
+    swarm.set_walsh_patterns()
+    swarm.send_katcp_cmd("sma-astro-fstop-set","7.85","-12.15","-2.71359","1","1")
+    swarm.fringe_stopping(True)
+
+# End of commands added by Taco
 
 # Start the IPython embedded shell
 ipshell = InteractiveShellEmbed.instance(config=cfg)
