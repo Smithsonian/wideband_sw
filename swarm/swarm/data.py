@@ -327,6 +327,7 @@ class SwarmDataCatcher:
                 mask[qid][fid].pop(acc_n)
                 datas = ''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
+                self.logger.info("Moriarty Debug - Pushed full accumulation data set to catch_queue")
 
         udp_sock.close()
 
