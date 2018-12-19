@@ -12,7 +12,7 @@ from socket import (
     )
 
 from numpy import array, nan, fromstring, empty, reshape
-
+from numba import jit
 import core
 from defines import *
 from xeng import (
@@ -122,12 +122,17 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
+        slice_ = compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off)
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
             self.get(baseline, sideband)[slice_+1] = 0.0
+
+
+@jit
+def compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off):
+    return DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
 
 
 class SwarmDataCallback(object):
