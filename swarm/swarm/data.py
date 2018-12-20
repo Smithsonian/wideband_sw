@@ -122,7 +122,6 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-
         slice_ = compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off)
         self.get(baseline, sideband)[slice_] = data
 
@@ -131,6 +130,7 @@ class SwarmDataPackage(object):
             self.get(baseline, sideband)[slice_+1] = 0.0
 
 
+@jit
 def compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off):
     return DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
 
