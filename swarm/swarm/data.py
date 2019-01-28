@@ -83,6 +83,7 @@ class SwarmDataPackage(object):
     def __getitem__(self, item):
         return self.get(*item)
 
+    @profile
     def get(self, *item):
         try:
             baseline, sideband = item
