@@ -40,7 +40,7 @@ class SwarmBaseline:
         return not self.__eq__(other)
 
     def is_auto(self):
-        return self.left == self.right
+        return compiled_is_auto(self.left, self.right)
 
     def is_valid(self):
         valid_inputs = (self.left is not None) and (self.right is not None)
@@ -51,6 +51,11 @@ class SwarmBaseline:
                                  self.left.ant,
                                  self.right.ant,
                                  valid_inputs)
+
+
+@jit
+def compiled_is_auto(left, right):
+    return left == right
 
 
 @jit
