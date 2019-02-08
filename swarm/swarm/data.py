@@ -86,7 +86,8 @@ class SwarmDataPackage(object):
     def get(self, *item):
         try:
             baseline, sideband = item
-            i, j = compiled_get(self.baselines_i, baseline, sideband)
+            i = self.baselines_i[baseline]
+            j = SWARM_XENG_SIDEBANDS.index(sideband)
             return self.array[i, j]
         except:
             raise KeyError("Please only index data package using [baseline, sideband]!")
@@ -127,13 +128,6 @@ class SwarmDataPackage(object):
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
             self.get(baseline, sideband)[slice_+1] = 0.0
-
-
-@jit
-def compiled_get(baselines_i, baseline, sideband):
-    i = baselines_i[baseline]
-    j = SWARM_XENG_SIDEBANDS.index(sideband)
-    return i, j
 
 
 @jit
