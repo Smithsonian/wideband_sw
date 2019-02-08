@@ -330,7 +330,7 @@ class SwarmDataCatcher:
             mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
-            if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
+            if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
 
                 # Put data onto the queue
                 mask[qid][fid].pop(acc_n)
