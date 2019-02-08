@@ -1,5 +1,6 @@
 from defines import *
 from numba import jit
+import logging
 
 simple_mapping = (
     ('in0',  'in1'),
@@ -16,6 +17,7 @@ simple_mapping = (
 class SwarmBaseline:
 
     def __init__(self, left, right):
+        self.logger = logging.getLogger(self.__log_name)
         self.right = right
         self.left = left
 
@@ -28,7 +30,9 @@ class SwarmBaseline:
         return repr_str.format(left=self.left, right=self.right)
 
     def __hash__(self):
-        return hash((self.left, self.right))
+        my_hash = hash((self.left, self.right))
+        self.logger.info(my_hash)
+        return my_hash
 
     def __eq__(self, other):
         if other is not None:
