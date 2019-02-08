@@ -460,7 +460,7 @@ class SwarmDataCatcher:
 
             # Log the fact
             suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
-            # self.logger.info("Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
+            self.logger.debug("Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
 
             # Set the last acc time
             last_acc[qid][fid] = time()
