@@ -12,7 +12,7 @@ from socket import (
     )
 
 from numpy import array, nan, fromstring, empty, reshape
-
+from numba import jit
 import core
 from defines import *
 from xeng import (
@@ -122,12 +122,21 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
+        slice_ = compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off)
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
             self.get(baseline, sideband)[slice_+1] = 0.0
+
+
+@jit
+def compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off):
+    """
+    Moved this calculation into its own function in order to make use of numba's @jit feature.
+    We gain a %5 improvement from doing this.
+    """
+    return DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
 
 
 class SwarmDataCallback(object):
@@ -321,7 +330,7 @@ class SwarmDataCatcher:
             mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
-            if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
+            if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
 
                 # Put data onto the queue
                 mask[qid][fid].pop(acc_n)
@@ -451,7 +460,7 @@ class SwarmDataCatcher:
 
             # Log the fact
             suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
-            self.logger.info("Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
+            self.logger.debug("Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
 
             # Set the last acc time
             last_acc[qid][fid] = time()
