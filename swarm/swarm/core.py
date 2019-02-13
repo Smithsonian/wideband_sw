@@ -1544,7 +1544,9 @@ class Swarm:
 
                 # Does this one have it?
                 if this_input == input_inst:
-                    delays_found.append(member.get_delay(input_n))
+                    d = member.get_delay(input_n)
+                    self.logger.info(d)
+                    delays_found.append(d)
                     members_found += 1
 
         # Return different values depending on how many instances found
