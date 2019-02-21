@@ -7,7 +7,7 @@ import pydsm
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
 RUNNING = Event()
-PERIOD = 1
+PERIOD = .2
 
 # Setup root logger
 logger = logging.getLogger()
