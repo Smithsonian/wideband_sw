@@ -3,7 +3,8 @@ from signal import SIGQUIT
 SWARM_IDLE_BITCODE = 'idle.bof'
 
 SWARM_ROACH2_IP = 'roach2-%02x'
-
+ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
+SWARM_MAX_NUM_QUADRANTS = 4
 SWARM_MAPPINGS = [
     '/global/configFiles/swarmMapping.quad1',
     '/global/configFiles/swarmMapping.quad2',
