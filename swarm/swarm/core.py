@@ -1201,17 +1201,21 @@ class SwarmQuadrant:
 
 class Swarm:
 
-    def __init__(self, map_filenames=SWARM_MAPPINGS, parent_logger=module_logger):
+    def __init__(self, map_filenames=[], parent_logger=module_logger):
 
         # Set initial member variables
         self.logger = parent_logger.getChild(
             '{name}'.format(name=self.__class__.__name__)
             )
 
-
-
-        # For every mapping file, instantiate one SwarmQuadrant
-        self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
+        # If map_filenames is empty, look up the current list of active swarm quadrants.
+        if not map_filenames:
+            mappings_dict = self.get_current_swarm_mappings()
+            self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in mappings_dict.items())
+        else:
+            # Legacy behavior: For every mapping file, instantiate one SwarmQuadrant.
+            # Index problems will occur if the map file paths aren't in sequential order.
+            self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
 
     def __len__(self):
         return len(self.quads)
@@ -1225,31 +1229,31 @@ class Swarm:
     def __str__(self):
         return os.linesep.join(str(quad) for quad in self.quads)
 
-    def get_swarm_mappings_in_array(self):
-
-        active_quad_mappings = []
-        disabled_quad_mappings = []
+    def get_current_swarm_mappings(self):
+        """
+        Utility function to read the SWARMQuadrantsInArray file, and based on the contents return
+        the appropriate SWARM mapping paths.
+        :return: Dictionary of active quadrants where the keys are quadrant numbers and value is mapfile path.
+        """
+        active_quad_mappings = {}
         try:
             with open(ACTIVE_QUADRANTS_FILE_PATH) as quadrants_file:
-                line = quadrants_file.readline()
-                active_quad_mappings = [int(x) for x in line.split(" ")]
+                line = quadrants_file.readline().strip()
+            if line:
+                active_quads = [int(x) for x in line.split(" ")]
                 for num in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
-                    if num in active_quad_mappings:
-                        active_quad_mappings.append(SWARM_MAPPINGS[num - 1])
-                    else:
-                        disabled_quad_mappings.append(SWARM_MAPPINGS[num - 1])
+                    if num in active_quads:
+                        active_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
 
         except IOError as e:
             self.logger.error(e)
 
         finally:
             # If there is a problem reading this file, default to all quadrants active.
-            if not active_quad_mappings and not disabled_quad_mappings:
-                self.logger.info("Active quadrant list is empty, defaulting to all SWARM quadrants active.")
+            if not active_quad_mappings:
+                self.logger.info("Unable to read SWARMQuadrantsInArray file, defaulting to all SWARM quadrants active.")
                 active_quad_mappings = SWARM_MAPPINGS
-            return active_quad_mappings, disabled_quad_mappings
-
-
+            return active_quad_mappings
 
     def get_valid_members(self):
 
