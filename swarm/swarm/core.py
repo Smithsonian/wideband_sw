@@ -1201,7 +1201,7 @@ class SwarmQuadrant:
 
 class Swarm:
 
-    def __init__(self, map_filenames=[], parent_logger=module_logger):
+    def __init__(self, map_filenames=[], parent_logger=module_logger, mappings_dict={}):
 
         # Set initial member variables
         self.logger = parent_logger.getChild(
@@ -1210,7 +1210,7 @@ class Swarm:
 
         # If map_filenames is empty, look up the current list of active swarm quadrants.
         if not map_filenames:
-            mappings_dict = self.get_current_swarm_mappings()
+            mappings_dict = mappings_dict if mappings_dict else self.get_current_swarm_mappings()
             self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in mappings_dict.items())
         else:
             # Legacy behavior: For every mapping file, instantiate one SwarmQuadrant.
