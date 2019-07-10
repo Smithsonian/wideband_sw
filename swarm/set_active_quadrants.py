@@ -1,8 +1,7 @@
 import argparse
 import logging
 from collections import OrderedDict
-from signal import SIGURG
-import os
+import time
 
 import pyopmess
 import subprocess
@@ -39,14 +38,24 @@ swarm.members_do(lambda fid, mbr: mbr.idle())
 # Update the SWARMQuadrantsInArray file with the active quadrant list.
 active_quad_string = " ".join(map(str, active_quad_mappings.keys()))
 with open(ACTIVE_QUADRANTS_FILE_PATH, "w") as quadrants_file:
-    line = quadrants_file.write(active_quad_string)
+    quadrants_file.write(active_quad_string)
 
 # Restart corrSaver on obscon.
 out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver" "restart"])
-logger.info(out)
+logger.debug(out)
 
 # Restart SWARM processes on Tenzing.
 out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "smainit", "restart"])
-logger.info(out)
+logger.debug(out)
 
-# Begin Cold Start.
+# Somehow wait for swarm and corrsaver to come back to life.
+logger.info("Waiting 10 seconds for corrSaver and Swarm python processes to restart")
+time.sleep(10)
+
+# Trigger a cold start by opening the smainit URG file in write mode
+with open(SWARM_COLDSTART_PATH, "w") as smainit_file:
+    logger.info("Triggered a cold start to initialize new SWARM quadrant configuration")
+
+    # Since the file opened successfully, update the last cold start value with C-style timestamp.
+    with open(SWARM_LAST_COLDSTART_PATH, "w") as lastcoldstart_file:
+        lastcoldstart_file.write(str(int(time.time())))

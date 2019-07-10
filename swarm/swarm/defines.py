@@ -3,6 +3,8 @@ from signal import SIGQUIT
 SWARM_IDLE_BITCODE = 'idle.bof'
 
 SWARM_ROACH2_IP = 'roach2-%02x'
+SWARM_COLDSTART_PATH = '/otherInstances/tenzing/smainit_req/swarm_ctrl.URG'
+SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'
 ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
 SWARM_MAX_NUM_QUADRANTS = 4
 SWARM_MAPPINGS = [
