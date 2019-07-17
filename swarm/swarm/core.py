@@ -466,17 +466,17 @@ class SwarmMember(base.SwarmROACH):
 
                 # reset up to max number of tries
                 if try_n < max_tries:
-                    self.logger.warning('QDR{0} not ready, resetting (try #{1})'.format(qnum, try_n))
+                    self.logger.warning('QDR memory {0} not ready, resetting (try #{1})'.format(qnum, try_n))
                     self.reset_qdr(qnum)
                     try_n += 1
 
                 # max tries exceded, gtfo
                 else:
-                    msg = 'QDR{0} not calibrating, reset max number of times'
+                    msg = 'QDR memory {0} not calibrating, reset max number of times'
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-            self.logger.debug('QDR{0} verified successfully'.format(qnum))
+            self.logger.debug('QDR memory {0} verified successfully'.format(qnum))
 
     def setup_visibs(self, qid, listener, delay_test=False):
 
