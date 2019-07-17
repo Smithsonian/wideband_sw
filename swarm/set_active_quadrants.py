@@ -2,11 +2,45 @@ import argparse
 import logging
 from collections import OrderedDict
 import time
+import sys
 
 import pyopmess
 import subprocess
 from swarm import Swarm
 from swarm.defines import *
+
+
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [Y/n] "
+    elif default == "no":
+        prompt = " [y/N] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
 
 # Setup root logger
 logger = logging.getLogger()
@@ -27,36 +61,45 @@ for num in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
     else:
         disabled_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
 
-# Instantiate a Swarm object using the disabled quadrant mappings.
-swarm = Swarm(mappings_dict=disabled_quad_mappings)
+# Present the request and ask to proceed to IDLE quadrants.
+if disabled_quad_mappings:
+    disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
+    if query_yes_no("Proceed to IDLE quadrants " + disabled_quad_string + "?"):
 
-# IDLE the disabled quadrants.
-disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
-pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
-swarm.members_do(lambda fid, mbr: mbr.idle())
+        # Instantiate a Swarm object using the disabled quadrant mappings.
+        swarm = Swarm(mappings_dict=disabled_quad_mappings)
+
+        # IDLE the disabled quadrants.
+        disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
+        pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
+        swarm.members_do(lambda fid, mbr: mbr.idle())
 
 # Update the SWARMQuadrantsInArray file with the active quadrant list.
 active_quad_string = " ".join(map(str, active_quad_mappings.keys()))
-with open(ACTIVE_QUADRANTS_FILE_PATH, "w") as quadrants_file:
-    quadrants_file.write(active_quad_string)
+if query_yes_no("Proceed to change SWARMQuadrantsInArray to " + active_quad_string + "?"):
+    with open(ACTIVE_QUADRANTS_FILE_PATH, "w") as quadrants_file:
+        quadrants_file.write(active_quad_string)
 
-# Restart corrSaver on obscon.
-out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver" "restart"])
-logger.debug(out)
+if query_yes_no("Restart corrSaver and SWARM processes?"):
+    # Restart corrSaver on obscon.
+    out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver" "restart"])
+    logger.debug(out)
 
-# Restart SWARM processes on Tenzing.
-out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "smainit", "restart"])
-logger.debug(out)
+    # Restart SWARM processes on Tenzing.
+    out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "smainit", "restart"])
+    logger.debug(out)
 
-# Somehow wait for swarm and corrsaver to come back to life.
-logger.info("Waiting 10 seconds for corrSaver and Swarm python processes to restart")
-time.sleep(10)
+    # Somehow wait for swarm and corrsaver to come back to life.
+    logger.info("Waiting 10 seconds for corrSaver and Swarm python processes to restart")
+    time.sleep(10)
 
-# Trigger a cold start by opening the smainit URG file in write mode
-with open(SWARM_COLDSTART_PATH, "w") as smainit_file:
-    logger.info("Triggered a cold start to initialize new SWARM quadrant configuration")
 
-    # Since the smainit file opened successfully, a cold start should begin.
-    # Update the last cold start value with C-style timestamp.
-    with open(SWARM_LAST_COLDSTART_PATH, "w") as lastcoldstart_file:
-        lastcoldstart_file.write(str(int(time.time())))
+if query_yes_no("Trigger cold start?"):
+    # Trigger a cold start by opening the smainit URG file in write mode
+    with open(SWARM_COLDSTART_PATH, "w") as smainit_file:
+        logger.info("Triggered a cold start to initialize new SWARM quadrant configuration")
+
+        # Since the smainit file opened successfully, a cold start should begin.
+        # Update the last cold start value with C-style timestamp.
+        with open(SWARM_LAST_COLDSTART_PATH, "w") as lastcoldstart_file:
+            lastcoldstart_file.write(str(int(time.time())))
