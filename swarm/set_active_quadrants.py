@@ -82,7 +82,7 @@ if query_yes_no("Proceed to change SWARMQuadrantsInArray to " + active_quad_stri
 
 if query_yes_no("Restart corrSaver and SWARM processes?"):
     # Restart corrSaver on obscon.
-    out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver" "restart"])
+    out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver", "restart"])
     logger.debug(out)
 
     # Restart SWARM processes on Tenzing.
