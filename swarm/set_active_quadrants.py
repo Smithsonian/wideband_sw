@@ -56,6 +56,7 @@ time.sleep(10)
 with open(SWARM_COLDSTART_PATH, "w") as smainit_file:
     logger.info("Triggered a cold start to initialize new SWARM quadrant configuration")
 
-    # Since the file opened successfully, update the last cold start value with C-style timestamp.
+    # Since the smainit file opened successfully, a cold start should begin.
+    # Update the last cold start value with C-style timestamp.
     with open(SWARM_LAST_COLDSTART_PATH, "w") as lastcoldstart_file:
         lastcoldstart_file.write(str(int(time.time())))
