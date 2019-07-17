@@ -433,19 +433,19 @@ class SwarmMember(base.SwarmROACH):
 
         # calibrate each QDR
         for qnum in SWARM_ALL_QDR:
-            self.logger.debug('checking QDR%d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdrs[qnum].qdr_cal(fail_hard=False):
 
                 # try up to max number of tries
                 if try_n < max_tries:
-                    self.logger.warning('QDR{0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
+                    self.logger.warning('QDR memory {0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
                     try_n += 1
 
                 # max tries exceded, gtfo
                 else:
-                    msg = 'QDR{0} not calibrating, tried max number of tries'.format(qnum)
+                    msg = 'QDR memory {0} not calibrating, tried max number of tries'.format(qnum)
                     self.logger.error(msg)
                     if fail_hard:
                         raise RuntimeError(msg)
@@ -453,13 +453,13 @@ class SwarmMember(base.SwarmROACH):
                         break
 
             if self.qdrs[qnum].qdr_cal_check():
-                self.logger.info('QDR{0} calibrated successfully'.format(qnum))
+                self.logger.info('QDR memory {0} calibrated successfully'.format(qnum))
 
     def verify_qdr(self, max_tries=10):
   
         # verify each QDR
         for qnum in SWARM_ALL_QDR:
-            self.logger.debug('checking QDR%d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdr_ready(qnum):
