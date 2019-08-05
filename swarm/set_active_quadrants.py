@@ -52,6 +52,7 @@ parser.add_argument('integers', metavar='N', type=int, nargs='+',
                     help='Enter a space delimited list of integers representing active SWARM quadrants. '
                          'ex: set_active_quadrants 1 2 3')
 args = parser.parse_args()
+logging.info("TEST")
 
 # Build two dictionaries one for active quadrant mappings and one for disabled quadrants.
 active_quad_mappings = OrderedDict()
