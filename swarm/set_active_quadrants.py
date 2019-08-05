@@ -49,7 +49,8 @@ logger = logging.getLogger()
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
 parser.add_argument('integers', metavar='N', type=int, nargs='+',
-                    help='Enter a space delimited list of integers representing active SWARM quadrants.')
+                    help='Enter a space delimited list of integers representing active SWARM quadrants. '
+                         'ex: set_active_quadrants 1 2 3')
 args = parser.parse_args()
 
 # Build two dictionaries one for active quadrant mappings and one for disabled quadrants.
