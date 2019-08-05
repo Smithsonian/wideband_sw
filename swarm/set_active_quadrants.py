@@ -48,9 +48,16 @@ LOG_CHANNEL = "swarm.logs.ctrl"
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
-fh = logging.FileHandler(SWARM_CTRL_LOG_CHANNEL)
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+
+# Stream to stdout
+stdout = logging.StreamHandler(sys.stdout)
+stdout.setLevel(logging.INFO)
+logger.addHandler(stdout)
+
+# Also, log to a Redis channel
+# logredis = RedisHandler(LOG_CHANNEL)
+# logredis.setLevel(logging.INFO)
+# logger.addHandler(logredis)
 
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
