@@ -1,7 +1,7 @@
 from signal import SIGQUIT
 
 SWARM_IDLE_BITCODE = 'idle.bof'
-
+SWARM_CTRL_LOG_CHANNEL = "swarm.logs.ctrl"
 SWARM_ROACH2_IP = 'roach2-%02x'
 SWARM_COLDSTART_PATH = '/otherInstances/tenzing/smainit_req/swarm_ctrl.URG'
 SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'

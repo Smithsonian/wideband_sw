@@ -44,7 +44,12 @@ def query_yes_no(question, default="yes"):
 
 
 # Setup root logger
+LOG_CHANNEL = "swarm.logs.ctrl"
 logger = logging.getLogger()
+formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
+fh = logging.FileHandler(SWARM_CTRL_LOG_CHANNEL)
+fh.setFormatter(formatter)
+logger.addHandler(fh)
 
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
