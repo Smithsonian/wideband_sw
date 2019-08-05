@@ -46,6 +46,7 @@ def query_yes_no(question, default="yes"):
 # Setup root logger
 LOG_CHANNEL = "swarm.logs.ctrl"
 logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
 fh = logging.FileHandler(SWARM_CTRL_LOG_CHANNEL)
 fh.setFormatter(formatter)
