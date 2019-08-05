@@ -42,9 +42,9 @@ def query_yes_no(question, default="yes"):
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
 
+
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
 
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
@@ -84,6 +84,7 @@ if query_yes_no("Restart corrSaver and SWARM processes?"):
     # Restart corrSaver on obscon.
     out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver", "restart"])
     logger.debug(out)
+    logger.info("")
 
     # Restart SWARM processes on Tenzing.
     out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "smainit", "restart"])
