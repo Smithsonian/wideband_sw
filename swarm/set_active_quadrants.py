@@ -1,3 +1,4 @@
+#! /usr/local/anaconda/envs/swarm/bin python
 import argparse
 import logging
 from collections import OrderedDict
@@ -44,20 +45,9 @@ def query_yes_no(question, default="yes"):
 
 
 # Setup root logger
-LOG_CHANNEL = "swarm.logs.ctrl"
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
-
-# Stream to stdout
-stdout = logging.StreamHandler(sys.stdout)
-stdout.setLevel(logging.INFO)
-logger.addHandler(stdout)
-
-# Also, log to a Redis channel
-# logredis = RedisHandler(LOG_CHANNEL)
-# logredis.setLevel(logging.INFO)
-# logger.addHandler(logredis)
 
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
