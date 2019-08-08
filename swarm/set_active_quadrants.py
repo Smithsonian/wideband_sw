@@ -1,4 +1,4 @@
-#! /usr/local/anaconda/envs/swarm/bin python
+#!/usr/local/anaconda/envs/swarm/bin/ python
 import argparse
 import logging
 from collections import OrderedDict
