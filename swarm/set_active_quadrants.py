@@ -111,7 +111,6 @@ if query_yes_no("Restart corrSaver and SWARM processes?"):
     logger.info("")
 
     # Restart SWARM processes on Tenzing.
-
     out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "swarm_ctrl", "restart"])
     logger.debug(out)
 
@@ -119,7 +118,7 @@ if query_yes_no("Restart corrSaver and SWARM processes?"):
     logger.debug(out)
 
     # Somehow wait for swarm and corrsaver to come back to life.
-    wait_time = 20
+    wait_time = 10
     logger.info("Waiting {0} seconds for corrSaver and Swarm python processes to restart".format(wait_time))
     time.sleep(wait_time)
 
