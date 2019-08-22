@@ -1211,14 +1211,10 @@ class Swarm:
         # If map_filenames is empty, look up the current list of active swarm quadrants.
         if not map_filenames:
             mappings_dict = mappings_dict if mappings_dict else self.get_current_swarm_mappings()
-            self.logger.info("NEW CODE: Using mapping dictionary")
-            self.logger.info(mappings_dict)
             self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in mappings_dict.items())
         else:
             # Legacy behavior: For every mapping file, instantiate one SwarmQuadrant.
             # Index problems will occur if the map file paths aren't in sequential order.
-            self.logger.info("OLD CODE: Using mapping list")
-            self.logger.info(map_filenames)
             self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
 
     def __len__(self):
