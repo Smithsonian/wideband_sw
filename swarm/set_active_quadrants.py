@@ -10,12 +10,13 @@ import subprocess
 from swarm import Swarm
 from swarm.defines import *
 
+
 def compare_with_active_quadrants(requested_active_quads):
     with open(ACTIVE_QUADRANTS_FILE_PATH) as qfile:
         line = qfile.readline().strip()
     if line:
         active_quads = [int(x) for x in line.split(" ")]
-        if active_quads.sort() == requested_active_quads.sort():
+        if sorted(active_quads) == sorted(requested_active_quads):
             return True
     return False
 
