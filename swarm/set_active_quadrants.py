@@ -71,7 +71,7 @@ logging.info("TEST")
 active_quad_mappings = OrderedDict()
 disabled_quad_mappings = OrderedDict()
 for num in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
-    if num in args.integers.sort():
+    if num in args.integers:
         active_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
     else:
         disabled_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
