@@ -11,6 +11,16 @@ from swarm import Swarm
 from swarm.defines import *
 
 
+def compare_with_active_quadrants(requested_active_quads):
+    with open(ACTIVE_QUADRANTS_FILE_PATH) as qfile:
+        line = qfile.readline().strip()
+    if line:
+        active_quads = [int(x) for x in line.split(" ")]
+        if active_quads.sort() == requested_active_quads.sort():
+            return True
+    return False
+
+
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
 
@@ -65,6 +75,11 @@ for num in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
         active_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
     else:
         disabled_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
+
+# Compare to swarmquadrants file.
+if compare_with_active_quadrants(active_quad_mappings.keys()):
+    if not query_yes_no("Requested quadrants are the same as current configuration, proceed anyway?"):
+        sys.exit()
 
 # Present the request and ask to proceed to IDLE quadrants.
 if disabled_quad_mappings:
