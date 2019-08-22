@@ -56,7 +56,7 @@ def query_yes_no(question, default="yes"):
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
 
 # Set up command line parameter parsing.
