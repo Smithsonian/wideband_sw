@@ -104,7 +104,7 @@ if query_yes_no("Update SWARMQuadrantsInArray file with " + active_quad_string +
     with open(ACTIVE_QUADRANTS_FILE_PATH, "w") as quadrants_file:
         quadrants_file.write(active_quad_string)
 
-if query_yes_no("Restart corrSaver swarm_ctrl and swarm_checks?"):
+if query_yes_no("Restart corrSaver swarm processes?"):
     # Restart corrSaver on obscon.
     out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver", "restart"])
     logger.debug(out)
@@ -115,6 +115,9 @@ if query_yes_no("Restart corrSaver swarm_ctrl and swarm_checks?"):
     logger.debug(out)
 
     out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "swarm_checks", "restart"])
+    logger.debug(out)
+
+    out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "swarm_dsm", "restart"])
     logger.debug(out)
 
     # Somehow wait for swarm and corrsaver to come back to life.
