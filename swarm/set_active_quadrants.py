@@ -100,11 +100,11 @@ if disabled_quad_mappings:
 
 # Update the SWARMQuadrantsInArray file with the active quadrant list.
 active_quad_string = " ".join(map(str, active_quad_mappings.keys()))
-if query_yes_no("Proceed to change SWARMQuadrantsInArray to " + active_quad_string + "?"):
+if query_yes_no("Update SWARMQuadrantsInArray file with " + active_quad_string + "?"):
     with open(ACTIVE_QUADRANTS_FILE_PATH, "w") as quadrants_file:
         quadrants_file.write(active_quad_string)
 
-if query_yes_no("Restart corrSaver and SWARM processes?"):
+if query_yes_no("Restart corrSaver swarm_ctrl and swarm_checks?"):
     # Restart corrSaver on obscon.
     out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver", "restart"])
     logger.debug(out)
@@ -121,7 +121,6 @@ if query_yes_no("Restart corrSaver and SWARM processes?"):
     wait_time = 10
     logger.info("Waiting {0} seconds for corrSaver and Swarm python processes to restart".format(wait_time))
     time.sleep(wait_time)
-
 
 if query_yes_no("Trigger cold start?"):
     # Trigger a cold start by opening the smainit URG file in write mode
