@@ -69,7 +69,7 @@ class SwarmROACH(object):
         # Unload plugins and program with idle code
         # self.unload_plugins()
         # self.roach2.progdev(bitcode)
-        self.logger.info('FAKE Idled with {0}'.format(bitcode))
+        self.logger.info('Fake Idled {0} with {1}'.format(self.roach2_host, self.bitcode))
 
     def send_katcp_cmd(self, cmd, *args):
 

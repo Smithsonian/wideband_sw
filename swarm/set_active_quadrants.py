@@ -69,7 +69,6 @@ parser.add_argument('integers', metavar='N', type=int, nargs='+',
                     help='Enter a space delimited list of integers representing active SWARM quadrants. '
                          'ex: set_active_quadrants 1 2 3')
 args = parser.parse_args()
-logging.error("TESTTESTTESTTESTTESTTESTTESTTESTTEST")
 
 # Build two dictionaries one for active quadrant mappings and one for disabled quadrants.
 active_quad_mappings = OrderedDict()
@@ -88,7 +87,7 @@ if compare_with_active_quadrants(active_quad_mappings.keys()):
 # Present the request and ask to proceed to IDLE quadrants.
 if disabled_quad_mappings:
     disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
-    if query_yes_no("Proceed to IDLE quadrants " + disabled_quad_string + "?"):
+    if query_yes_no("Proceed to IDLE quadrant(s) " + disabled_quad_string + "?"):
 
         # Instantiate a Swarm object using the disabled quadrant mappings.
         swarm = Swarm(mappings_dict=disabled_quad_mappings)
