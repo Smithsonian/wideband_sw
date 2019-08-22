@@ -120,7 +120,7 @@ if query_yes_no("Restart corrSaver and SWARM processes?"):
 
     # Somehow wait for swarm and corrsaver to come back to life.
     wait_time = 20
-    logger.info("Waiting {0} seconds for corrSaver and Swarm python processes to restart").format(wait_time)
+    logger.info("Waiting {0} seconds for corrSaver and Swarm python processes to restart".format(wait_time))
     time.sleep(wait_time)
 
 
