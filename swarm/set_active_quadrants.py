@@ -10,7 +10,6 @@ import subprocess
 from swarm import Swarm
 from swarm.defines import *
 
-
 def compare_with_active_quadrants(requested_active_quads):
     with open(ACTIVE_QUADRANTS_FILE_PATH) as qfile:
         line = qfile.readline().strip()
@@ -55,9 +54,14 @@ def query_yes_no(question, default="yes"):
 
 
 # Setup root logger
-logger = logging.getLogger()
+logger = logging.getLogger('SwarmDataHandler')
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
+
+# Stream to stdout
+stdout = logging.StreamHandler(sys.stdout)
+stdout.setLevel(logging.INFO)
+logger.addHandler(stdout)
 
 # Set up command line parameter parsing.
 parser = argparse.ArgumentParser(description='Script to set the active SWARM quadrants.')
