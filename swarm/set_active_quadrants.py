@@ -85,6 +85,19 @@ if compare_with_active_quadrants(active_quad_mappings.keys()):
     if not query_yes_no("Requested quadrants are the same as current configuration, proceed anyway?"):
         sys.exit()
 
+# Present the request and ask to proceed to IDLE quadrants.
+if disabled_quad_mappings:
+    disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
+    if query_yes_no("Proceed to IDLE quadrant(s) " + disabled_quad_string + "?"):
+
+        # Instantiate a Swarm object using the disabled quadrant mappings.
+        swarm = Swarm(mappings_dict=disabled_quad_mappings)
+
+        # IDLE the disabled quadrants.
+        disabled_quad_string = " ".join(map(str, disabled_quad_mappings.keys()))
+        pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
+        swarm.members_do(lambda fid, mbr: mbr.idle())
+
 # Update the SWARMQuadrantsInArray file with the active quadrant list.
 active_quad_string = " ".join(map(str, active_quad_mappings.keys()))
 if query_yes_no("Update SWARMQuadrantsInArray file with " + active_quad_string + "?"):
