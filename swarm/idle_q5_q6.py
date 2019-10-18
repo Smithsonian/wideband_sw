@@ -1,12 +1,24 @@
 #!/usr/local/anaconda/envs/swarm/bin/python
 from collections import OrderedDict
 import pyopmess
+import logging
+import sys
 from swarm import Swarm
 
 Q5_Q6_MAPPINGS = [
     '/global/configFiles/swarmMapping.quad5',
     '/global/configFiles/swarmMapping.quad6',
     ]
+
+# Setup root logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
+
+# Stream to stdout
+stdout = logging.StreamHandler(sys.stdout)
+stdout.setLevel(logging.INFO)
+logger.addHandler(stdout)
 
 # Build two dictionaries one for active quadrant mappings and one for disabled quadrants.
 quad_mappings = OrderedDict()
