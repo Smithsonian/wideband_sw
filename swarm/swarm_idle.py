@@ -43,7 +43,7 @@ for num in args.integers:
 
 # Present the request and ask to proceed to IDLE quadrants.
 idle_quad_string = " ".join(map(str, idle_quad_mappings.keys()))
-if query_yes_no("Proceed to IDLE quadrant(s) " + idle_quad_string + "?"):
+if idle_quad_mappings and query_yes_no("Proceed to IDLE quadrant(s) " + idle_quad_string + "?"):
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
     swarm = Swarm(mappings_dict=idle_quad_mappings)
