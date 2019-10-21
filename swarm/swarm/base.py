@@ -73,7 +73,8 @@ class SwarmROACH(object):
 
     def status(self):
         reply, informs = self.roach2._request("status", self.roach2._timeout)
-        self.logger.info(reply, informs)
+        self.logger.info(reply)
+        self.logger.info(informs)
 
     def send_katcp_cmd(self, cmd, *args):
 
