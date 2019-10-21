@@ -72,7 +72,7 @@ class SwarmROACH(object):
         self.logger.info('Idled {0} with {1}'.format(self.roach2_host, bitcode))
 
     def status(self):
-        reply, informs = self.roach2._request("status", self.roach2._timeout)
+        reply, informs = self.send_katcp_cmd("status")
         self.logger.info(reply)
         self.logger.info(informs)
 
