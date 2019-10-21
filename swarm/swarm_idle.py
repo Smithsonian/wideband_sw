@@ -51,4 +51,4 @@ if idle_quad_mappings and query_yes_no("Proceed to IDLE quadrant(s) " + idle_qua
     # IDLE the disabled quadrants.
     pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being idled")
     # swarm.members_do(lambda fid, mbr: mbr.idle())
-    swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd("info"))
+    swarm.members_do(lambda fid, mbr: mbr.status())
