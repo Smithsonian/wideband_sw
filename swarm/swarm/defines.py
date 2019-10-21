@@ -1,4 +1,5 @@
 from signal import SIGQUIT
+import sys
 
 SWARM_IDLE_BITCODE = 'idle.bof'
 SWARM_CTRL_LOG_CHANNEL = "swarm.logs.ctrl"
@@ -60,7 +61,7 @@ SWARM_INT_HB_PERIOD = SWARM_CLOCKS_PER_INT_HB / SWARM_CLOCK_RATE
 # External Walshing parameters
 # (changes with SMA Walshing changes)
 SWARM_EXT_HB_PER_WCYCLE = 64
-SWARM_EXT_HB_PERIOD = (2**19) / (52e6)
+SWARM_EXT_HB_PERIOD = (2**19) / 52e6
 SWARM_WALSH_PERIOD = SWARM_EXT_HB_PERIOD * SWARM_EXT_HB_PER_WCYCLE
 
 # Internal/external relationship
@@ -148,3 +149,37 @@ SMAINIT_NORMAL_RTN = 0
 SMAINIT_SIGNAL_RTN = 0x20
 SMAINIT_SYSERR_RTN = 0x40
 SMAINIT_QUIT_RTN = (SMAINIT_SIGNAL_RTN + SIGQUIT)
+
+
+# Reusable Utility Functions
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [(y)/n] "
+    elif default == "no":
+        prompt = " [y/(n)] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")
