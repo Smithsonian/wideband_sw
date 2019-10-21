@@ -36,7 +36,7 @@ args = parser.parse_args()
 # Do a little error checking to make sure the input params are at least valid swarm quadrants.
 idle_quad_mappings = OrderedDict()
 for num in args.integers:
-    if num in SWARM_MAPPING_CHUNKS:
+    if (num - 1) in SWARM_MAPPING_CHUNKS:
         idle_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
     else:
         print(str(num) + " is not a valid SWARM quadrant and will be ignored.")
