@@ -2,13 +2,11 @@
 import argparse
 import logging
 from collections import OrderedDict
-import time
 import sys
 
 import pyopmess
-import subprocess
 from swarm import Swarm
-from swarm.defines import *
+from swarm.defines import query_yes_no, SWARM_MAPPING_CHUNKS, SWARM_MAPPINGS
 
 """
 swarm_idle.py
