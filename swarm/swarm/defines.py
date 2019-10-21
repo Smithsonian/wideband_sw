@@ -6,19 +6,27 @@ SWARM_ROACH2_IP = 'roach2-%02x'
 SWARM_COLDSTART_PATH = '/otherInstances/tenzing/smainit_req/swarm_ctrl.URG'
 SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'
 ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
-SWARM_MAX_NUM_QUADRANTS = 4
+
+# SWARM_MAPPINGS dictates the number of possible quadrants for the rest of the code.
+# If you change the number of quadrants in SWARM, it won't work correctly until you
+# create/remove the mappings in this list.
 SWARM_MAPPINGS = [
     '/global/configFiles/swarmMapping.quad1',
     '/global/configFiles/swarmMapping.quad2',
     '/global/configFiles/swarmMapping.quad3',
     '/global/configFiles/swarmMapping.quad4',
+    '/global/configFiles/swarmMapping.quad5',
+    '/global/configFiles/swarmMapping.quad6',
     ]
+
+SWARM_MAX_NUM_QUADRANTS = len(SWARM_MAPPINGS)
+SWARM_MAPPING_CHUNKS = tuple([q for q in range(SWARM_MAX_NUM_QUADRANTS)])
+
 SWARM_MAPPING_COMMENT = '#'
 SWARM_MAPPING_MEM_PARAM = '!'
 SWARM_MAPPING_QUAD_PARAM = '$'
 SWARM_MAPPING_COLUMNS = 5
 SWARM_MAPPING_INPUTS = (0, 1)
-SWARM_MAPPING_CHUNKS = (0, 1, 2, 3)
 SWARM_MAPPING_POLS = (0, 1)
 
 SWARM_PLUGINS_CONFIG = '/global/configFiles/swarmPlugins'
