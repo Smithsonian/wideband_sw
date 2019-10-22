@@ -1,6 +1,5 @@
 #!/usr/local/anaconda/envs/swarm/bin/python
 
-import sys
 import logging
 import argparse
 from swarm import *
