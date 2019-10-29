@@ -1,5 +1,5 @@
 from defines import *
-from numba import jit
+from numba import jit, boolean, uint8
 
 simple_mapping = (
     ('in0',  'in1'),
@@ -53,7 +53,7 @@ class SwarmBaseline:
                                  valid_inputs)
 
 
-@jit
+@jit(boolean(uint8,uint8,uint8,uint8,uint8,uint8,boolean))
 def compiled_is_valid(left_chk, right_chk, left_pol, right_pol, left_ant, right_ant, valid_inputs):
     cross_chunk = left_chk != right_chk
     cross_pol = left_pol != right_pol
