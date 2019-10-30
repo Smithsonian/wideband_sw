@@ -132,7 +132,7 @@ class SwarmDataPackage(object):
             self.get(baseline, sideband)[slice_+1] = 0.0
 
 
-@jit(parallel=True)
+@jit(cache=True)
 def compute_slice(fid, imag_off):
     """
     Moved this calculation into its own function in order to make use of numba's @jit feature.
