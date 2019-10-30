@@ -71,6 +71,12 @@ class SwarmROACH(object):
         self.roach2.progdev(bitcode)
         self.logger.info('Idled {0} with {1}'.format(self.roach2_host, bitcode))
 
+    def load_bitcode(self, bitcode="sma_corr_full_rev2_-2.bof.gz"):
+        # Unload plugins and program
+        self.unload_plugins()
+        self.roach2.progdev(bitcode)
+        self.logger.info('Programmed {0} with {1}'.format(self.roach2_host, bitcode))
+
     def send_katcp_cmd(self, cmd, *args):
 
         # Create the message object

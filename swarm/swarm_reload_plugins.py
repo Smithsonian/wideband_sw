@@ -20,7 +20,7 @@ stdout.setLevel(logging.INFO)
 logger.addHandler(stdout)
 
 # Set up command line parameter parsing.
-parser = argparse.ArgumentParser(description='Script to reload_plugins SWARM quadrants. ENGINEERING/TESTING ONLY!!!')
+parser = argparse.ArgumentParser(description='Script to program new bitcode and reload_plugins SWARM quadrants. ENGINEERING/TESTING ONLY!!!')
 parser.add_argument('integers', metavar='N', type=int, nargs='+',
                     help='Enter a space delimited list of integers representing SWARM quadrants. '
                          'ex: swarm_idle 5 6')
@@ -40,7 +40,8 @@ if idle_quad_mappings and query_yes_no("Proceed to reload plugins for quadrant(s
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
     swarm = Swarm(mappings_dict=idle_quad_mappings)
+    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + "loading bitcode")
+    swarm.members_do(lambda fid, mbr: mbr.load_bitcode())
 
-    # IDLE the disabled quadrants.
     pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being reloading plugins")
     swarm.members_do(lambda fid, mbr: mbr.reload_plugins())
