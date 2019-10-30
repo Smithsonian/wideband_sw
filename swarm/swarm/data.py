@@ -12,7 +12,7 @@ from socket import (
     )
 
 from numpy import array, nan, fromstring, empty, reshape
-from numba import jit, uint8, uint32
+from numba import jit, uint8, uint32, uint16
 import core
 from defines import *
 from xeng import (
@@ -132,7 +132,7 @@ class SwarmDataPackage(object):
             self.get(baseline, sideband)[slice_+1] = 0.0
 
 
-@jit
+@jit(uint16[:](uint8, uint8))
 def compute_slice(fid, imag_off):
     """
     Moved this calculation into its own function in order to make use of numba's @jit feature.
