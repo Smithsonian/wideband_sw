@@ -484,11 +484,11 @@ class SwarmDataCatcher:
                         continue
 
                 # Log that we're done with rawbacks
-                # self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
+                self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Reorder the xengine data
                 data_pkg = self._reorder_data(data, int_time, int_length)
-                # self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
+                self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
 		# Put data onto queue
                 out_queue.put((acc_n, int_time, data_pkg))
@@ -582,7 +582,7 @@ class SwarmDataHandler:
                     raise
 
             # Log that we're done with callbacks
-            # self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
+            self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
 
             gc.collect() # Force garbage collection
             self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))

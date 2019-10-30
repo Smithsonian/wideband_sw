@@ -20,4 +20,4 @@ class SMAData(SwarmDataCallback):
         subs = self.redis.publish(self.pub_channel, data)
 
         # Info log the set
-        # self.logger.info("Data sent to %d subscribers", subs)
+        self.logger.info("Data sent to %d subscribers", subs)
