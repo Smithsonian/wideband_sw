@@ -160,7 +160,7 @@ class BengineDataCatcher(Thread):
 
 	    # Unpack it to get bcount, fid, and chan id
             bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
-            self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+            # self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
 
             # Grab the payload
             payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
@@ -207,7 +207,7 @@ class DBEDataCatcher(BengineDataCatcher):
         # Unpack it to get bcount, fid, and chan id
         beng_hdr_bin = datar[beng_hdr_offset:beng_hdr_offset + SWARM_BENGINE_HEADER_SIZE]
         bcount_msb, chan_id, fid, bcount_lsb = unpack('<IHBB', beng_hdr_bin)
-        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+        # self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
 
         # Grab the payload
         payload_bin = datar[beng_data_offset:]
