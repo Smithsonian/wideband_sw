@@ -12,7 +12,7 @@ from socket import (
     )
 
 from numpy import array, nan, fromstring, empty, reshape
-from numba import jit, u1, u2, u4, i1, i2, i4
+from numba import jit
 import core
 from defines import *
 from xeng import (
