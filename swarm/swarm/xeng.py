@@ -53,7 +53,7 @@ class SwarmBaseline:
                                  valid_inputs)
 
 
-@jit(b1(i1, i1, i1, i1, i1, i1, b1))
+@jit(b1(i1, i1, i1, i1, i1, i1, b1), parallel=True)
 def compiled_is_valid(left_chk, right_chk, left_pol, right_pol, left_ant, right_ant, valid_inputs):
     cross_chunk = left_chk != right_chk
     cross_pol = left_pol != right_pol
