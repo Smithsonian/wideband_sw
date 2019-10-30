@@ -12,7 +12,7 @@ from socket import (
     )
 
 from numpy import array, nan, fromstring, empty, reshape
-from numba import jit
+from numba import jit, uint8, uint32
 import core
 from defines import *
 from xeng import (
@@ -125,7 +125,6 @@ class SwarmDataPackage(object):
 
         # Fill this baseline
         slice_ = compute_slice(fid, imag_off)
-        print(slice_)
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
@@ -133,7 +132,7 @@ class SwarmDataPackage(object):
             self.get(baseline, sideband)[slice_+1] = 0.0
 
 
-@jit
+@jit(uint32[:](uint8, uint8))
 def compute_slice(fid, imag_off):
     """
     Moved this calculation into its own function in order to make use of numba's @jit feature.
