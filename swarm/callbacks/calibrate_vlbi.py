@@ -146,14 +146,14 @@ class CalibrateVLBI(SwarmDataCallback):
             self.skip_next[:] = True
         if not this_input==self.reference:
             self.swarm.set_delay(this_input, updated_delay)
-            # self.logger.debug('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
+            self.logger.debug('{0} : Old delay={1:>8.2f} ns,  New delay={2:>8.2f} ns,  Diff. delay={3:>8.2f} ns'.format(this_input, current_delay, updated_delay, feedback_delay))
 
     def feedback_phase(self, this_input, feedback_phase):
         current_phase = self.swarm.get_phase(this_input)
         updated_phase = current_phase + feedback_phase
         if not this_input==self.reference:
             self.swarm.set_phase(this_input, wrap_phase(updated_phase))
-            # self.logger.debug('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
+            self.logger.debug('{0} : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(this_input, current_phase, updated_phase, feedback_phase))
 
     def pid_servo(self, inputs):
         p, i, d = self.PID_coeffs
@@ -213,8 +213,8 @@ class CalibrateVLBI(SwarmDataCallback):
         cal_solution = hstack(cal_solution_tmp)
         amplitudes, delays, phases = cal_solution
 
-        # for i in range(len(inputs)):
-        #     self.logger.debug('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
+        for i in range(len(inputs)):
+            self.logger.debug('{} : Amp={:>12.2e}, Delay={:>8.2f} ns, Phase={:>8.2f} deg'.format(inputs[i], amplitudes[i], delays[i], phases[i]))
         for chunk in SWARM_MAPPING_CHUNKS:
             for pol in SWARM_MAPPING_POLS:
                 self.logger.info('Avg. phasing efficiency across chunk {}, pol {}={:>8.2f} +/- {:.2f}'.format(chunk, pol, nanmean(efficiencies[pol][chunk]), nanstd(efficiencies[pol][chunk])))

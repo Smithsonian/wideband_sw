@@ -98,7 +98,8 @@ class SwarmShellMagics(Magics):
         [t.join() for t in threads]
         while not queue.empty():
             memb, reply = queue.get()
-            # self.logger.debug("{0} programmed status is {1}".format(memb.roach2_host, "OK" if reply[0].reply_ok() else "not OK"))
+            self.logger.debug("{0} programmed status is {1}".format(memb.roach2_host,
+              "OK" if reply[0].reply_ok() else "not OK"))
             swarm_roach2_status[memb]["programmed"] = "OK" if reply[0].reply_ok() else "not OK"
 
         # Check firmware version information
@@ -108,8 +109,8 @@ class SwarmShellMagics(Magics):
         [t.join() for t in threads]
         while not queue.empty():
             memb, rcs = queue.get()
-            # self.logger.debug("{0} is running bitcode version {1:x} ({2})".format(memb.roach2_host,
-            #   rcs["app_rev"],"dirty" if rcs["app_dirty"] else "clean"))
+            self.logger.debug("{0} is running bitcode version {1:x} ({2})".format(memb.roach2_host,
+              rcs["app_rev"],"dirty" if rcs["app_dirty"] else "clean"))
             swarm_roach2_status[memb]["firmware"] = "commit hash {0:x} ({1})".format(rcs["app_rev"],
               "dirty" if rcs["app_dirty"] else "clean")
 
@@ -120,7 +121,7 @@ class SwarmShellMagics(Magics):
         [t.join() for t in threads]
         while not queue.empty():
             memb, clk = queue.get()
-            # self.logger.debug("{0} clock is ~{1:.1f} MHz".format(memb.roach2_host,clk))
+            self.logger.debug("{0} clock is ~{1:.1f} MHz".format(memb.roach2_host,clk))
             swarm_roach2_status[memb]["clock"] = "OK" if clk > 200 and clk < 400 else "possibly not OK ({0.1f}MHz)".format(clk)
 
         # Log results from all checks

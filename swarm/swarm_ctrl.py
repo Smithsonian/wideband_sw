@@ -227,10 +227,10 @@ def cold_start_handler(signum, frame):
         fmt_exc = format_exception(*exc)
         tb_str = ''.join(fmt_exc[0:-1])
         exc_str = ''.join(fmt_exc[-1])
-        # for line in tb_str.splitlines():
-        #     adccal_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
-        # for line in exc_str.splitlines():
-        #     adccal_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+        for line in tb_str.splitlines():
+            adccal_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+        for line in exc_str.splitlines():
+            adccal_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
     # If any exception occurred raise error
     if exceptions > 0:

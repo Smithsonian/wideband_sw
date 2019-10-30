@@ -437,7 +437,7 @@ class SwarmMember(base.SwarmROACH):
 
         # calibrate each QDR
         for qnum in SWARM_ALL_QDR:
-            # self.logger.debug('checking QDR memory %d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdrs[qnum].qdr_cal(fail_hard=False):
@@ -463,7 +463,7 @@ class SwarmMember(base.SwarmROACH):
   
         # verify each QDR
         for qnum in SWARM_ALL_QDR:
-            # self.logger.debug('checking QDR memory %d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdr_ready(qnum):
@@ -480,7 +480,7 @@ class SwarmMember(base.SwarmROACH):
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-            # self.logger.debug('QDR memory {0} verified successfully'.format(qnum))
+            self.logger.debug('QDR memory {0} verified successfully'.format(qnum))
 
     def setup_visibs(self, qid, listener, delay_test=False):
 
@@ -775,8 +775,8 @@ class SwarmQuadrant:
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
-            # self.logger.debug("{0} is not a SwarmQuadrant method but it is a SwarmMember method; "
-            #                  "calling on all members!".format(attr))
+            self.logger.debug("{0} is not a SwarmQuadrant method but it is a SwarmMember method; "
+                             "calling on all members!".format(attr))
             return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
         # See if user is trying to access the SwarmMember.roach2 attribute
@@ -832,7 +832,7 @@ class SwarmQuadrant:
                 if is_comment:
 
                     # Display map comment
-                    # self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
+                    self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
 
                 elif is_quadrant_parameter:
 
@@ -843,7 +843,7 @@ class SwarmQuadrant:
                         self.logger.warning('Ignoring quadrant parameter {0}; will not override existing attributes'.format(entry[1]))
 
                     # Display map parameter
-                    # self.logger.debug('Quadrant attribute set: {0}={1}'.format(entry[1], getattr(self, entry[1])))
+                    self.logger.debug('Quadrant attribute set: {0}={1}'.format(entry[1], getattr(self, entry[1])))
 
                 elif is_member_parameter:
 
@@ -851,7 +851,7 @@ class SwarmQuadrant:
                     parameters[entry[1]] = entry[2] if len(entry[2:]) == 1 else entry[2:]
 
                     # Display map parameter
-                    # self.logger.debug('Member parameters updated: {0}'.format(parameters))
+                    self.logger.debug('Member parameters updated: {0}'.format(parameters))
 
                 else:
 
@@ -901,7 +901,8 @@ class SwarmQuadrant:
                     self.members[roach2_host].set_input(roach2_inp, input_inst)
 
                     # We're done, spit some info out
-                    # self.logger.debug('Mapping antenna=%r to %s:input=%d', input_inst, roach2_host, roach2_inp)
+                    self.logger.debug('Mapping antenna=%r to %s:input=%d', 
+                                      input_inst, roach2_host, roach2_inp)
 
         # Set number FIDs expected
         self.fids_expected = fid
@@ -944,7 +945,7 @@ class SwarmQuadrant:
                 if is_comment:
 
                     # Display map comment
-                    # self.logger.debug('Mapping comment found: %s' % walsh_line.rstrip())
+                    self.logger.debug('Mapping comment found: %s' % walsh_line.rstrip())
 
                 else:
 
@@ -955,7 +956,7 @@ class SwarmQuadrant:
                     pattern = entry[1]
 
                     # Display Walsh pattern we found
-                    # self.logger.debug('Length %d Walsh pattern found for antenna #%d' % (len(pattern), ant))
+                    self.logger.debug('Length %d Walsh pattern found for antenna #%d' % (len(pattern), ant))
 
                     # Add it to your patterns
                     self.walsh_patterns[ant] = pattern
@@ -1190,10 +1191,10 @@ class SwarmQuadrant:
                 fmt_exc = format_exception(*exc)
                 tb_str = ''.join(fmt_exc[0:-1])
                 exc_str = ''.join(fmt_exc[-1])
-                # for line in tb_str.splitlines():
-                #     setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
-                # for line in exc_str.splitlines():
-                #     setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
             # If any exception occurred raise error
             if exceptions > 0:
@@ -1286,8 +1287,8 @@ class Swarm:
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
-            # self.logger.debug("{0} is not a Swarm method but it is a SwarmQuadrant method; "
-            #                  "calling on all quadrants!".format(attr))
+            self.logger.debug("{0} is not a Swarm method but it is a SwarmQuadrant method; "
+                             "calling on all quadrants!".format(attr))
             return lambda *args, **kwargs: self.quadrants_do(lambda qid, quad: getattr(quad, attr)(*args, **kwargs))
 
         # See if user is trying to access the SwarmMember.roach2 attribute
@@ -1347,10 +1348,10 @@ class Swarm:
                 fmt_exc = format_exception(*exc)
                 tb_str = ''.join(fmt_exc[0:-1])
                 exc_str = ''.join(fmt_exc[-1])
-                # for line in tb_str.splitlines():
-                #     setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
-                # for line in exc_str.splitlines():
-                #     setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
             # If any exception occurred raise error
             if exceptions > 0:
@@ -1398,7 +1399,7 @@ class Swarm:
             try:
                 listener = data.SwarmListener(interfaces.pop(0))
             except IndexError:
-                # self.logger.debug('Reached end of interface list; using last given')
+                self.logger.debug('Reached end of interface list; using last given')
 
             # We've got a listener, setup this quadrant
             for fid, member in quad.get_valid_members():
