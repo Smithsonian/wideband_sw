@@ -830,7 +830,7 @@ class SwarmQuadrant:
                 is_member_parameter = entry[0].startswith(SWARM_MAPPING_MEM_PARAM)
 
                 if is_comment:
-                    pass
+
                     # Display map comment
                     # self.logger.debug('Mapping comment found: %s' % map_line.rstrip())
 
@@ -942,7 +942,7 @@ class SwarmQuadrant:
                 is_comment = entry[0].startswith(SWARM_MAPPING_COMMENT)
 
                 if is_comment:
-                    pass
+
                     # Display map comment
                     # self.logger.debug('Mapping comment found: %s' % walsh_line.rstrip())
 
@@ -1399,7 +1399,7 @@ class Swarm:
                 listener = data.SwarmListener(interfaces.pop(0))
             except IndexError:
                 # self.logger.debug('Reached end of interface list; using last given')
-                pass
+
             # We've got a listener, setup this quadrant
             for fid, member in quad.get_valid_members():
                 member.setup_visibs(qid, listener, delay_test=delay_test)
