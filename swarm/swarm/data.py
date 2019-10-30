@@ -124,7 +124,7 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off)
+        slice_ = compute_slice(fid, imag_off)
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
@@ -133,7 +133,7 @@ class SwarmDataPackage(object):
 
 
 @jit
-def compute_slice(DATA_FID_IND, fid, SWARM_XENG_PARALLEL_CHAN, imag_off):
+def compute_slice(fid, imag_off):
     """
     Moved this calculation into its own function in order to make use of numba's @jit feature.
     We gain a %5 improvement from doing this.
