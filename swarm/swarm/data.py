@@ -125,6 +125,7 @@ class SwarmDataPackage(object):
 
         # Fill this baseline
         slice_ = compute_slice(fid, imag_off)
+        print(type(slice_))
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
