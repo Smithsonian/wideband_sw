@@ -36,12 +36,13 @@ for num in args.integers:
 
 # Present the request and ask to proceed to IDLE quadrants.
 idle_quad_string = " ".join(map(str, idle_quad_mappings.keys()))
-if idle_quad_mappings and query_yes_no("Proceed to reload plugins for quadrant(s) " + idle_quad_string + "?"):
+if idle_quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins for quadrant(s) " + idle_quad_string + "?"):
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
     swarm = Swarm(mappings_dict=idle_quad_mappings)
-    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + "loading bitcode")
+    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " loading bitcode")
     swarm.members_do(lambda fid, mbr: mbr.load_bitcode())
+    swarm.members_do(lambda fid, mbr: mbr.set_source(2, 2))
 
     pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being reloading plugins")
     swarm.members_do(lambda fid, mbr: mbr.reload_plugins())
