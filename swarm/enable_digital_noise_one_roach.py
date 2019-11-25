@@ -18,14 +18,12 @@ logger.addHandler(stdout)
 
 
 swarm = Swarm()
-# quad5 = swarm.quads
+quad5 = swarm.quads[5]
 
-print(swarm.quads)
-
-# Find the member with the right visibs_ip
-# for fid, member in quad5.get_valid_members():
-#     if fid == 2:
-#         member.set_source(3, 3)
+for fid, member in quad5.get_valid_members():
+    if fid == 2:
+        print(member.get_visibs_ip())
+        # member.set_source(3, 3)
 
 
     # swarm.members_do(lambda fid, member: member.set_source(3, 3))
