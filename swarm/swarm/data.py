@@ -181,6 +181,34 @@ def has_none(obj):
     return False
 
 
+@jit
+def unpack_ip(addr):
+    # Parse the IP address
+    return unpack('BBBB', inet_aton(addr))
+
+
+@jit
+def determine_qid(ip):
+    # Determine the QID
+    return (ip >> 4) & 0x7
+
+
+@jit
+def determine_fid(ip):
+    # Determine the FID
+    return ip & 0x7
+
+
+@jit
+def determine_xnum(xnum_mb, xnum_lh):
+    return ((xnum_mb << 16) | xnum_lh) << 5
+
+
+@jit
+def determine_acc_n(acc_n_mb, acc_n_lh):
+    return (acc_n_mb << 16) | acc_n_lh
+
+
 class SwarmDataCatcher:
 
     def __init__(self, swarm, host='0.0.0.0', port=4100):
@@ -282,19 +310,19 @@ class SwarmDataCatcher:
             #     continue
 
             # Parse the IP address
-            ip = unpack('BBBB', inet_aton(addr[0]))
+            ip = unpack_ip(addr[0])
 
-            # Determing the QID
-            qid = (ip[3] >> 4) & 0x7
+            # Determine the QID
+            qid = determine_qid(ip[3])
 
             # Determine the FID
-            fid = ip[3] & 0x7
+            fid = determine_fid(ip[3])
 
             # Unpack it to get packet #, accum #, and scan length
             pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT,
                                                                  datar[:SWARM_VISIBS_HEADER_SIZE])
-            xnum = ((xnum_mb << 16) | xnum_lh) << 5
-            acc_n = (acc_n_mb << 16) | acc_n_lh
+            xnum = determine_xnum(xnum_mb, xnum_lh)
+            acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
 
             # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
