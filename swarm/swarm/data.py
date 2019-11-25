@@ -292,10 +292,13 @@ class SwarmDataCatcher:
             # Determine the FID
             fid = ip[3] & 0x7
 
-	    # Unpack it to get packet #, accum #, and scan length
+
+            # Unpack it to get packet #, accum #, and scan length
             pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
             xnum = ((xnum_mb << 16) | xnum_lh) << 5
             acc_n = (acc_n_mb << 16) | acc_n_lh
+            tmp_msg = "Caught Accum #{0} with qid={1}, fid={2}".format(acc_n, qid, fid)
+            self.logger.debug(tmp_msg)
 
 	    # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
