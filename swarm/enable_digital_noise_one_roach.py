@@ -18,7 +18,7 @@ logger.addHandler(stdout)
 
 
 swarm = Swarm()
-quad5 = swarm.quads[5]
+quad5 = swarm.quads[4]
 
 for fid, member in quad5.get_valid_members():
     if fid == 2:
