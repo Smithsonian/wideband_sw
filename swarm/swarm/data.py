@@ -379,8 +379,8 @@ class SwarmDataCatcher:
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
-        while not stop.is_set():
-
+        # while not stop.is_set():
+        while True:
             # Receive a set of data
             try:
                 message = in_queue.get_nowait()
