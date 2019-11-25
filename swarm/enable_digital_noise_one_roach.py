@@ -22,8 +22,7 @@ quad5 = swarm.quads[5]
 
 for fid, member in quad5.get_valid_members():
     if fid == 2:
-        print(member.get_visibs_ip())
-        # member.set_source(3, 3)
+        member.set_source(3, 3)
 
 
     # swarm.members_do(lambda fid, member: member.set_source(3, 3))
