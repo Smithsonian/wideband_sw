@@ -21,7 +21,7 @@ swarm = Swarm()
 quad5 = swarm.quads[4]
 
 for fid, member in quad5.get_valid_members():
-    if fid == 2:
+    if fid == 0:
         member.set_source(3, 3)
 
 
