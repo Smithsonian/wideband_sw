@@ -379,8 +379,8 @@ class SwarmDataCatcher:
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
-        # while not stop.is_set():
-        while True:
+        while not stop.is_set():
+
             # Receive a set of data
             try:
                 message = in_queue.get_nowait()
@@ -558,8 +558,7 @@ class SwarmDataHandler:
         current_scan_length = self.update_itime_from_dsm(check_fpga_itime=True)
 
         # Loop until user quits
-        # while running.is_set():
-        while True:
+        while running.is_set():
 
             try: # to check for data
                 message = self.queue.get_nowait()
