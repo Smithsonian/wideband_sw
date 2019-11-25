@@ -275,6 +275,7 @@ class SwarmDataCatcher:
             except timeout:
                 continue
 
+            # Temporarily disabled to improve performance on Tenzing. Packets seemed to be getting lost.
             # Check if packet is wrong size
             # if len(datar) <> SWARM_VISIBS_PKT_SIZE:
             #     self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
@@ -316,6 +317,7 @@ class SwarmDataCatcher:
                     'xnum': xnum,  # of the first packet of this acc
                 }
 
+            # Temporarily disabled to improve performance on Tenzing. Packets seemed to be getting lost.
             # Check that xnum matches that of first packet
             # acc_xnum = meta[qid][fid][acc_n]['xnum']
             # if xnum != acc_xnum: # if not, trigger a shutdown and exit
@@ -335,8 +337,6 @@ class SwarmDataCatcher:
                 mask[qid][fid].pop(acc_n)
                 datas = ''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
-                tmp_msg = "Queued Accum #{0} with qid={1}, fid={2}".format(acc_n, qid, fid)
-                self.logger.debug(tmp_msg)
 
         udp_sock.close()
 
@@ -401,8 +401,6 @@ class SwarmDataCatcher:
             if current_acc is None:
 
                 # Check that first data starts with 0, 0
-                tmp_msg = "Accumulation #{0} started with qid={1}, fid={2}".format(acc_n, qid, fid)
-                self.logger.info(tmp_msg)
                 if not ((qid == 0) and (fid == 0)):
 
                     # But, skip if it's a partial primordial scan
