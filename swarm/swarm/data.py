@@ -402,6 +402,8 @@ class SwarmDataCatcher:
             if current_acc is None:
 
                 # Check that first data starts with 0, 0
+                tmp_msg = "Accumulation #{0} started with qid={1}, fid={2}".format(acc_n, qid, fid)
+                self.logger.info(tmp_msg)
                 if not ((qid == 0) and (fid ==0)):
 
                     # But, skip if it's a partial primordial scan
