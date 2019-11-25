@@ -276,9 +276,9 @@ class SwarmDataCatcher:
                 continue
 
             # Check if packet is wrong size
-            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-                self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-                continue
+            # if len(datar) <> SWARM_VISIBS_PKT_SIZE:
+            #     self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
+            #     continue
 
             # Parse the IP address
             ip = unpack('BBBB', inet_aton(addr[0]))
@@ -317,13 +317,13 @@ class SwarmDataCatcher:
                 }
 
             # Check that xnum matches that of first packet
-            acc_xnum = meta[qid][fid][acc_n]['xnum']
-            if xnum != acc_xnum: # if not, trigger a shutdown and exit
-                err_msg = "Received packet %d:#%d has non-matching xnum=%d, should be %d!" %(acc_n, pkt_n, xnum, acc_xnum)
-                exception = ValueError(err_msg)
-                self.logger.error(err_msg)
-                out_queue.put(exception)
-                continue
+            # acc_xnum = meta[qid][fid][acc_n]['xnum']
+            # if xnum != acc_xnum: # if not, trigger a shutdown and exit
+            #     err_msg = "Received packet %d:#%d has non-matching xnum=%d, should be %d!" %(acc_n, pkt_n, xnum, acc_xnum)
+            #     exception = ValueError(err_msg)
+            #     self.logger.error(err_msg)
+            #     out_queue.put(exception)
+            #     continue
 
             # Then store data in it
             data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
