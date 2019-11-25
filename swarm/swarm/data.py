@@ -558,7 +558,8 @@ class SwarmDataHandler:
         current_scan_length = self.update_itime_from_dsm(check_fpga_itime=True)
 
         # Loop until user quits
-        while running.is_set():
+        # while running.is_set():
+        while True:
 
             try: # to check for data
                 message = self.queue.get_nowait()
