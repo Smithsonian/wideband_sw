@@ -341,6 +341,8 @@ class SwarmDataCatcher:
                 mask[qid][fid].pop(acc_n)
                 datas = ''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
+                tmp_msg = "Queued Accum #{0} with qid={1}, fid={2}".format(acc_n, qid, fid)
+                self.logger.debug(tmp_msg)
 
         udp_sock.close()
 
