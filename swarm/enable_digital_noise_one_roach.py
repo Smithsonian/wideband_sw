@@ -18,9 +18,9 @@ logger.addHandler(stdout)
 
 
 swarm = Swarm()
-quad5 = swarm.quads[5]
+# quad5 = swarm.quads
 
-print(len(quad5))
+print(swarm.quads)
 
 # Find the member with the right visibs_ip
 # for fid, member in quad5.get_valid_members():
