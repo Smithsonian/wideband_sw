@@ -298,10 +298,9 @@ class SwarmDataCatcher:
 
             # Receive a packet and get host info
             try:
-                datar, addr = udp_sock.recvfrom(999999)
+                datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
                 pkt_time = time()  # packet arrival time
             except timeout:
-                self.logger.info("timeout")
                 continue
 
             # Check if packet is wrong size
@@ -311,15 +310,12 @@ class SwarmDataCatcher:
 
             # Parse the IP address
             ip = unpack_ip(addr[0])
-            self.logger.info(ip)
 
             # Determine the QID
             qid = determine_qid(ip[3])
-            self.logger.info(qid)
 
             # Determine the FID
             fid = determine_fid(ip[3])
-            self.logger.info(fid)
 
             # Unpack it to get packet #, accum #, and scan length
             pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT,
