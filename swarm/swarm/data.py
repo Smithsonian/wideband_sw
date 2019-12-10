@@ -301,6 +301,7 @@ class SwarmDataCatcher:
                 datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
                 pkt_time = time()  # packet arrival time
             except timeout:
+                self.logger.info("timeout")
                 continue
 
             # Check if packet is wrong size
