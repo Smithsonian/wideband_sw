@@ -303,14 +303,14 @@ class SwarmDataCatcher:
             except timeout:
                 continue
 
-            # Temporarily disabled to improve performance on Tenzing. Packets seemed to be getting lost.
             # Check if packet is wrong size
-            # if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-            #     self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-            #     continue
+            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
+                self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
+                continue
 
             # Parse the IP address
             ip = unpack_ip(addr[0])
+            self.logger.info()
 
             # Determine the QID
             qid = determine_qid(ip[3])
