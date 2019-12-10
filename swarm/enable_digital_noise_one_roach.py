@@ -24,8 +24,10 @@ parser.add_argument('-r', '--roach', dest='roach', metavar='ROACH-ID', type=int)
 args = parser.parse_args()
 
 swarm = Swarm()
-quad = swarm.quads[args.quad - 1]
+for q in swarm.quads:
+    if q.qid == args.quad:
+        swarm_quad = q
 
-for fid, member in quad.get_valid_members():
+for fid, member in swarm_quad.get_valid_members():
     if fid == args.roach - 1:
         member.set_source(3, 3)

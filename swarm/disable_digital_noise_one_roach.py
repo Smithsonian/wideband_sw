@@ -4,6 +4,7 @@ import sys
 
 import pyopmess
 from swarm import Swarm
+import argparse
 from swarm.defines import query_yes_no
 
 # Setup root logger
@@ -16,14 +17,17 @@ stdout = logging.StreamHandler(sys.stdout)
 stdout.setLevel(logging.INFO)
 logger.addHandler(stdout)
 
+# Set up command line parameter parsing.
+parser = argparse.ArgumentParser(description='Script to disable internal FPGA noise on a single roach2.')
+parser.add_argument('-q', '--quad', dest='quad', metavar='QUADRANT', type=int)
+parser.add_argument('-r', '--roach', dest='roach', metavar='ROACH-ID', type=int)
+args = parser.parse_args()
 
 swarm = Swarm()
-quad5 = swarm.quads[4]
+for q in swarm.quads:
+    if q.qid == args.quad:
+        swarm_quad = q
 
-for fid, member in quad5.get_valid_members():
-    if fid == 2:
+for fid, member in swarm_quad.get_valid_members():
+    if fid == args.roach - 1:
         member.set_source(2, 2)
-
-
-    # swarm.members_do(lambda fid, member: member.set_source(3, 3))
-    # pyopmess.send(1, 1, 100, "SWARM internal digital noise enabled")
