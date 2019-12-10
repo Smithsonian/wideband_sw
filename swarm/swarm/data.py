@@ -298,7 +298,7 @@ class SwarmDataCatcher:
 
             # Receive a packet and get host info
             try:
-                datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
+                datar, addr = udp_sock.recvfrom(999999)
                 pkt_time = time()  # packet arrival time
             except timeout:
                 self.logger.info("timeout")
