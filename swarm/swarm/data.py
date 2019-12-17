@@ -432,7 +432,7 @@ class SwarmDataCatcher:
 
                     # But, skip if it's a partial primordial scan
                     if primordial:
-                        self.logger.error("Skipping Primordial Scan - started with qid={0}, fid={1}.").format(qid, fid)
+                        self.logger.error("Skipping Primordial Scan" + str(qid) + str(fid))
                         continue
                     else:  # error out otherwise
                         err_msg = "Accumulation #{0} started with qid={1}, fid={2}! Should start with 0, 0!".format(
