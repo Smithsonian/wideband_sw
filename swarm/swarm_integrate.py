@@ -34,6 +34,7 @@ swarm = Swarm()
 # Set the itime and wait for it to register
 logger.info('Setting integration time and resetting x-engines...')
 for fid, member in swarm.get_valid_members():
+    print("fid: " + str(fid) + " member: " + str(member))
     member.set_itime(args.time)
 
 # Reset the xengines until window counters to by in sync
