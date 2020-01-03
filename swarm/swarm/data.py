@@ -400,7 +400,6 @@ class SwarmDataCatcher:
     def order(self, stop, in_queue, out_queue):
 
         last_acc = []
-        primordial = True
         current_acc = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
@@ -427,32 +426,15 @@ class SwarmDataCatcher:
             # Check if we've started a new scan
             if current_acc is None:
 
-                # Check that first data starts with 0, 0
-                if not ((qid == 0) and (fid == 0)):
+                self.logger.info("First data of accumulation #{0} received".format(acc_n))
+                current_acc = acc_n
 
-                    # But, skip if it's a partial primordial scan
-                    if primordial:
-                        self.logger.error("Skipping Primordial Scan" + str(qid) + str(fid))
-                        continue
-                    else:  # error out otherwise
-                        err_msg = "Accumulation #{0} started with qid={1}, fid={2}! Should start with 0, 0!".format(
-                            acc_n, qid, fid)
-                        exception = ValueError(err_msg)
-                        self.logger.error(err_msg)
-                        out_queue.put(exception)
-                        continue
+                # Initiate the data buffer
+                data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
 
-                else:  # we're good and can proceed with new scan
-                    self.logger.info("First data of accumulation #{0} received".format(acc_n))
-                    current_acc = acc_n
-                    primordial = False
-
-                    # Initiate the data buffer
-                    data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
-
-                    # Establish meta data for new scan
-                    int_length = this_length
-                    int_time = this_time
+                # Establish meta data for new scan
+                int_length = this_length
+                int_time = this_time
 
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
