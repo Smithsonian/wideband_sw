@@ -420,10 +420,15 @@ class SwarmDataCatcher:
 
             # Otherwise, continue and parse message
             qid, fid, acc_n, meta, datas = message
+
+            # Check if we've started a new scan
+            if acc_n == 1:
+                self.logger.info("Skipping accumulation 1")
+                continue
+
             this_length = meta['xnum'] * XNUM_TO_LENGTH
             this_time = meta['time']
 
-            # Check if we've started a new scan
             if current_acc is None:
 
                 self.logger.info("First data of accumulation #{0} received".format(acc_n))
