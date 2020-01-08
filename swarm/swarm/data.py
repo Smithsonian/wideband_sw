@@ -294,16 +294,6 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-
-        # Throw out the first accumulation in case we started in the middle of it.
-        self.logger.info("Waiting for a gap in dataflow from swarm to start accumulations")
-        while not stop.is_set():
-            try:
-                udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-            except timeout:
-                self.logger.info("Swarm and Swarm Control are now synced")
-                break
-
         while not stop.is_set():
 
             # Receive a packet and get host info
