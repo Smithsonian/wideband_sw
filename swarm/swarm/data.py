@@ -294,40 +294,11 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-        first_accumulation = True
-        first_accumulation_num = None
-
         while not stop.is_set():
-
-            # Wait for the first accumulation to finish to avoid catching one in the middle.
-            self.logger.info("Waiting for initial accumulation to finish")
-            try:
-                first_datar, first_addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-
-                # Unpack it to get packet #, accum #, and scan length
-                pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT,
-                                                                     first_datar[:SWARM_VISIBS_HEADER_SIZE])
-                acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
-
-                # Record the first accumulation number, as we will be ignoring it in case we started in the middle.
-                if first_accumulation_num is None:
-                    first_accumulation_num = acc_n
-                    continue
-                elif first_accumulation_num == acc_n:
-                    continue
-
-            except timeout:
-                continue
 
             # Receive a packet and get host info
             try:
-                if first_accumulation:
-                    datar = first_datar
-                    addr = first_addr
-                    first_accumulation = False
-                else:
-                    datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-
+                datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
                 pkt_time = time()  # packet arrival time
             except timeout:
                 continue
@@ -351,13 +322,6 @@ class SwarmDataCatcher:
                                                                  datar[:SWARM_VISIBS_HEADER_SIZE])
             xnum = determine_xnum(xnum_mb, xnum_lh)
             acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
-
-            # Record the first accumulation number, as we will be ignoring it in case we started in the middle.
-            if first_accumulation:
-                first_accumulation_num = acc_n
-                first_accumulation = False
-                continue
-
 
             # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
