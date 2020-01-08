@@ -344,15 +344,14 @@ class SwarmDataCatcher:
                     'xnum': xnum,  # of the first packet of this acc
                 }
 
-            # Temporarily disabled to improve performance on Tenzing. Packets seemed to be getting lost.
             # Check that xnum matches that of first packet
-            # acc_xnum = meta[qid][fid][acc_n]['xnum']
-            # if xnum != acc_xnum: # if not, trigger a shutdown and exit
-            #     err_msg = "Received packet %d:#%d has non-matching xnum=%d, should be %d!" %(acc_n, pkt_n, xnum, acc_xnum)
-            #     exception = ValueError(err_msg)
-            #     self.logger.error(err_msg)
-            #     out_queue.put(exception)
-            #     continue
+            acc_xnum = meta[qid][fid][acc_n]['xnum']
+            if xnum != acc_xnum: # if not, trigger a shutdown and exit
+                err_msg = "Received packet %d:#%d has non-matching xnum=%d, should be %d!" %(acc_n, pkt_n, xnum, acc_xnum)
+                exception = ValueError(err_msg)
+                self.logger.error(err_msg)
+                out_queue.put(exception)
+                continue
 
             # Then store data in it
             data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
