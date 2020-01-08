@@ -297,9 +297,10 @@ class SwarmDataCatcher:
         first_accumulation = True
         first_accumulation_num = None
 
-        # Wait for the first accumulation to finish to avoid catching one in the middle.
-        self.logger.info("Waiting for initial accumulation to finish")
         while not stop.is_set():
+
+            # Wait for the first accumulation to finish to avoid catching one in the middle.
+            self.logger.info("Waiting for initial accumulation to finish")
             try:
                 first_datar, first_addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
 
@@ -311,18 +312,13 @@ class SwarmDataCatcher:
                 # Record the first accumulation number, as we will be ignoring it in case we started in the middle.
                 if first_accumulation_num is None:
                     first_accumulation_num = acc_n
-                    self.logger.info("Initial accumulation is %d" % first_accumulation_num)
                     continue
                 elif first_accumulation_num == acc_n:
-                    self.logger.info("Dropping packet from accumulation %d" % acc_n)
                     continue
-                else:
-                    break
 
             except timeout:
                 continue
-                
-        while not stop.is_set():
+
             # Receive a packet and get host info
             try:
                 if first_accumulation:
