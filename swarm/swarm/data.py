@@ -401,7 +401,6 @@ class SwarmDataCatcher:
 
         last_acc = []
         current_acc = None
-        first_acc = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
@@ -423,12 +422,6 @@ class SwarmDataCatcher:
             qid, fid, acc_n, meta, datas = message
             this_length = meta['xnum'] * XNUM_TO_LENGTH
             this_time = meta['time']
-
-            # Ignore first accumulation in case we started in the middle.
-            if first_acc is None:
-                first_acc = acc_n
-            elif first_acc == acc_n:
-                continue
 
             # Check if we've started a new scan
             if current_acc is None:
