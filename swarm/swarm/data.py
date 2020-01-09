@@ -294,17 +294,20 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-        sync_count = 0
+        first_data_flag = True
+        first_timeout_flag = True
 
         self.logger.info("Waiting for first accumulations to finish")
-        while not stop.is_set() and sync_count < 3:
+        while not stop.is_set() and (first_data_flag or first_timeout_flag):
 
             # Receive a packet and get host info
             try:
                 udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
+                first_data_flag = False
+                self.logger.info("Dropped packet")
             except timeout:
-                sync_count += 1
-                self.logger.info("Timeout " + str(sync_count))
+                first_timeout_flag = False
+                self.logger.info("Timeout")
                 continue
 
         while not stop.is_set():
