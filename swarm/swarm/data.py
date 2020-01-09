@@ -295,11 +295,6 @@ class SwarmDataCatcher:
         meta = {}
         udp_sock = self._create_socket()
 
-        # Wait for initial accumulations to finish
-        self.logger.info('Waiting for initial accumulations to finish...')
-        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.swarm.get_valid_members()):
-            sleep(0.1)
-
         while not stop.is_set():
 
             # Receive a packet and get host info
