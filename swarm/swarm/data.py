@@ -294,29 +294,11 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-        first_data_flag = True
-        first_timeout_flag = True
 
-        self.logger.info("Waiting for first accumulations to finish")
-        while not stop.is_set() and first_data_flag:
-
-            # Receive a packet and get host info
-            try:
-                udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-                first_data_flag = False
-                self.logger.info("First Data Received and Skipped")
-            except timeout:
-                continue
-
-        while not stop.is_set() and first_timeout_flag:
-
-            # Receive a packet and get host info
-            try:
-                udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-            except timeout:
-                self.logger.info("First timeout reached, catch thread now active")
-                first_timeout_flag = False
-                continue
+        # Wait for initial accumulations to finish
+        self.logger.info('Waiting for initial accumulations to finish...')
+        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.swarm.get_valid_members()):
+            sleep(0.1)
 
         while not stop.is_set():
 
