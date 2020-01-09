@@ -387,7 +387,6 @@ class SwarmDataCatcher:
                 mask[qid][fid].pop(acc_n)
                 datas = ''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
-                self.logger.debug("Caught all pkts for qid %d fid %d acc %d" % (qid, fid, acc_n))
 
         udp_sock.close()
 
