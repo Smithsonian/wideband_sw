@@ -235,7 +235,7 @@ class SwarmDataCatcher:
     def _create_socket(self):
         udp_sock = socket(AF_INET, SOCK_DGRAM)
         udp_sock.bind((self.host, self.port))
-        udp_sock.settimeout(2.0)
+        udp_sock.settimeout(0.6)
         return udp_sock
 
     def start_catch(self):
