@@ -298,16 +298,24 @@ class SwarmDataCatcher:
         first_timeout_flag = True
 
         self.logger.info("Waiting for first accumulations to finish")
-        while not stop.is_set() and (first_data_flag or first_timeout_flag):
+        while not stop.is_set() and first_data_flag:
 
             # Receive a packet and get host info
             try:
                 udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
                 first_data_flag = False
-                self.logger.info("Dropped packet")
+                self.logger.info("First Data Received and Skipped")
             except timeout:
+                continue
+
+        while not stop.is_set() and first_timeout_flag:
+
+            # Receive a packet and get host info
+            try:
+                udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
+            except timeout:
+                self.logger.info("First timeout reached, catch thread now active")
                 first_timeout_flag = False
-                self.logger.info("Timeout")
                 continue
 
         while not stop.is_set():
