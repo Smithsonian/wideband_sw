@@ -5,7 +5,7 @@ from Queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
 from socket import (
-    socket, timeout, error, 
+    socket, timeout, error,
     inet_ntoa, inet_aton,
     AF_INET, SOCK_DGRAM, SOCK_STREAM,
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
@@ -16,9 +16,11 @@ from numba import jit
 import core
 from defines import *
 from xeng import (
-    SwarmBaseline, 
+    SwarmBaseline,
     SwarmXengine,
     )
+
+import pydsm
 
 
 SIOCGIFADDR = 0x8915
@@ -214,7 +216,7 @@ class SwarmDataCatcher:
     def start_catch(self):
         if not self.catch_thread:
             self.catch_stop.clear()
-            self.catch_thread = Thread(target=self.catch, 
+            self.catch_thread = Thread(target=self.catch,
                                        args=(self.catch_stop,
                                              None,
                                              self.catch_queue))
@@ -226,8 +228,8 @@ class SwarmDataCatcher:
     def start_order(self):
         if not self.order_thread:
             self.order_stop.clear()
-            self.order_thread = Thread(target=self.order, 
-                                       args=(self.order_stop, 
+            self.order_thread = Thread(target=self.order,
+                                       args=(self.order_stop,
                                              self.catch_queue,
                                              self.order_queue))
             self.order_thread.start()
@@ -511,6 +513,8 @@ class SwarmDataHandler:
 
     def loop(self, running):
 
+        current_scan_length = -1
+
         # Loop until user quits
         while running.is_set():
 
@@ -540,3 +544,30 @@ class SwarmDataHandler:
 
             gc.collect() # Force garbage collection
             self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
+
+            # Check DSM for updated scan length.
+            dsm_integration_time = float(pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0])
+
+            # Error checking, ignore crap values from DSM.
+            if dsm_integration_time < 0 or dsm_integration_time > 1000:
+                self.logger.warning(
+                    "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(
+                        dsm_integration_time))
+            elif abs(dsm_integration_time - current_scan_length) >= .6:
+                self.logger.info(
+                    "Setting integration time to " + str(dsm_integration_time) + "s and resetting x-engines...")
+
+                # Set the itime and wait for it to register
+                for fid, member in self.swarm.get_valid_members():
+                    member.set_itime(dsm_integration_time)
+
+                # Reset the xengines until window counters to by in sync
+                win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
+                win_sync = False
+                while not win_sync:
+                    self.swarm.reset_xengines()
+                    sleep(0.5)
+                    win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.swarm.get_valid_members()])
+                    win_sync = len(set(c / win_period for c in win_count)) == 1
+                    self.logger.info('Window sync: {0}'.format(win_sync))
+                current_scan_length = dsm_integration_time
