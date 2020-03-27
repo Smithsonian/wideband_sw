@@ -548,6 +548,9 @@ class SwarmDataHandler:
             # Check DSM for updated scan length.
             dsm_integration_time = float(pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0])
 
+            # Divide dsm_integration time by 1000 to correct for hack in place in setSwarmScanLength.c
+            dsm_integration_time = dsm_integration_time / 1000.0
+
             # Error checking, ignore crap values from DSM.
             if dsm_integration_time < 0 or dsm_integration_time > 1000:
                 self.logger.warning(
