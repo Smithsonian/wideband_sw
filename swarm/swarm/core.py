@@ -304,7 +304,7 @@ class SwarmMember(base.SwarmROACH):
     def set_itime(self, itime_sec):
 
         # Set the integration (SWARM_ELEVENTHS spectra per step * steps per cycle)
-        self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
+        self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(round(itime_sec/SWARM_WALSH_PERIOD))
         self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
 
     def _reset_corner_turn(self):

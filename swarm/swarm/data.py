@@ -546,17 +546,17 @@ class SwarmDataHandler:
             self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
 
             # Check DSM for updated scan length.
-            dsm_integration_time = float(pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0])
+            dsm_integration_time = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
 
             # Divide dsm_integration time by 1000 to correct for hack in place in setSwarmScanLength.c
-            dsm_integration_time = dsm_integration_time / 1000.0
+            dsm_integration_time = float(dsm_integration_time / 1000.0)
 
             # Error checking, ignore crap values from DSM.
-            if dsm_integration_time < 0 or dsm_integration_time > 1000:
+            if dsm_integration_time < 0.0 or dsm_integration_time > 1000.0:
                 self.logger.warning(
                     "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(
                         dsm_integration_time))
-            elif abs(dsm_integration_time - current_scan_length) >= .6:
+            elif dsm_integration_time != current_scan_length:
                 self.logger.info(
                     "Setting integration time to " + str(dsm_integration_time) + "s and resetting x-engines...")
 
