@@ -13,7 +13,7 @@
 #define TRUE 1
 #define FALSE 0
 
-#define DSM_WAIT_HOST "hal9000"
+#define DSM_WAIT_HOST "TENZ"
 #define DSM_SCAN_LENGTH "SWARM_SCAN_LENGTH_L"
 
 #define DSM_SCAN_X "SWARM_SCAN_X"
