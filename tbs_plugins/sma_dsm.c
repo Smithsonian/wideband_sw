@@ -13,9 +13,6 @@
 #define TRUE 1
 #define FALSE 0
 
-#define DSM_WAIT_HOST "TENZ"
-#define DSM_SCAN_LENGTH "SWARM_SCAN_LENGTH_L"
-
 #define DSM_SCAN_X "SWARM_SCAN_X"
 #define DSM_SCAN_X_LENGTH "LENGTH_L"
 #define DSM_SCAN_X_PROGRESS "PROGRESS_L"
@@ -156,112 +153,6 @@ void sigint_handler(int sig){
   waiting = FALSE;
 }
 
-/* Function that handles the waiting */
-void * dsm_wait_dispatch(void * tr){
-  int status;
-  int new_data;
-  char host_name[DSM_FULL_NAME_LENGTH], var_name[DSM_FULL_NAME_LENGTH];
-
-  /* Set our INT signal handler */
-  signal(SIGINT, sigint_handler);
-
-  /* Add the scan length to the monitor list */
-  status = dsm_monitor(DSM_WAIT_HOST, DSM_SCAN_LENGTH);
-  if (status != DSM_SUCCESS) {
-    dsm_error_message(status, "dsm_monitor call for SWARM_SCAN_LENGTH_D");
-  }
-
-  /* Start the waiting loop */
-  while (waiting) {
-
-    /* Wait for an update */
-    status = dsm_read_wait(host_name, var_name, (char *)&new_data);
-    if (status != DSM_SUCCESS) {
-      if (status != DSM_INTERRUPTED) {
-	dsm_error_message(status, "dsm_read_wait");
-	dsm_errors++;
-      }
-      continue;
-    }
-
-    /* Dispatch to the right function */
-    if (!strcmp(DSM_SCAN_LENGTH, var_name)) {
-      status = handle_scan_length(tr, new_data);
-      if (status < 0) {
-	fprintf(stderr, "Error from handle_scan_length: %d\n", status);
-	hdlr_errors++;
-      }
-    }
-    else {
-      fprintf(stderr, "Unexpected dsm_read_wait, host %s variable %s\n", host_name, var_name);
-    }
-
-    /* Increment the updates counter */
-    updates++;
-  }
-
-  return tr;
-}
-
-int start_waiting_cmd(struct katcp_dispatch *d, int argc){
-  int status;
-  struct tbs_raw *tr;
-
-  /* Grab the mode pointer */
-  tr = get_mode_katcp(d, TBS_MODE_RAW);
-  if(tr == NULL){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "unable to acquire raw mode state");
-    return KATCP_RESULT_FAIL;
-  }
-
-  /* Set flag to start waiting for DSM variables */
-  waiting = TRUE;
-
-  /* Start the thread */
-  status = pthread_create(&waiting_thread, NULL, dsm_wait_dispatch, (void *)tr);
-  if (status < 0){
-    log_message_katcp(d, KATCP_LEVEL_ERROR, NULL, "could not create waiting thread");
-    return KATCP_RESULT_FAIL;
-  }
-  
-  return KATCP_RESULT_OK;
-}
-
-int stop_waiting_cmd(struct katcp_dispatch *d, int argc){
-
-  /* Set flag to stop waiting */
-  waiting = FALSE;
-
-  /* Clear the DSM monitor list */
-  dsm_clear_monitor();
-
-  /* Send SIGINT to thread
-     this should end dsm_read_wait */
-  pthread_kill(waiting_thread, SIGINT);
-
-  /* And join the thread */
-  pthread_join(waiting_thread, NULL);
-
-  return KATCP_RESULT_OK;
-}
-
-int status_waiting_cmd(struct katcp_dispatch *d, int argc){
-
-  /* Send the status in a log */
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DSM Waiting Status:%d", waiting);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DSM Waiting Updates:%d", updates);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DSM Waiting Errors:%d", dsm_errors);
-  log_message_katcp(d, KATCP_LEVEL_INFO, NULL, "DSM Handler Errors:%d", hdlr_errors);
-
-  /* Relay status back to the client */
-  prepend_reply_katcp(d);
-  append_string_katcp(d, KATCP_FLAG_STRING, KATCP_OK);
-  append_double_katcp(d, KATCP_FLAG_DOUBLE, waiting);
-  append_double_katcp(d, KATCP_FLAG_DOUBLE | KATCP_FLAG_LAST, updates);
-  return KATCP_RESULT_OWN;
-
-}
-
 /* Function that handles writing to DSM */
 void * dsm_write_dispatch(void * tr){
 
@@ -335,11 +226,6 @@ int status_writing_cmd(struct katcp_dispatch *d, int argc){
 int start_all_cmd(struct katcp_dispatch *d, int argc){
   int status;
 
-  /* Start DSM waiting */
-  status = start_waiting_cmd(d, argc);
-  if (status < 0)
-    return KATCP_RESULT_FAIL;
-
   /* Start DSM writing */
   status = start_writing_cmd(d, argc);
   if (status < 0)
@@ -351,11 +237,6 @@ int start_all_cmd(struct katcp_dispatch *d, int argc){
 int stop_all_cmd(struct katcp_dispatch *d, int argc){
   int status;
 
-  /* Stop DSM waiting */
-  status = stop_waiting_cmd(d, argc);
-  if (status < 0)
-    return KATCP_RESULT_FAIL;
-
   /* Stop DSM writing */
   status = stop_writing_cmd(d, argc);
   if (status < 0)
@@ -365,27 +246,12 @@ int stop_all_cmd(struct katcp_dispatch *d, int argc){
 }
 
 struct PLUGIN KATCP_PLUGIN = {
-  .n_cmds = 6,
+  .n_cmds = 3,
   .name = "sma-dsm",
   .version = KATCP_PLUGIN_VERSION,
   .init = start_all_cmd,
   .uninit = stop_all_cmd,
   .cmd_array = {
-    { // 1
-      .name = "?sma-dsm-wait-start",
-      .desc = "start the DSM waiting loop (?sma-dsm-wait-start)",
-      .cmd = start_waiting_cmd
-    },
-    { // 2
-      .name = "?sma-dsm-wait-stop",
-      .desc = "stop the DSM waiting loop (?sma-dsm-wait-stop)",
-      .cmd = stop_waiting_cmd
-    },
-    { // 3
-      .name = "?sma-dsm-wait-status",
-      .desc = "returns status of the DSM waiting loop (?sma-dsm-wait-status)",
-      .cmd = status_waiting_cmd
-    },
     { // 4
       .name = "?sma-dsm-write-start",
       .desc = "start the DSM writing loop (?sma-dsm-write-start)",
