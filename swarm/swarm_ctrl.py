@@ -304,14 +304,7 @@ if args.visibs_test:
     swarm_catcher.add_rawback(CheckRamp)
 
 # Reset the xengines until window counters to by in sync
-win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
-win_sync = False
-while not win_sync:
-    swarm.reset_xengines()
-    sleep(.5)
-    win_count = array([m.roach2.read_uint('xeng_status') for f, m in swarm.get_valid_members()])
-    win_sync = len(set(c / win_period for c in win_count)) == 1
-    logger.info('Window sync: {0}'.format(win_sync))
+swarm.reset_xengines_and_sync()
 
 # Start the data catcher
 swarm_catcher.start()

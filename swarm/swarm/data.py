@@ -529,22 +529,26 @@ class SwarmDataHandler:
         # DSM Stores the number of walsh cycles as a long, convert back to seconds.
         dsm_integration_time = dsm_num_walsh_cycles * SWARM_WALSH_PERIOD
 
-        # If check_fpga_itime is set, check the fpga times before setting them.
-        fpga_time_secs = round(self.swarm.get_itime(), 2)
-        dsm_time_secs = round(dsm_integration_time, 2)
-        if check_fpga_itime and (fpga_time_secs == dsm_time_secs):
-            return dsm_num_walsh_cycles
+        try:
+            # If check_fpga_itime is set, check the fpga times before setting them.
+            dsm_time_secs = round(dsm_integration_time, 2)
+            if check_fpga_itime:
+                fpga_time_secs = round(self.swarm.get_itime(), 2)
+                if fpga_time_secs == dsm_time_secs:
+                    return dsm_num_walsh_cycles
 
-        self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
+            self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
 
-        # Do a threaded set_itime.
-        swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
-        for thread in swarm_member_threads:
-            thread.start()
+            # Do a threaded set_itime.
+            swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
+            for thread in swarm_member_threads:
+                thread.start()
 
-        # Finally join all threads
-        for thread in swarm_member_threads:
-            thread.join()
+            # Finally join all threads
+            for thread in swarm_member_threads:
+                thread.join()
+        except Exception:
+            self.logger.warn("Unable to set integration time, assuming SWARM is idle...")
 
         return dsm_num_walsh_cycles
 

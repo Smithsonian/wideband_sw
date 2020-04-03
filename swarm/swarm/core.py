@@ -1491,6 +1491,19 @@ class Swarm:
         for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
             thread.join()
 
+    def reset_xengines_and_sync(self):
+        try:
+            win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
+            win_sync = False
+            while not win_sync:
+                self.reset_xengines()
+                sleep(.5)
+                win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
+                win_sync = len(set(c / win_period for c in win_count)) == 1
+                self.logger.info('Window sync: {0}'.format(win_sync))
+        except Exception as err:
+            self.logger.warn("Unable to reset xengines and sync, assuming swarm is idle...")
+
     def reset_xengines(self):
 
         # Do a threaded reset_xeng
