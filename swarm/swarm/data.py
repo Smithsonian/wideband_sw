@@ -523,18 +523,21 @@ class SwarmDataHandler:
             return None
 
         # DSM Stores the number of walsh cycles as a long, convert back to seconds.
-        dsm_integration_time = round((dsm_num_walsh_cycles * SWARM_WALSH_PERIOD), 3)
+        dsm_integration_time = dsm_num_walsh_cycles * SWARM_WALSH_PERIOD
 
         # If check_fpga_itime is set, check the fpga times before setting them.
-        if check_fpga_itime and (round(self.swarm.get_itime(), 2) == round(dsm_integration_time, 2)):
+        fpga_time = round(self.swarm.get_itime(), 1)
+        dsm_time = round(dsm_integration_time, 1)
+        self.logger.info("fpga vs dsm: " + str(fpga_time) + " " + str(dsm_time))
+        if check_fpga_itime and (fpga_time == dsm_time):
 
             # Times in dsm and roach2s are the same already, no need to set it again.
             return dsm_integration_time
 
-        self.logger.info("Setting integration time to " + str(dsm_integration_time) + "s...")
+        self.logger.info("Setting integration time to " + str(dsm_time) + "s...")
 
         # Do a threaded set_itime.
-        swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
+        swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_time,)) for f, m in self.swarm.get_valid_members())
         for thread in swarm_member_threads:
             thread.start()
 
@@ -542,7 +545,7 @@ class SwarmDataHandler:
         for thread in swarm_member_threads:
             thread.join()
 
-        return dsm_integration_time
+        return dsm_time
 
     def loop(self, running):
 
