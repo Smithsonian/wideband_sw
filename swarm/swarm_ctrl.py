@@ -4,6 +4,7 @@ from threading import Event
 from Queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
+from numpy import array
 from redis import StrictRedis, ConnectionError
 from signal import (
     signal,
@@ -302,8 +303,15 @@ if args.visibs_test:
     # Give a rawback that checks for ramp errors
     swarm_catcher.add_rawback(CheckRamp)
 
-# Reset the X-engines every restart
-swarm.reset_xengines()
+# Reset the xengines until window counters to by in sync
+win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
+win_sync = False
+while not win_sync:
+    swarm.reset_xengines()
+    sleep(.5)
+    win_count = array([m.roach2.read_uint('xeng_status') for f, m in swarm.get_valid_members()])
+    win_sync = len(set(c / win_period for c in win_count)) == 1
+    logger.info('Window sync: {0}'.format(win_sync))
 
 # Start the data catcher
 swarm_catcher.start()

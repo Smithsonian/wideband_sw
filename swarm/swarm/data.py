@@ -511,51 +511,43 @@ class SwarmDataHandler:
         inst = callback(self.swarm, *args, **kwargs)
         self.callbacks.append(inst)
 
-    def update_itime_from_dsm(self, current_scan_length):
-        # Check DSM for updated scan length.
-        dsm_integration_time = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
+    def update_itime_from_dsm(self, check_fpga_itime=False):
 
-        # Divide dsm_integration time by 1000 to correct for hack in place in setSwarmScanLength.c
-        dsm_integration_time = float(dsm_integration_time / 1000.0)
+        # Check DSM for updated scan length.
+        dsm_num_walsh_cycles = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
 
         # Error checking, ignore crap values from DSM.
-        if dsm_integration_time < 0.0 or dsm_integration_time > 1000.0:
+        if dsm_num_walsh_cycles < 0.0 or dsm_num_walsh_cycles > 1000.0:
             self.logger.warning(
-                "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(
-                    dsm_integration_time))
-        elif dsm_integration_time != current_scan_length:
+                "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(dsm_num_walsh_cycles))
+            return None
 
-            self.logger.info(
-                "Setting integration time to " + str(dsm_integration_time) + "s and resetting x-engines...")
+        # DSM Stores the number of walsh cycles as a long, convert back to seconds.
+        dsm_integration_time = round((dsm_num_walsh_cycles * SWARM_WALSH_PERIOD), 3)
 
-            # Do a threaded set_itime.
-            swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
-            for thread in swarm_member_threads:
-                thread.start()
+        # If check_fpga_itime is set, check the fpga times before setting them.
+        if check_fpga_itime and (round(self.swarm.get_itime(), 3) == dsm_integration_time):
 
-            # Finally join all threads
-            for thread in swarm_member_threads:
-                thread.join()
+            # Times in dsm and roach2s are the same already, no need to set it again.
+            return dsm_integration_time
+
+        self.logger.info("Setting integration time to " + str(dsm_integration_time) + "s...")
+
+        # Do a threaded set_itime.
+        swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
+        for thread in swarm_member_threads:
+            thread.start()
+
+        # Finally join all threads
+        for thread in swarm_member_threads:
+            thread.join()
 
         return dsm_integration_time
 
     def loop(self, running):
 
-        # Find out the scan length from the roach2s.
-        roach2_scan_length = self.swarm.get_itime()
-
         # Set the integration time from DSM (function will be a noop if lengths are the same).
-        current_scan_length = self.update_itime_from_dsm(roach2_scan_length)
-
-        # Reset the xengines until window counters to by in sync
-        win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
-        win_sync = False
-        while not win_sync:
-            self.swarm.reset_xengines()
-            sleep(.5)
-            win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.swarm.get_valid_members()])
-            win_sync = len(set(c / win_period for c in win_count)) == 1
-            self.logger.info('Window sync: {0}'.format(win_sync))
+        current_scan_length = self.update_itime_from_dsm(check_fpga_itime=True)
 
         # Loop until user quits
         while running.is_set():
