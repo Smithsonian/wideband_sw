@@ -289,17 +289,18 @@ class SwarmMember(base.SwarmROACH):
         return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
 
     def get_itime(self):
-        
-        # Get the current integration time in spectra
-        # try: # use DSM first
-        #     xeng_time = pydsm.read(self.roach2.host, SWARM_SCAN_DSM_NAME)[SWARM_SCAN_LENGTH][0]
-        #     self.logger.debug("DSM scan length retrieved")
-        # except: # in case of failure, use katcp
-        xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
 
-        # Convert it to seconds and return
-        cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
-        return round(cycles * SWARM_WALSH_PERIOD, 3)
+        try:
+            # Read from fpga register using katcp.
+            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
+
+            # Convert it to seconds and return.
+            cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP))
+            return round(cycles * SWARM_WALSH_PERIOD, 3)
+
+        except RuntimeError:
+            # The roach2 isn't accessible
+            return None
 
     def set_itime(self, itime_sec):
 
@@ -1094,6 +1095,10 @@ class SwarmQuadrant:
             # Set our first itime
             if fid == 0:
                 itime = member.get_itime()
+
+                # If value is still None, return now because roach2s are probably idle.
+                if itime is None:
+                    return None
             else:
                 if member.get_itime() != itime:
                     err_msg = 'FID #%d has mismatching integration time!' % fid
@@ -1551,6 +1556,10 @@ class Swarm:
             # Set our first itime
             if quad.qid == 0:
                 itime = quad.get_itime()
+
+                # If value is still None, return now because roach2s are probably idle.
+                if itime is None:
+                    return None
             else:
                 if quad.get_itime() != itime:
                     err_msg = 'QID #%d has mismatching integration time!' % quad.qid
