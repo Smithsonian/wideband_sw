@@ -1376,6 +1376,9 @@ class Swarm:
         for fid, member in self.get_valid_members():
             member.set_itime(itime)
 
+        # Set the dsm scan length to match.
+        pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
+
         # Reset the xengines until window counters to by in sync
         win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP)
         win_sync = False
