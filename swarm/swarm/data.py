@@ -526,7 +526,7 @@ class SwarmDataHandler:
         dsm_integration_time = round((dsm_num_walsh_cycles * SWARM_WALSH_PERIOD), 3)
 
         # If check_fpga_itime is set, check the fpga times before setting them.
-        if check_fpga_itime and (round(self.swarm.get_itime(), 3) == dsm_integration_time):
+        if check_fpga_itime and (round(self.swarm.get_itime(), 2) == round(dsm_integration_time, 2)):
 
             # Times in dsm and roach2s are the same already, no need to set it again.
             return dsm_integration_time
