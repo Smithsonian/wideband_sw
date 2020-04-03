@@ -296,7 +296,9 @@ class SwarmMember(base.SwarmROACH):
 
             # Convert it to seconds and return.
             cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP))
-            return round(cycles * SWARM_WALSH_PERIOD, 3)
+            seconds = round(cycles * SWARM_WALSH_PERIOD, 3)
+            self.logger.info(str(seconds))
+            return seconds
 
         except RuntimeError:
             # The roach2 isn't accessible
@@ -1548,23 +1550,20 @@ class Swarm:
 
     def get_itime(self):
 
-        itime = None
+        # Initialize a set to hold the itimes from all quads.
+        itime = set()
 
         # Go through all quadrants compare itimes
         for quad in self.quads:
 
-            # Set our first itime
-            if quad.qid == 0:
-                itime = quad.get_itime()
+            q_itime = quad.get_itime()
+            itime.add(q_itime)
 
-                # If value is still None, return now because roach2s are probably idle.
-                if itime is None:
-                    return None
-            else:
-                if quad.get_itime() != itime:
-                    err_msg = 'QID #%d has mismatching integration time!' % quad.qid
-                    self.logger.error(err_msg)
-                    raise ValueError(err_msg)
+        if len(itime) > 1:
+            err_msg = 'QIDs have mismatching integration time!'
+            self.logger.error(err_msg)
+            self.logger.info(str(itime))
+            raise ValueError(err_msg)
 
         # Finally return the itime
         return itime
