@@ -1502,7 +1502,7 @@ class Swarm:
                 win_sync = len(set(c / win_period for c in win_count)) == 1
                 self.logger.info('Window sync: {0}'.format(win_sync))
         except Exception as err:
-            self.logger.warn("Unable to reset xengines and sync, assuming swarm is idle...")
+            self.logger.error("Unable to reset xengines and sync, exception caught {0}".format(err))
 
     def reset_xengines(self):
 

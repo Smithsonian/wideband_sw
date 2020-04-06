@@ -517,7 +517,7 @@ class SwarmDataHandler:
         dsm_num_walsh_cycles = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
 
         # Error checking, ignore crap values from DSM.
-        if dsm_num_walsh_cycles < 0.0 or dsm_num_walsh_cycles > 1000.0:
+        if dsm_num_walsh_cycles < 1 or dsm_num_walsh_cycles > 1000.0:
             self.logger.warning(
                 "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(dsm_num_walsh_cycles))
             return None
@@ -547,8 +547,8 @@ class SwarmDataHandler:
             # Finally join all threads
             for thread in swarm_member_threads:
                 thread.join()
-        except Exception:
-            self.logger.warn("Unable to set integration time, assuming SWARM is idle...")
+        except Exception as err:
+            self.logger.error("Unable to set integration time, exception caught {0}".format(err))
 
         return dsm_num_walsh_cycles
 
