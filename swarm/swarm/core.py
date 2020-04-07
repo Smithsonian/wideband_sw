@@ -1504,7 +1504,7 @@ class Swarm:
             
             # We've got a listener, setup this quadrant
             for fid, member in quad.get_valid_members():
-                member.setup_visibs(qid)
+                member.visibs_delay(qid)
 
     def reset_xengines_and_sync(self):
         try:
