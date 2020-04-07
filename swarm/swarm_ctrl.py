@@ -306,6 +306,9 @@ if args.visibs_test:
 # Reset the xengines until window counters to by in sync
 swarm.reset_xengines_and_sync()
 
+# test to set visibilities.
+swarm.set_chunk_delay()
+
 # Start the data catcher
 swarm_catcher.start()
 

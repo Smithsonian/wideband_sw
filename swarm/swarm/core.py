@@ -1499,6 +1499,13 @@ class Swarm:
         for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
             thread.join()
 
+    def set_chunk_delay(self):
+        for qid, quad in enumerate(self.quads):
+            
+            # We've got a listener, setup this quadrant
+            for fid, member in quad.get_valid_members():
+                member.setup_visibs(qid)
+
     def reset_xengines_and_sync(self):
         try:
             win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
