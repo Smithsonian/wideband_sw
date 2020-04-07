@@ -416,8 +416,8 @@ class SwarmMember(base.SwarmROACH):
 
         initial_delay = SWARM_VISIBS_CHUNK_DELAY
         # Disable/enable Laura's DDR3 delay and test
-        if qid == 4:
-            initial_delay = (2**2)
+        # if qid == 4:
+        #     initial_delay = (2**2)
         # if qid == 5:
         #     initial_delay = (2**23)
         this_delay = initial_delay * (qid * SWARM_N_FIDS + self.fid)
