@@ -414,9 +414,15 @@ class SwarmMember(base.SwarmROACH):
 
     def visibs_delay(self, qid, enable=True, delay_test=False):
 
+        initial_delay = SWARM_VISIBS_CHUNK_DELAY
         # Disable/enable Laura's DDR3 delay and test
-        this_delay = SWARM_VISIBS_CHUNK_DELAY * (qid * SWARM_N_FIDS + self.fid)
+        if qid == 4:
+            initial_delay = (2**21)
+        if qid == 5:
+            initial_delay = (2**22)
+        this_delay = initial_delay * (qid * SWARM_N_FIDS + self.fid)
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + this_delay)
+        self.logger.info("QID {0} FID {1}: Initial delay {2}, Actual delay {3}".format(qid, self.fid, initial_delay, this_delay))
 
     def qdr_ready(self, qdr_num=0):
 
