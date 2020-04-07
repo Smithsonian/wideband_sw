@@ -319,6 +319,8 @@ class SwarmDataCatcher:
             xnum = determine_xnum(xnum_mb, xnum_lh)
             acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
 
+            self.logger.debug("Caught packet %d from qid: %d fid: %d acc_n: %d" % (pkt_n, qid, fid, acc_n))
+
             # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
                 data[qid] = {}
