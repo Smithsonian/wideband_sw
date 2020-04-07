@@ -536,6 +536,7 @@ class SwarmDataHandler:
             dsm_time_secs = round(dsm_integration_time, 2)
             if check_fpga_itime:
                 fpga_time_secs = round(self.swarm.get_itime(), 2)
+                self.logger.info("FPGA vs DSM: " + str(fpga_time_secs) + " " + str(dsm_time_secs))
                 if fpga_time_secs == dsm_time_secs:
                     return dsm_num_walsh_cycles
 
