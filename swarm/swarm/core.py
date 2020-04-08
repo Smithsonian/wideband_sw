@@ -422,7 +422,7 @@ class SwarmMember(base.SwarmROACH):
         #     initial_delay = (2**23)
         this_delay = initial_delay * (qid * SWARM_N_FIDS + self.fid)
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + this_delay)
-        self.logger.info("QID {0} FID {1}: Initial delay {2}, Actual delay {3}".format(qid, self.fid, initial_delay, this_delay))
+        # self.logger.info("QID {0} FID {1}: Initial delay {2}, Actual delay {3}".format(qid, self.fid, initial_delay, this_delay))
 
     def qdr_ready(self, qdr_num=0):
 
