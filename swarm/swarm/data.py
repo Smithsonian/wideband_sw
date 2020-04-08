@@ -556,6 +556,11 @@ class SwarmDataHandler:
             # Finally join all threads
             for thread in swarm_member_threads:
                 thread.join()
+
+            # Clear the order queue.
+            with self.queue.queue.mutex:
+                self.queue.queue.clear()
+
         except Exception as err:
             self.logger.error("Unable to set integration time, exception caught {0}".format(err))
 
