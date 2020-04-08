@@ -268,6 +268,8 @@ class SwarmDataCatcher:
 
     def stop_catch(self):
         if self.catch_thread:
+            with self.catch_queue.mutex:
+                self.catch_queue.queue.clear()
             self.catch_stop.set()
             self.catch_thread.join()
             self.catch_thread = None
@@ -277,6 +279,8 @@ class SwarmDataCatcher:
 
     def stop_order(self):
         if self.order_thread:
+            with self.order_queue.mutex:
+                self.order_queue.queue.clear()
             self.order_stop.set()
             self.order_thread.join()
             self.order_thread = None
