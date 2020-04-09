@@ -1512,7 +1512,7 @@ class Swarm:
             win_sync = False
             while not win_sync:
                 self.reset_xengines()
-                sleep(3)
+                sleep(5)
                 win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
                 win_sync = len(set(c / win_period for c in win_count)) == 1
                 self.logger.info('Window sync: {0}'.format(win_sync))
