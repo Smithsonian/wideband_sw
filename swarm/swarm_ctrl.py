@@ -241,6 +241,7 @@ def cold_start_handler(signum, frame):
     swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('start-adc-monitor'))
 
     # Start up catcher again
+    swarm.reset_xengines_and_sync()
     swarm_catcher.start()
     pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
 
