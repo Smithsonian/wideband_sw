@@ -149,7 +149,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 swarm_catcher = SwarmDataCatcher(swarm)
 
 # Create the data handler
-swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
+swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue(), swarm_catcher.get_catch_queue())
 
 # Signal handler for idling SWARM
 def idle_handler(signum, frame):

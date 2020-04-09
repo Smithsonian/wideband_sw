@@ -232,6 +232,9 @@ class SwarmDataCatcher:
     def get_queue(self):
         return self.order_queue
 
+    def get_catch_queue(self):
+        return self.catch_queue
+
     def _create_socket(self):
         udp_sock = socket(AF_INET, SOCK_DGRAM)
         udp_sock.bind((self.host, self.port))
@@ -503,13 +506,14 @@ class SwarmDataCatcher:
 
 class SwarmDataHandler:
 
-    def __init__(self, swarm, queue):
+    def __init__(self, swarm, queue, catch_queue):
 
         # Create initial member variables
         self.logger = logging.getLogger('SwarmDataHandler')
         self.callbacks = []
         self.swarm = swarm
         self.queue = queue
+        self.catch_queue = catch_queue
 
     def add_callback(self, callback, *args, **kwargs):
         inst = callback(self.swarm, *args, **kwargs)
@@ -551,6 +555,9 @@ class SwarmDataHandler:
             # Finally join all threads
             for thread in swarm_member_threads:
                 thread.join()
+
+            self.queue.queue.clear()
+            self.catch_queue.queue.clear()
 
         except Exception as err:
             self.logger.error("Unable to set integration time, exception caught {0}".format(err))
