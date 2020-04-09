@@ -299,6 +299,8 @@ class SwarmDataCatcher:
 
         while not stop.is_set():
 
+            self.logger.info("Catch Queue Empty: " + str(out_queue.empty()))
+
             # Receive a packet and get host info
             try:
                 datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
@@ -395,6 +397,9 @@ class SwarmDataCatcher:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
         while not stop.is_set():
+
+            self.logger.info("Order Input Queue Empty: " + str(in_queue.empty()))
+            self.logger.info("Order Output Queue Empty: " + str(out_queue.empty()))
 
             # Receive a set of data
             try:
