@@ -1522,7 +1522,6 @@ class Swarm:
             win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
             win_sync = False
             while not win_sync:
-                self.reset_xengines()
                 win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
                 win_sync = len(set(c / win_period for c in win_count)) == 1
         except Exception as err:
