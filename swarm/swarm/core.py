@@ -1412,7 +1412,7 @@ class Swarm:
                 member.setup_visibs(qid, listener, delay_test=delay_test)
 
                 # Sleep added to try and prevent DSM from hogging all of HAL's cpu resources.
-                sleep(0.5)
+                # sleep(0.5)
 
     def sync(self):
 
