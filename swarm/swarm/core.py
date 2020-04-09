@@ -1508,33 +1508,27 @@ class Swarm:
 
     def reset_xengines_and_sync(self):
         try:
-            self.logger.info('Resetting the X-engines...')
-
-            # Do a threaded reset_xeng
-            rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
-            for thread in rstxeng_threads:
-                thread.start()
-
-            # Finally join all threads
-            for thread in rstxeng_threads:
-                thread.join()
+            self.logger.info('Resetting the X-engines and syncing windows...')
 
             win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
             win_sync = False
             while not win_sync:
+                self.reset_xengines(sleep_after_reset=False)
+                sleep(.1)
                 win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
                 win_sync = len(set(c / win_period for c in win_count)) == 1
         except Exception as err:
             self.logger.error("Unable to reset xengines and sync, exception caught {0}".format(err))
 
-    def reset_xengines(self):
+    def reset_xengines(self, sleep_after_reset=True):
 
         # Do a threaded reset_xeng
         rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
         for thread in rstxeng_threads:
             thread.start()
-        self.logger.info('Resetting the X-engines')
-        sleep(1)
+        if sleep_after_reset:
+            self.logger.info('Resetting the X-engines')
+            sleep(1)
 
         # Finally join all threads
         for thread in rstxeng_threads:
