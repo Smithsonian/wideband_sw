@@ -243,7 +243,6 @@ class SwarmDataCatcher:
 
     def start_catch(self):
         if not self.catch_thread:
-            self.catch_stop.clear()
             self.catch_thread = Thread(target=self.catch,
                                        args=(self.catch_stop,
                                              None,
@@ -255,7 +254,6 @@ class SwarmDataCatcher:
 
     def start_order(self):
         if not self.order_thread:
-            self.order_stop.clear()
             self.order_thread = Thread(target=self.order,
                                        args=(self.order_stop,
                                              self.catch_queue,
@@ -266,8 +264,6 @@ class SwarmDataCatcher:
             self.logger.error('Order thread has not been stopped!')
 
     def start(self):
-        self.catch_queue.queue.clear()
-        self.order_queue.queue.clear()
         self.start_catch()
         self.start_order()
 
@@ -555,9 +551,10 @@ class SwarmDataHandler:
             # Finally join all threads
             for thread in swarm_member_threads:
                 thread.join()
-
-            self.queue.queue.clear()
-            self.catch_queue.queue.clear()
+            with self.queue.queue.mutex:
+                self.queue.queue.clear()
+            with self.catch_queue.queue.mutex:
+                self.catch_queue.queue.clear()
 
         except Exception as err:
             self.logger.error("Unable to set integration time, exception caught {0}".format(err))
