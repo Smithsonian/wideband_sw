@@ -1377,7 +1377,7 @@ class Swarm:
             sleep(0.1)
 
         # Set the itime and wait for it to register
-        self.logger.info('Setting integration time and resetting x-engines...')
+        self.logger.info('Setting integration time...')
         for fid, member in self.get_valid_members():
             member.set_itime(itime)
 
@@ -1385,14 +1385,7 @@ class Swarm:
         pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
 
         # Reset the xengines until window counters to by in sync
-        win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP)
-        win_sync = False
-        while not win_sync:
-            self.reset_xengines()
-            sleep(0.5)
-            win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
-            win_sync = len(set(c/win_period for c in win_count)) == 1
-            self.logger.info('Window sync: {0}'.format(win_sync))
+        self.reset_xengines_and_sync()
 
         # Reset digital noise
         self.reset_digital_noise()
@@ -1410,9 +1403,6 @@ class Swarm:
             # We've got a listener, setup this quadrant
             for fid, member in quad.get_valid_members():
                 member.setup_visibs(qid, listener, delay_test=delay_test)
-
-                # Sleep added to try and prevent DSM from hogging all of HAL's cpu resources.
-                # sleep(0.5)
 
     def sync(self):
 
