@@ -557,6 +557,10 @@ class SwarmDataHandler:
             for thread in swarm_member_threads:
                 thread.join()
 
+            with self.queue.mutex:
+                self.queue.queue.clear()
+            with self.catch_queue.mutex:
+                self.catch_queue.queue.clear()
 
         except Exception as err:
             self.logger.error("Error setting integration time, exception caught {0}".format(err))
