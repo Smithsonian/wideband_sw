@@ -143,11 +143,11 @@ class SwarmMember(base.SwarmROACH):
         self.set_scope(3, 0, 6)
 
         # Calibrate the ADC MMCM phases
-        # self.calibrate_adc()
+        self.calibrate_adc()
 
         # If software QDR cal., calibrate and verify QDRs
-        # if self.soft_qdr_cal:
-        #     self.calibrate_and_verify_qdr(fail_hard=raise_qdr_err)
+        if self.soft_qdr_cal:
+            self.calibrate_and_verify_qdr(fail_hard=raise_qdr_err)
 
         # Setup the F-engine
         self._setup_fengine()
