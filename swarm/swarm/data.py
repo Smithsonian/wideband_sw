@@ -426,10 +426,15 @@ class SwarmDataCatcher:
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
                     current_acc, acc_n, qid, fid)
-                exception = ValueError(err_msg)
                 self.logger.error(err_msg)
-                out_queue.put(exception)
-                continue
+
+                if (current_acc + 1) == acc_n:
+                    self.logger.info("Skipping acc " + str(current_acc))
+                    current_acc += 1
+                else:
+                    exception = ValueError(err_msg)
+                    out_queue.put(exception)
+                    continue
 
             # Make sure that all scan lengths match
             if this_length != int_length:
