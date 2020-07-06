@@ -4,7 +4,6 @@ from threading import Event
 from Queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
-from numpy import array
 from redis import StrictRedis, ConnectionError
 from signal import (
     signal,
