@@ -1372,8 +1372,11 @@ class Swarm:
 
         # Set the itime and wait for it to register
         self.logger.info('Setting integration time...')
+        from time import time
+        t1 = time()
         for fid, member in self.get_valid_members():
             member.set_itime(itime)
+        self.logger.info("Time to set integration time in serial: " + str(time() - t1))
 
         # Set the dsm scan length to match.
         pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))

@@ -557,6 +557,7 @@ class SwarmDataHandler:
 
             self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
 
+            t1 = time()
             # Do a threaded set_itime.
             swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
             for thread in swarm_member_threads:
@@ -565,7 +566,7 @@ class SwarmDataHandler:
             # Finally join all threads
             for thread in swarm_member_threads:
                 thread.join()
-
+            self.logger.info("Time to set integration time in parallel: " + str(time() - t1))
         except Exception as err:
             self.logger.error("Error setting integration time, exception caught {0}".format(err))
 
