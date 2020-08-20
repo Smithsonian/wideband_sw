@@ -558,7 +558,7 @@ class SwarmDataHandler:
             self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
 
             t1 = time()
-            for fid, member in self.swarm.get_valid_members():
+            for fid, member in self.get_valid_members():
                 member.set_itime(dsm_integration_time)
             self.logger.info("Time to set integration time in serial: " + str(time() - t1))
         except Exception as err:
