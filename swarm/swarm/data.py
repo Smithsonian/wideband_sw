@@ -590,6 +590,9 @@ class SwarmDataHandler:
                 sleep(0.01)
                 continue
 
+            # Check dsm for updates
+            current_scan_length = self.update_itime_from_dsm(last_dsm_num_walsh_cycles=current_scan_length)
+
             # Check if we received an exception
             if isinstance(message, Exception):
                 raise message
@@ -610,6 +613,3 @@ class SwarmDataHandler:
 
             gc.collect()  # Force garbage collection
             self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
-
-            # Check dsm for updates
-            current_scan_length = self.update_itime_from_dsm(last_dsm_num_walsh_cycles=current_scan_length)
