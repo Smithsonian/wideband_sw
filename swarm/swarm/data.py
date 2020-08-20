@@ -487,7 +487,7 @@ class SwarmDataCatcher:
                     "Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
 
                 if last_time is not None:
-                    self.logger.info("Estimated integration time using int_time: ".format(int_time - last_time))
+                    self.logger.info("Estimated integration time using int_time: {:.2f} s".format(int_time - last_time))
                 last_time = int_time
 
                 # Do user rawbacks first
