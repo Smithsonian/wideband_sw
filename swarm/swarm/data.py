@@ -393,6 +393,7 @@ class SwarmDataCatcher:
 
         last_acc = []
         current_acc = None
+        last_time = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
@@ -484,6 +485,10 @@ class SwarmDataCatcher:
                 # We have all data for this accumulation, log it
                 self.logger.info(
                     "Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
+
+                if last_time is not None:
+                    self.logger.info("Estimated integration time using int_time: ".format(int_time - last_time))
+                last_time = int_time
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
