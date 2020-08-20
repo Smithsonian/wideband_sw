@@ -308,7 +308,7 @@ class SwarmMember(base.SwarmROACH):
         old_xeng_time = self._xeng_itime
         self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(round(itime_sec/SWARM_WALSH_PERIOD))
         try:
-            self.roach2.blindwrite(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
+            self.roach2.blindwrite(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, (old_xeng_time & 0xe0000000) + self._xeng_itime & 0x1fffffff))
         except RuntimeError:
             self.logger.warning("Unable to set integration time on roach2")
 
