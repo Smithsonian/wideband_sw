@@ -451,9 +451,6 @@ class SwarmDataCatcher:
                 sleep(0.01)
                 continue
 
-            # Set the integration time from DSM (function will be a noop if lengths are the same).
-            current_scan_length = self.update_itime_from_dsm(current_scan_length)
-
             # Check if we received an exception
             if isinstance(message, Exception):
                 out_queue.put(message)
@@ -530,6 +527,9 @@ class SwarmDataCatcher:
 
             # If we've gotten all pkts for this acc_n from all QIDs & FIDs
             if not has_none(data):
+
+                # Set the integration time from DSM (function will be a noop if lengths are the same).
+                current_scan_length = self.update_itime_from_dsm(current_scan_length)
 
                 # We have all data for this accumulation, log it
                 self.logger.info(
