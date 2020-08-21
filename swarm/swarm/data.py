@@ -389,6 +389,49 @@ class SwarmDataCatcher:
         # Return the (hopefully) complete data packages
         return data_pkg
 
+    def update_itime_from_dsm(self, last_dsm_num_walsh_cycles=None, check_fpga_itime=False):
+
+        # Check DSM for updated scan length.
+        dsm_num_walsh_cycles = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
+
+        # Error checking, ignore crap values from DSM.
+        if dsm_num_walsh_cycles < 1 or dsm_num_walsh_cycles > 1000.0:
+            self.logger.warning(
+                "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(dsm_num_walsh_cycles))
+            return None
+
+        # Return if last_dsm_num_walsh_cycles param was used, and its the same as the new value.
+        if last_dsm_num_walsh_cycles == dsm_num_walsh_cycles:
+            return dsm_num_walsh_cycles
+
+        # DSM Stores the number of walsh cycles as a long, convert back to seconds.
+        dsm_integration_time = dsm_num_walsh_cycles * SWARM_WALSH_PERIOD
+
+        try:
+            # If check_fpga_itime is set, check the fpga times before setting them.
+            dsm_time_secs = round(dsm_integration_time, 2)
+            if check_fpga_itime:
+                fpga_time_secs = round(self.swarm.get_itime(), 2)
+                if fpga_time_secs == dsm_time_secs:
+                    return dsm_num_walsh_cycles
+
+            self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
+
+            t1 = time()
+            # Do a threaded set_itime.
+            swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
+            for thread in swarm_member_threads:
+                thread.start()
+
+            # Finally join all threads
+            for thread in swarm_member_threads:
+                thread.join()
+            self.logger.info("Time to set integration time in parallel: " + str(time() - t1))
+        except Exception as err:
+            self.logger.error("Error setting integration time, exception caught {0}".format(err))
+
+        return dsm_num_walsh_cycles
+
     def order(self, stop, in_queue, out_queue):
 
         last_acc = []
@@ -397,6 +440,9 @@ class SwarmDataCatcher:
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
+        # Set the integration time from DSM (function will be a noop if lengths are the same).
+        current_scan_length = self.update_itime_from_dsm()
+
         while not stop.is_set():
             # Receive a set of data
             try:
@@ -404,6 +450,9 @@ class SwarmDataCatcher:
             except Empty:
                 sleep(0.01)
                 continue
+
+            # Set the integration time from DSM (function will be a noop if lengths are the same).
+            current_scan_length = self.update_itime_from_dsm(current_scan_length)
 
             # Check if we received an exception
             if isinstance(message, Exception):
@@ -574,9 +623,6 @@ class SwarmDataHandler:
 
     def loop(self, running):
 
-        # Set the integration time from DSM (function will be a noop if lengths are the same).
-        current_scan_length = self.update_itime_from_dsm()
-
         # Loop until user quits
         while running.is_set():
 
@@ -585,9 +631,6 @@ class SwarmDataHandler:
             except Empty:  # none available
                 sleep(0.01)
                 continue
-
-            # Check dsm for updates
-            current_scan_length = self.update_itime_from_dsm(last_dsm_num_walsh_cycles=current_scan_length)
 
             # Check if we received an exception
             if isinstance(message, Exception):
