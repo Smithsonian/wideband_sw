@@ -38,7 +38,7 @@ from swarm import (
     SWARM_MAPPING_POLS,
     SWARM_MAPPING_CHUNKS,
 )
-from json_file import JSONListFile
+from .json_file import JSONListFile
 from redis import StrictRedis
 
 TODAY = datetime.utcnow()
@@ -59,7 +59,7 @@ def slice_sub_lags(lags, peaks, axis, max_lags=16):
     out_shape[axis] = max_lags * 2
     out_array = empty(out_shape, dtype=lags.dtype)
     for i, peak in enumerate(peaks):
-        indices = fftshift(range(peak-max_lags, peak+max_lags))
+        indices = fftshift(list(range(peak-max_lags, peak+max_lags)))
         out_array.T[i] = lags.T[i].take(indices, mode='wrap')
     return out_array
 
@@ -163,9 +163,9 @@ class CalibrateVLBI(SwarmDataCallback):
         pid_delays = p * p_delays + i * i_delays + d * d_delays
         pid_phases = p * p_phases + i * i_phases + d * d_phases
         if not isnan(pid_delays).any():
-            map(self.feedback_delay, inputs, pid_delays)
+            list(map(self.feedback_delay, inputs, pid_delays))
         if not isnan(pid_phases).any():
-            map(self.feedback_phase, inputs, pid_phases)
+            list(map(self.feedback_phase, inputs, pid_phases))
 
     def solve_for(self, data, inputs, chunk, pol, sideband='USB'):
         baselines = list(baseline for baseline in data.baselines if ((baseline.left in inputs) and (baseline.right in inputs)))
@@ -230,8 +230,8 @@ class CalibrateVLBI(SwarmDataCallback):
         else:
             self.append_history(cal_solution)
             self.pid_servo(inputs)
-        new_delays = map(self.swarm.get_delay, inputs)
-        new_phases = map(self.swarm.get_phase, inputs)
+        new_delays = list(map(self.swarm.get_delay, inputs))
+        new_phases = list(map(self.swarm.get_phase, inputs))
         with JSONListFile(self.outfilename) as jfile:
             jfile.append({
                     'int_time': data.int_time,

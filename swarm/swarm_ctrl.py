@@ -1,7 +1,7 @@
 import sys, pickle, traceback, logging, argparse
 from time import sleep
 from threading import Event
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
 from redis import StrictRedis, ConnectionError
@@ -211,11 +211,11 @@ def cold_start_handler(signum, frame):
         adccal_threads[thread] = member
 
     # Now start them all
-    for thread in adccal_threads.iterkeys():
+    for thread in adccal_threads.keys():
         thread.start()
 
     # ...and immediately join them
-    for thread in adccal_threads.iterkeys():
+    for thread in adccal_threads.keys():
         thread.join()
 
     # If there were exceptions log them

@@ -1,10 +1,10 @@
 import logging, sys
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 from corr.katcp_wrapper import FpgaClient
 from katcp import Message
 
-from defines import *
+from .defines import *
 
 
 module_logger = logging.getLogger(__name__)

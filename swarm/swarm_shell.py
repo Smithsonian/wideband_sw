@@ -101,7 +101,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 
 # Commands added by Taco:
 def takeNoiseData():
-    print "Enabling noise source - type takeSkyData() to undo this"
+    print("Enabling noise source - type takeSkyData() to undo this")
     swarm.members_do(lambda i,m: m.dewalsh(False,False))
     swarm.send_katcp_cmd("sma-astro-fstop-set","7.85","-12.15","-2.71359","0","0")
 

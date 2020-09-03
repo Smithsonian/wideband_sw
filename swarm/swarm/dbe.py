@@ -6,15 +6,15 @@ from socket import (
     SO_RCVBUF, SO_SNDBUF,
     timeout,
     )
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from threading import Thread, Event
 from datetime import datetime
 from time import sleep
 
 from numpy import nan, array, empty, uint8, complex128
 
-from defines import *
-import base
+from .defines import *
+from . import base
 
 
 SIOCGIFADDR = 0x8915
@@ -111,11 +111,11 @@ class SwarmDBE(base.SwarmROACH):
         arp = [bh_mac] * 256
 
         # Determine our TX interfaces first
-        fids = range(self.swarm.fids_expected)
+        fids = list(range(self.swarm.fids_expected))
         tx_ifaces = list(base.Interface(macbase + fid, ipbase + fid, SWARM_BENG_PORT) for fid in fids)
 
         # The determine our RX interfaces
-        cores = range(SWARM_DBE_N_RX_CORE)
+        cores = list(range(SWARM_DBE_N_RX_CORE))
         rx_ifaces = list(base.Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
 
         # Fill the ARP table
@@ -183,7 +183,7 @@ class BengineDataCatcher(Thread):
                 continue
 
             # Check if packet is wrong size
-            if len(datar) <> self.pkt_size:
+            if len(datar) != self.pkt_size:
                 self.logger.error("Received packet is of wrong size, %d bytes" %(len(datar)))
 		continue
 

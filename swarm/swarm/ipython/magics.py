@@ -1,5 +1,5 @@
 import logging
-from Queue import Queue
+from queue import Queue
 from threading import Thread
 from IPython.core.magic import (
     Magics, 
@@ -143,8 +143,8 @@ class SwarmShellMagics(Magics):
     def lcmagic(self, line, cell=None):
         "Magic that works both as %lcmagic and as %%lcmagic"
         if cell is None:
-            print "Called as line magic"
+            print("Called as line magic")
             return line
         else:
-            print "Called as cell magic"
+            print("Called as cell magic")
             return line, cell

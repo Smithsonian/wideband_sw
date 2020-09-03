@@ -68,9 +68,9 @@ SWARM_WALSH_PERIOD = SWARM_EXT_HB_PERIOD * SWARM_EXT_HB_PER_WCYCLE
 # (changes with either; see above)
 SWARM_WALSH_SKIP = int(SWARM_INT_HB_PERIOD / SWARM_EXT_HB_PERIOD)
 
-SWARM_ALL_FID = range(8)
-SWARM_ALL_CORE = range(4)
-SWARM_ALL_QDR = range(4)    # QDR memory, not "quadrants".
+SWARM_ALL_FID = list(range(8))
+SWARM_ALL_CORE = list(range(4))
+SWARM_ALL_QDR = list(range(4))    # QDR memory, not "quadrants".
 SWARM_N_FIDS = len(SWARM_ALL_FID)
 SWARM_N_INPUTS = len(SWARM_MAPPING_INPUTS)
 SWARM_SHIFT_SCHEDULE = 0x7fff7fff
@@ -175,7 +175,7 @@ def query_yes_no(question, default="yes"):
 
     while True:
         sys.stdout.write(question + prompt)
-        choice = raw_input().lower()
+        choice = input().lower()
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
