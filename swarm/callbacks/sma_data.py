@@ -1,5 +1,4 @@
 from redis import StrictRedis
-from swarm.pysendint import send_integration
 from swarm import SwarmDataCallback
 
 
