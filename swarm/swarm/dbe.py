@@ -1,46 +1,43 @@
-import logging, fcntl
-from struct import pack, unpack
+import fcntl
+import logging
+from datetime import datetime
+from queue import Queue, Empty
 from socket import (
     socket, inet_ntoa,
     AF_INET, SOCK_DGRAM,
-    SO_RCVBUF, SO_SNDBUF,
     timeout,
-    )
-from queue import Queue, Empty
+)
+from struct import pack, unpack
 from threading import Thread, Event
-from datetime import datetime
 from time import sleep
 
 from numpy import nan, array, empty, uint8, complex128
 
-from .defines import *
 from . import base
-
+from .defines import *
 
 SIOCGIFADDR = 0x8915
-SIOCSIFHWADDR  = 0x8927
+SIOCSIFHWADDR = 0x8927
 
 
 def compute_vdif_time():
-
     # calculate reference epoch
     utcnow = datetime.utcnow()
-    ref_start = datetime(2000,1,1,0,0,0)
+    ref_start = datetime(2000, 1, 1, 0, 0, 0)
     nyrs = utcnow.year - ref_start.year
-    ref_ep_num = 2*nyrs+1*(utcnow.month>6)
-    ref_ep_date = datetime(utcnow.year,6*(utcnow.month>6)+1,1,0,0,0)
+    ref_ep_num = 2 * nyrs + 1 * (utcnow.month > 6)
+    ref_ep_date = datetime(utcnow.year, 6 * (utcnow.month > 6) + 1, 1, 0, 0, 0)
 
     # rapidly calculate current time and reset hdr (~10 ms)
-    delta       = datetime.utcnow()-ref_ep_date
-    sec_ref_ep  = delta.seconds + 24*3600*delta.days
+    delta = datetime.utcnow() - ref_ep_date
+    sec_ref_ep = delta.seconds + 24 * 3600 * delta.days
 
-    return (ref_ep_num,sec_ref_ep)
+    return (ref_ep_num, sec_ref_ep)
 
 
 def sync_rtime(member):
-
     # wait until near-middle of second
-    while abs(datetime.utcnow().microsecond  - 500000) > 10000:
+    while abs(datetime.utcnow().microsecond - 500000) > 10000:
         sleep(0.01)
 
     # get present VDIF time and UNIX timestamp
@@ -70,7 +67,7 @@ class LocalInterface(base.Interface):
         s = socket(AF_INET, SOCK_DGRAM)
         info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', interface[:15]))
         info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', interface[:15]))
-        mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
+        mac = unpack('>Q', '\x00' * 2 + info_mac[18:24])[0]
         ip = unpack('>I', info_adr[20:24])[0]
         host = inet_ntoa(pack('>I', ip))
         s.close()
@@ -116,7 +113,8 @@ class SwarmDBE(base.SwarmROACH):
 
         # The determine our RX interfaces
         cores = list(range(SWARM_DBE_N_RX_CORE))
-        rx_ifaces = list(base.Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
+        rx_ifaces = list(
+            base.Interface(macbase + 0x1100 + core, ipbase + 0x1100 + core, SWARM_BENG_PORT) for core in cores)
 
         # Fill the ARP table
         for iface in tx_ifaces + rx_ifaces:
@@ -128,9 +126,9 @@ class SwarmDBE(base.SwarmROACH):
 
         # Finally configure the interfaces
         for core in cores:
-
             # Configure each core with net info
-            self.roach2.config_10gbe_core(SWARM_DBE_RX_CORE % core, rx_iface[core].mac, rx_iface[core].port, rx_iface[core].arp)
+            self.roach2.config_10gbe_core(SWARM_DBE_RX_CORE % core, rx_iface[core].mac, rx_iface[core].port,
+                                          rx_iface[core].arp)
 
         # Finish up
         return tx_ifaces
@@ -140,7 +138,7 @@ class BengineDataCatcher(Thread):
 
     def __init__(self, queue, stopevent,
                  listen_host, listen_port,
-                 pkt_size = SWARM_BENGINE_PKT_SIZE):
+                 pkt_size=SWARM_BENGINE_PKT_SIZE):
         self.queue = queue
         self.pkt_size = pkt_size
         self.stopevent = stopevent
@@ -158,17 +156,17 @@ class BengineDataCatcher(Thread):
 
     def _unpack_pkt(self, datar):
 
-	    # Unpack it to get bcount, fid, and chan id
-            bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
-            self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+        # Unpack it to get bcount, fid, and chan id
+        bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
+        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" % (chan_id, bcount_lsb, fid))
 
-            # Grab the payload
-            payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
+        # Grab the payload
+        payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
 
-            # Get the real "bcount"
-            bcount = (bcount_msb << 32) | (bcount_lsb)
+        # Get the real "bcount"
+        bcount = (bcount_msb << 32) | (bcount_lsb)
 
-            return bcount, fid, chan_id, payload_bin
+        return bcount, fid, chan_id, payload_bin
 
     def run(self):
         self.logger.info('Catching loop has started')
@@ -184,8 +182,8 @@ class BengineDataCatcher(Thread):
 
             # Check if packet is wrong size
             if len(datar) != self.pkt_size:
-                self.logger.error("Received packet is of wrong size, %d bytes" %(len(datar)))
-		continue
+                self.logger.error("Received packet is of wrong size, %d bytes" % (len(datar)))
+                continue
 
             # Unpack and put header onto queue
             self.queue.put(self._unpack_pkt(datar))
@@ -197,17 +195,16 @@ class BengineDataCatcher(Thread):
 class DBEDataCatcher(BengineDataCatcher):
 
     def _unpack_pkt(self, datar):
-
-        # Coming out of the DBE we have VDIF packets, 
+        # Coming out of the DBE we have VDIF packets,
         # so we need to offset into the VDIF packet to get 
         # the underlying Bengine packet
-        beng_hdr_offset = 24 # bytes
-        beng_data_offset = 40 # bytes
+        beng_hdr_offset = 24  # bytes
+        beng_data_offset = 40  # bytes
 
         # Unpack it to get bcount, fid, and chan id
         beng_hdr_bin = datar[beng_hdr_offset:beng_hdr_offset + SWARM_BENGINE_HEADER_SIZE]
         bcount_msb, chan_id, fid, bcount_lsb = unpack('<IHBB', beng_hdr_bin)
-        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" % (chan_id, bcount_lsb, fid))
 
         # Grab the payload
         payload_bin = datar[beng_data_offset:]
@@ -221,8 +218,8 @@ class DBEDataCatcher(BengineDataCatcher):
 def convert_to_signed_complex_4bit(in_unsigned_8bit):
     unsigned_real = (in_unsigned_8bit >> 4) & 0xf
     unsigned_imag = (in_unsigned_8bit >> 0) & 0xf
-    real = array([r if r<8 else r-16 for r in unsigned_real])
-    imag = array([i if i<8 else i-16 for i in unsigned_imag])
+    real = array([r if r < 8 else r - 16 for r in unsigned_real])
+    imag = array([i if i < 8 else i - 16 for i in unsigned_imag])
     return real + 1j * imag
 
 
@@ -237,10 +234,10 @@ def convert_to_signed_complex_2bit(in_unsigned_8bit):
 
 class BengineDataHandler:
 
-    def __init__(self, swarm, listener, 
+    def __init__(self, swarm, listener,
                  catcher=BengineDataCatcher,
-                 pkt_size = SWARM_BENGINE_PKT_SIZE,
-                 data_converter = convert_to_signed_complex_4bit):
+                 pkt_size=SWARM_BENGINE_PKT_SIZE,
+                 data_converter=convert_to_signed_complex_4bit):
 
         # Create initial member variables
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -261,11 +258,11 @@ class BengineDataHandler:
 
         # Initialize the data array
         data = empty([
-                SWARM_N_INPUTS,
-                SWARM_TRANSPOSE_SIZE,
-                SWARM_CHANNELS,
-                ], dtype=complex128)
-        data[:] = 1j*nan
+            SWARM_N_INPUTS,
+            SWARM_TRANSPOSE_SIZE,
+            SWARM_CHANNELS,
+        ], dtype=complex128)
+        data[:] = 1j * nan
 
         # Initialize tracking variables
         valid_pkts = 0
@@ -276,9 +273,9 @@ class BengineDataHandler:
         queue = Queue()
 
         # Create the listening queue
-        catcher = self.catcher(queue, stopper, 
-            self.listener.host, self.listener.port,
-            self.pkt_size)
+        catcher = self.catcher(queue, stopper,
+                               self.listener.host, self.listener.port,
+                               self.pkt_size)
         catcher.setDaemon(True)
 
         # Start the data catching loop
@@ -287,28 +284,28 @@ class BengineDataHandler:
         # Loop until we have requested segments
         while not segment_recvd:
 
-            try: # to check for data
+            try:  # to check for data
                 bcount, fid, chan_id, payload_bin = queue.get_nowait()
-            except Empty: # none available
+            except Empty:  # none available
                 continue
 
-            if target_bcount is None: # then this is our first packet
+            if target_bcount is None:  # then this is our first packet
 
                 target_bcount = bcount + 1
                 self.logger.info("Target bcount is #{0}".format(target_bcount))
 
-            elif bcount == target_bcount: # this is our target segment!
+            elif bcount == target_bcount:  # this is our target segment!
 
                 # Unpack the payload
                 payload = self._unpack_payload(payload_bin)
 
                 # Fill the data array using array slicing
                 start_chan = SWARM_XENG_PARALLEL_CHAN * (chan_id * SWARM_N_FIDS + fid)
-                stop_chan  = start_chan + SWARM_XENG_PARALLEL_CHAN
+                stop_chan = start_chan + SWARM_XENG_PARALLEL_CHAN
                 for i_input in range(SWARM_N_INPUTS):
                     for j_spectrum in range(SWARM_TRANSPOSE_SIZE):
                         start_pkt = i_input + j_spectrum * SWARM_N_INPUTS * SWARM_XENG_PARALLEL_CHAN
-                        stop_pkt  = start_pkt + SWARM_XENG_PARALLEL_CHAN * SWARM_N_INPUTS
+                        stop_pkt = start_pkt + SWARM_XENG_PARALLEL_CHAN * SWARM_N_INPUTS
                         partial = self.data_converter(payload[start_pkt:stop_pkt:SWARM_N_INPUTS])
                         data[i_input][j_spectrum][start_chan:stop_chan] = partial
 
@@ -326,10 +323,10 @@ class BengineDataHandler:
 class DBEDataHandler(BengineDataHandler):
 
     def _reorder_payload(self, payload):
-        return (payload.reshape(payload.size/4, 4)[:, ::-1]).flatten()
+        return (payload.reshape(payload.size / 4, 4)[:, ::-1]).flatten()
 
     def _unpack_payload(self, payload_bin):
-        payload = self._reorder_payload(array(unpack('%dB' % (SWARM_BENGINE_PAYLOAD_SIZE/2), payload_bin)))
+        payload = self._reorder_payload(array(unpack('%dB' % (SWARM_BENGINE_PAYLOAD_SIZE / 2), payload_bin)))
         fluffed = empty(payload.size * 2, dtype=uint8)
         samp_3 = (payload >> 0) & 0x3
         samp_2 = (payload >> 2) & 0x3
