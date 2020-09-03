@@ -1,7 +1,7 @@
-import logging, sys
+import logging
 from configparser import ConfigParser
 
-from corr.katcp_wrapper import FpgaClient
+from .katcp_wrapper import FpgaClient
 from katcp import Message
 
 from .defines import *

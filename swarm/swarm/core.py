@@ -10,7 +10,7 @@ from collections import OrderedDict
 
 from numpy import array, clip, roll
 
-from corr.katcp_wrapper import FpgaClient
+from .katcp_wrapper import FpgaClient
 
 from adc5g import (
     pretty_glitch_profile,
