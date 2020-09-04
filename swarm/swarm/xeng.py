@@ -124,7 +124,7 @@ class SwarmXengine:
 
         inputs = len(self.mapping)
         top_stage = inputs / 2
-        clocks = inputs + inputs/2 - 1
+        clocks = inputs + inputs//2 - 1
 
         for clock in range(clocks):
 
