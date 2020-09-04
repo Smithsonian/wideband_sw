@@ -58,6 +58,8 @@ class RedisHandler(logging.Handler):
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
 
+logging.getLogger('asyncio').setLevel(logging.WARNING)
+
 # Exit signal handler
 def quit_handler(signum, frame):
     logger.info("Received signal #{0}; Quitting...".format(signum))
