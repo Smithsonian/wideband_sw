@@ -95,6 +95,7 @@ class FpgaClient(CallbackClient):
         super(FpgaClient, self).__init__(host, port, tb_limit=tb_limit, timeout=timeout, logger=logger)
         self.host = host
         self._timeout = timeout
+        self.setDaemon(True)
         self.start()
 
         # async stuff
