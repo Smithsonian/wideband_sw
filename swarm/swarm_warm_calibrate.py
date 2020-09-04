@@ -7,7 +7,7 @@ import time
 from queue import Queue
 from traceback import format_exception
 
-import pyopmess
+# import pyopmess
 from swarm import Swarm
 from swarm.core import ExceptingThread
 from swarm.defines import query_yes_no, SWARM_MAPPING_CHUNKS, SWARM_MAPPINGS
@@ -43,7 +43,7 @@ quad_string = " ".join(map(str, list(quad_mappings.keys())))
 if quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins for quadrant(s) " + quad_string + "?"):
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
-    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + quad_string + " starting ADC warm calibration")
+    # pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + quad_string + " starting ADC warm calibration")
     swarm = Swarm(mappings_dict=quad_mappings)
     swarm.members_do(lambda fid, mbr: mbr.load_bitcode())
     swarm.members_do(lambda fid, mbr: mbr.set_source(2, 2))
@@ -57,7 +57,7 @@ if quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins fo
     swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
 
     # Do a threaded calibration
-    pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
+    # pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
     exceptions_queue = Queue()
     adccal_threads = OrderedDict()
     for fid, member in swarm.get_valid_members():
@@ -91,7 +91,7 @@ if quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins fo
 
     # If any exception occurred raise error
     if exceptions > 0:
-        pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
+        # pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
         raise RuntimeError('{0} member(s) had an error during ADC warm-calibration!'.format(exceptions))
 
     # Re-enable the ADC monitor

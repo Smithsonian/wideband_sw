@@ -1,11 +1,8 @@
 #!/usr/local/anaconda/envs/swarm/bin/python
 import logging
 import sys
-
-import pyopmess
 from swarm import Swarm
 import argparse
-from swarm.defines import query_yes_no
 
 # Setup root logger
 logger = logging.getLogger()

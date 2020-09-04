@@ -5,7 +5,7 @@ from collections import OrderedDict
 import time
 import sys
 
-import pyopmess
+# import pyopmess
 import subprocess
 from swarm import Swarm
 from swarm.defines import *
@@ -62,7 +62,7 @@ if disabled_quad_mappings:
 
         # IDLE the disabled quadrants.
         disabled_quad_string = " ".join(map(str, list(disabled_quad_mappings.keys())))
-        pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
+        # pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
         swarm.members_do(lambda fid, mbr: mbr.idle())
 
 # Update the SWARMQuadrantsInArray file with the active quadrant list.

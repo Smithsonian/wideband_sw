@@ -3,7 +3,7 @@ from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from redis import StrictRedis, ConnectionError
 from threading import Event
 from swarm import *
-import pyopmess
+# import pyopmess
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/checks.log'
@@ -121,7 +121,7 @@ while RUNNING.is_set():
         # If error threshold is exceeded, generate operator message
         if errors > ERROR_THRESHOLD:
             logger.warning('Total corner-turn errors, {0}, exceed threshold'.format(errors))
-            pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
+            # pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
 
         # Log that the iteration is done
         logger.debug("Checks done")
