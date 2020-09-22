@@ -771,16 +771,14 @@ class SwarmQuadrant:
     def __getattr__(self, attr):
 
         # See if the non-SwarmQuadrant attribute is a SwarmMember method
-        print("**********PRINTING VALUES************")
-        print(attr)
-        print(self.members.values())
-        if callable(getattr(list(self.members.values())[0], attr, None)):
+        if self.members.values():
+            if callable(getattr(list(self.members.values())[0], attr, None)):
 
-            # If so, return a callable that passes the users args and kwargs
-            # to the appropriate method on all members
-            self.logger.debug("{0} is not a SwarmQuadrant method but it is a SwarmMember method; "
-                             "calling on all members!".format(attr))
-            return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
+                # If so, return a callable that passes the users args and kwargs
+                # to the appropriate method on all members
+                self.logger.debug("{0} is not a SwarmQuadrant method but it is a SwarmMember method; "
+                                 "calling on all members!".format(attr))
+                return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
         # See if user is trying to access the SwarmMember.roach2 attribute
         if attr == 'roach2':
