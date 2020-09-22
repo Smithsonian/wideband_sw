@@ -871,6 +871,7 @@ class SwarmQuadrant:
                     # Create and attach our member instance
                     member_inst = SwarmMember(fid, roach2_host, parent_logger=self.logger, **parameters)
                     if roach2_host not in self.members:
+                        print("******ADDING ROACH to self.members********")
                         self.members[roach2_host] = member_inst
                         fid += 1
 
