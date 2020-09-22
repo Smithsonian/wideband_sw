@@ -87,7 +87,7 @@ logredis.setFormatter(formatter)
 
 # Silence all katcp messages
 katcp_logger = logging.getLogger('katcp')
-katcp_logger.setLevel(logging.CRITICAL)
+katcp_logger.setLevel(logging.DEBUG)
 
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
