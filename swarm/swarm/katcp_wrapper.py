@@ -430,7 +430,7 @@ class FpgaClient(CallbackClient):
            @return  boolean: ping result.
            """
         reply, informs = self._request("watchdog", self._timeout)
-        if reply.arguments[0] == 'ok':
+        if reply.arguments[0] == Message.OK:
             return True
         else:
             return False
