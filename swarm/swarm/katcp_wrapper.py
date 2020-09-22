@@ -327,7 +327,7 @@ class FpgaClient(CallbackClient):
         self._logger.info("Starting tgtap driver instance for %s: %s %s %s %s %s" % (
         "tap-start", tap_dev, device, ip_str, port_str, mac_str))
         reply, informs = self._request("tap-start", self._timeout, tap_dev, device, ip_str, port_str, mac_str)
-        if reply.arguments[0] == 'ok':
+        if reply.arguments[0] == Message.OK:
             return
         else:
             raise RuntimeError(
@@ -341,7 +341,7 @@ class FpgaClient(CallbackClient):
         """
 
         reply, informs = self._request("tap-stop", self._timeout, device)
-        if reply.arguments[0] == 'ok':
+        if reply.arguments[0] == Message.OK:
             return
         else:
             raise RuntimeError("Failure stopping tap device %s." % (device))
