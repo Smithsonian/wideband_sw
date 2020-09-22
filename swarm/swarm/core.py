@@ -772,6 +772,7 @@ class SwarmQuadrant:
 
         # See if the non-SwarmQuadrant attribute is a SwarmMember method
         print("**********PRINTING VALUES************")
+        print(attr)
         print(self.members.values())
         if callable(getattr(list(self.members.values())[0], attr, None)):
 
