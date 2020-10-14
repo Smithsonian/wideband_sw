@@ -1,4 +1,6 @@
 import logging
+from Queue import Queue
+from threading import Thread
 from IPython.core.magic import (
     Magics, 
     magics_class, 
@@ -9,6 +11,7 @@ from IPython.core.magic import (
 
 from swarm.core import SwarmInput
 from swarm.defines import *
+
 
 @magics_class
 class SwarmShellMagics(Magics):
@@ -137,6 +140,61 @@ class SwarmShellMagics(Magics):
 
         # Apply gain
         self.swarm.set_bengine_gains(gain, gain, gain, gain)
+
+    def checkroach2(self, line):
+
+        self.logger.info("Check ROACH2s")
+        # Gather all SWARM members
+        members = [quads[fid] for quads in self.swarm for fid in range(SWARM_N_FIDS)]
+
+        # Set up dictionary of status info
+        swarm_roach2_status = {}
+        for m in members:
+            swarm_roach2_status[m] = {"programmed":None,
+              "firmware":None,
+              "clock":None}
+
+        # Set up a queue to collect return values in threads
+        queue = Queue()
+
+        # Check FPGA programmed status
+        threads = [Thread(target=lambda q,m: q.put((m,m.send_katcp_cmd("fpgastatus"))),
+          args=(queue,memb)) for memb in members]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        while not queue.empty():
+            memb, reply = queue.get()
+            self.logger.debug("{0} programmed status is {1}".format(memb.roach2_host,
+              "OK" if reply[0].reply_ok() else "not OK"))
+            swarm_roach2_status[memb]["programmed"] = "OK" if reply[0].reply_ok() else "not OK"
+
+        # Check firmware version information
+        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.get_rcs())),
+          args=(queue,memb)) for memb in members]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        while not queue.empty():
+            memb, rcs = queue.get()
+            self.logger.debug("{0} is running bitcode version {1:x} ({2})".format(memb.roach2_host,
+              rcs["app_rev"],"dirty" if rcs["app_dirty"] else "clean"))
+            swarm_roach2_status[memb]["firmware"] = "commit hash {0:x} ({1})".format(rcs["app_rev"],
+              "dirty" if rcs["app_dirty"] else "clean")
+
+        # Get clock information
+        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.est_brd_clk())),
+          args=(queue,memb)) for memb in members]
+        [t.start() for t in threads]
+        [t.join() for t in threads]
+        while not queue.empty():
+            memb, clk = queue.get()
+            self.logger.debug("{0} clock is ~{1:.1f} MHz".format(memb.roach2_host,clk))
+            swarm_roach2_status[memb]["clock"] = "OK" if clk > 200 and clk < 400 else "possibly not OK ({0.1f}MHz)".format(clk)
+
+        # Log results from all checks
+        for memb in members:
+            this_roach2_status = swarm_roach2_status[memb]
+            self.logger.info("{0} FPGA programmed status is {1}, running firmware version {2}, and clock is {3}".format(memb.roach2_host,
+              this_roach2_status["programmed"],this_roach2_status["firmware"],this_roach2_status["clock"]))
 
     @line_magic
     def setprompt(self, line):

@@ -90,7 +90,7 @@ katcp_logger.setLevel(logging.CRITICAL)
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
 parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
-parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=[],
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES', nargs='+', default=SWARM_LISTENER_INTERFACES,
                     help='listen for UDP data on INTERFACES (default="{0}")'.format(SWARM_LISTENER_INTERFACES))
@@ -148,7 +148,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 swarm_catcher = SwarmDataCatcher(swarm)
 
 # Create the data handler
-swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue())
+swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue(), swarm_catcher.get_catch_queue())
 
 # Signal handler for idling SWARM
 def idle_handler(signum, frame):
@@ -240,6 +240,7 @@ def cold_start_handler(signum, frame):
     swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('start-adc-monitor'))
 
     # Start up catcher again
+    swarm.reset_xengines_and_sync()
     swarm_catcher.start()
     pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
 
@@ -308,8 +309,11 @@ if args.visibs_test:
     # Give a rawback that checks for ramp errors
     swarm_catcher.add_rawback(CheckRamp)
 
-# Reset the X-engines every restart
-swarm.reset_xengines()
+# Reset the xengines until window counters to by in sync
+swarm.reset_xengines_and_sync()
+
+# test to set visibilities.
+# swarm.set_chunk_delay()
 
 # Start the data catcher
 swarm_catcher.start()

@@ -5,38 +5,36 @@ from Queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
 from socket import (
-    socket, timeout, error, 
+    socket, timeout, error,
     inet_ntoa, inet_aton,
     AF_INET, SOCK_DGRAM, SOCK_STREAM,
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
-    )
+)
 
 from numpy import array, nan, fromstring, empty, reshape
-
+from numba import jit
 import core
 from defines import *
 from xeng import (
-    SwarmBaseline, 
+    SwarmBaseline,
     SwarmXengine,
     )
 
+import pydsm
 
 SIOCGIFADDR = 0x8915
-SIOCSIFHWADDR  = 0x8927
+SIOCSIFHWADDR = 0x8927
 SIOCGIFNETMASK = 0x891b
-
 
 INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
 OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
-
-ARRIVAL_THRESHOLD = 0.6
-XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
+ARRIVAL_THRESHOLD = 3
+XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP))
 
 
 class SwarmDataPackage(object):
-
     header_prefix_fmt = '<IIIdd'
 
     def __init__(self, baselines, int_time, int_length):
@@ -67,14 +65,15 @@ class SwarmDataPackage(object):
 
         # Generate baselines list
         header_prefix_size = calcsize(cls.header_prefix_fmt)
-        n_baselines, n_sidebands, n_channels, int_time, int_length  = unpack(
+        n_baselines, n_sidebands, n_channels, int_time, int_length = unpack(
             cls.header_prefix_fmt, str_[0:header_prefix_size])
         header_size = header_prefix_size + 6 * n_baselines
         baselines_s = reshape(unpack('BBBBBB' * n_baselines, str_[header_prefix_size:header_size]), (n_baselines, 6))
-        baselines = list(SwarmBaseline(core.SwarmInput(a, b, c), core.SwarmInput(d, e, f)) for a, b, c, d, e, f in baselines_s)
+        baselines = list(
+            SwarmBaseline(core.SwarmInput(a, b, c), core.SwarmInput(d, e, f)) for a, b, c, d, e, f in baselines_s)
 
         # Create an instance, populate header & data, and return it
-        data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS*2)
+        data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS * 2)
         inst = cls(baselines, int_time, int_length)
         inst.header = str_[:header_size]
         inst.array = fromstring(str_[header_size:], dtype='<f4').reshape(data_shape)
@@ -116,12 +115,12 @@ class SwarmDataPackage(object):
             SWARM_CHANNELS,
             self.int_time, self.int_length,
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
-            )
+        )
 
     def init_data(self):
 
         # Initialize our data array
-        data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS*2)
+        data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS * 2)
         self.array = empty(shape=data_shape, dtype='<f4')
         self.array[:] = nan
 
@@ -134,12 +133,21 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
+        slice_ = compute_slice(fid, imag_off)
         self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
-            self.get(baseline, sideband)[slice_+1] = 0.0
+            self.get(baseline, sideband)[slice_ + 1] = 0.0
+
+
+@jit
+def compute_slice(fid, imag_off):
+    """
+    Moved this calculation into its own function in order to make use of numba's @jit feature.
+    We gain a %5 improvement from doing this.
+    """
+    return DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
 
 
 class SwarmDataCallback(object):
@@ -166,7 +174,7 @@ class SwarmListener(object):
         info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface))
         info_mask = fcntl.ioctl(s.fileno(), SIOCGIFNETMASK, pack('256s', self.interface))
         self.netmask = unpack(SWARM_REG_FMT, info_mask[20:24])[0]
-        self.mac = unpack('>Q', '\x00'*2 + info_mac[18:24])[0]
+        self.mac = unpack('>Q', '\x00' * 2 + info_mac[18:24])[0]
         self.ip = unpack(SWARM_REG_FMT, info_adr[20:24])[0]
         self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
         self.port = port
@@ -183,6 +191,34 @@ def has_none(obj):
         if obj == None:
             return True
     return False
+
+
+@jit
+def unpack_ip(addr):
+    # Parse the IP address
+    return unpack('BBBB', inet_aton(addr))
+
+
+@jit
+def determine_qid(ip):
+    # Determine the QID
+    return (ip >> 4) & 0x7
+
+
+@jit
+def determine_fid(ip):
+    # Determine the FID
+    return ip & 0x7
+
+
+@jit
+def determine_xnum(xnum_mb, xnum_lh):
+    return ((xnum_mb << 16) | xnum_lh) << 5
+
+
+@jit
+def determine_acc_n(acc_n_mb, acc_n_lh):
+    return (acc_n_mb << 16) | acc_n_lh
 
 
 class SwarmDataCatcher:
@@ -208,16 +244,19 @@ class SwarmDataCatcher:
     def get_queue(self):
         return self.order_queue
 
+    def get_catch_queue(self):
+        return self.catch_queue
+
     def _create_socket(self):
         udp_sock = socket(AF_INET, SOCK_DGRAM)
         udp_sock.bind((self.host, self.port))
-        udp_sock.settimeout(2.0)
+        udp_sock.settimeout(30.0)
         return udp_sock
 
     def start_catch(self):
         if not self.catch_thread:
             self.catch_stop.clear()
-            self.catch_thread = Thread(target=self.catch, 
+            self.catch_thread = Thread(target=self.catch,
                                        args=(self.catch_stop,
                                              None,
                                              self.catch_queue))
@@ -229,8 +268,8 @@ class SwarmDataCatcher:
     def start_order(self):
         if not self.order_thread:
             self.order_stop.clear()
-            self.order_thread = Thread(target=self.order, 
-                                       args=(self.order_stop, 
+            self.order_thread = Thread(target=self.order,
+                                       args=(self.order_stop,
                                              self.catch_queue,
                                              self.order_queue))
             self.order_thread.start()
@@ -239,6 +278,8 @@ class SwarmDataCatcher:
             self.logger.error('Order thread has not been stopped!')
 
     def start(self):
+        self.catch_queue.queue.clear()
+        self.order_queue.queue.clear()
         self.start_catch()
         self.start_order()
 
@@ -270,71 +311,59 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-        while not stop.is_set():
 
+        while not stop.is_set():
             # Receive a packet and get host info
             try:
                 datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-                pkt_time = time() # packet arrival time
+                pkt_time = time()  # packet arrival time
             except timeout:
                 continue
 
-            # Check if packet is wrong size
-            if len(datar) <> SWARM_VISIBS_PKT_SIZE:
-                self.logger.warning("Received packet %d:#%d is of wrong size, %d bytes" %(acc_n, pkt_n, len(datar)))
-		continue
-
             # Parse the IP address
-            ip = unpack('BBBB', inet_aton(addr[0]))
+            ip = unpack_ip(addr[0])
 
-            # Determing the QID
-            qid = (ip[3]>>4) & 0x7
+            # Determine the QID
+            qid = determine_qid(ip[3])
 
             # Determine the FID
-            fid = ip[3] & 0x7
+            fid = determine_fid(ip[3])
 
-	    # Unpack it to get packet #, accum #, and scan length
-            pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE])
-            xnum = ((xnum_mb << 16) | xnum_lh) << 5
-            acc_n = (acc_n_mb << 16) | acc_n_lh
+            # Unpack it to get packet #, accum #, and scan length
+            pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT,
+                                                                 datar[:SWARM_VISIBS_HEADER_SIZE])
+            xnum = determine_xnum(xnum_mb, xnum_lh)
+            acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
 
-	    # Initialize qid data buffer, if necessary
+            # self.logger.debug("Caught packet %d from qid: %d fid: %d acc_n: %d" % (pkt_n, qid, fid, acc_n))
+
+            # Initialize qid data buffer, if necessary
             if not data.has_key(qid):
                 data[qid] = {}
                 mask[qid] = {}
                 meta[qid] = {}
 
-	    # Initialize fid data buffer, if necessary
+            # Initialize fid data buffer, if necessary
             if not data[qid].has_key(fid):
                 data[qid][fid] = {}
                 mask[qid][fid] = {}
                 meta[qid][fid] = {}
 
-	    # First packet of new accumulation, initalize data buffers
+            # First packet of new accumulation, initalize data buffers
             if not data[qid][fid].has_key(acc_n):
                 data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
                 mask[qid][fid][acc_n] = long(0)
                 meta[qid][fid][acc_n] = {
-                    'time': pkt_time, # these values correspond to those
-                    'xnum': xnum,     # of the first packet of this acc
-                    }
-
-            # Check that xnum matches that of first packet
-            acc_xnum = meta[qid][fid][acc_n]['xnum']
-            if xnum != acc_xnum: # if not, trigger a shutdown and exit
-                err_msg = "Received packet %d:#%d has non-matching xnum=%d, should be %d!" %(acc_n, pkt_n, xnum, acc_xnum)
-                exception = ValueError(err_msg)
-                self.logger.error(err_msg)
-                out_queue.put(exception)
-                continue
+                    'time': pkt_time,  # these values correspond to those
+                    'xnum': xnum,  # of the first packet of this acc
+                }
 
             # Then store data in it
             data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
             mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
-            if mask[qid][fid][acc_n] == 2**SWARM_VISIBS_N_PKTS-1:
-
+            if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
                 # Put data onto the queue
                 mask[qid][fid].pop(acc_n)
                 datas = ''.join(data[qid][fid].pop(acc_n))
@@ -375,13 +404,11 @@ class SwarmDataCatcher:
     def order(self, stop, in_queue, out_queue):
 
         last_acc = []
-        primordial = True
         current_acc = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
 
         while not stop.is_set():
-
             # Receive a set of data
             try:
                 message = in_queue.get_nowait()
@@ -392,7 +419,7 @@ class SwarmDataCatcher:
             # Check if we received an exception
             if isinstance(message, Exception):
                 out_queue.put(message)
-                continue # pass on exemption and move on
+                continue  # pass on exemption and move on
 
             # Otherwise, continue and parse message
             qid, fid, acc_n, meta, datas = message
@@ -402,41 +429,33 @@ class SwarmDataCatcher:
             # Check if we've started a new scan
             if current_acc is None:
 
-                # Check that first data starts with 0, 0
-                if not ((qid == 0) and (fid ==0)):
+                self.logger.info("First data of accumulation #{0} received".format(acc_n))
+                current_acc = acc_n
 
-                    # But, skip if it's a partial primordial scan
-                    if primordial:
-                        continue
-                    else: # error out otherwise
-                        err_msg = "Accumulation #{0} started with qid={1}, fid={2}! Should start with 0, 0!".format(acc_n, qid, fid)
-                        exception = ValueError(err_msg)
-                        self.logger.error(err_msg)
-                        out_queue.put(exception)
-                        continue
+                # Initiate the data buffer
+                data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
 
-                else: # we're good and can proceed with new scan
-                    self.logger.info("First data of accumulation #{0} received".format(acc_n))
-                    current_acc = acc_n
-                    primordial = False
+                # Establish meta data for new scan
+                int_length = this_length
+                int_time = this_time
 
-                    # Initiate the data buffer
-                    data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
-
-                    # Establish meta data for new scan
-                    int_length = this_length
-                    int_time = this_time
-
-            elif current_acc != acc_n: # not done with scan but scan #'s don't match
-                err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(current_acc, acc_n, qid, fid)
-                exception = ValueError(err_msg)
+            elif current_acc != acc_n:  # not done with scan but scan #'s don't match
+                err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
+                    current_acc, acc_n, qid, fid)
                 self.logger.error(err_msg)
-                out_queue.put(exception)
-                continue
+
+                if (current_acc + 1) == acc_n:
+                    self.logger.info("Skipping acc " + str(current_acc))
+                    current_acc += 1
+                else:
+                    exception = ValueError(err_msg)
+                    out_queue.put(exception)
+                    continue
 
             # Make sure that all scan lengths match
             if this_length != int_length:
-                err_msg = "Data from qid #{0}, fid #{1} has mis-matching scan length: {2:.2f}!".format(qid, fid, this_length)
+                err_msg = "Data from qid #{0}, fid #{1} has mis-matching scan length: {2:.2f}!".format(qid, fid,
+                                                                                                       this_length)
                 exception = ValueError(err_msg)
                 self.logger.error(err_msg)
                 out_queue.put(exception)
@@ -445,7 +464,8 @@ class SwarmDataCatcher:
             # Make sure data arrives within a reasonable time since the first data
             # NOTE: this alone does not enforce any order
             if (this_time - int_time) > ARRIVAL_THRESHOLD:
-                err_msg = "Arrival time of qid={0}, fid={1} is too late (>{2:.1f} s from first data)".format(qid, fid, ARRIVAL_THRESHOLD)
+                err_msg = "Arrival time of qid={0}, fid={1} is too late (>{2:.1f} s from first data)".format(qid, fid,
+                                                                                                             ARRIVAL_THRESHOLD)
                 exception = ValueError(err_msg)
                 self.logger.error(err_msg)
                 out_queue.put(exception)
@@ -455,31 +475,34 @@ class SwarmDataCatcher:
             try:
                 data[qid][fid] = datas
             except IndexError:
-                self.logger.info("Ignoring data from unexpected quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid))
-                continue # ignore and move on
+                self.logger.info(
+                    "Ignoring data from unexpected quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid))
+                continue  # ignore and move on
 
             # Get the member/fid this set is from
             member = self.swarm[qid][fid]
 
             # Log the fact
             suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
-            self.logger.info("Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
+            self.logger.debug(
+                "Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
 
             # Set the last acc time
             last_acc[qid][fid] = time()
 
-	    # If we've gotten all pkts for this acc_n from all QIDs & FIDs
+            # If we've gotten all pkts for this acc_n from all QIDs & FIDs
             if not has_none(data):
 
                 # We have all data for this accumulation, log it
-                self.logger.info("Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
+                self.logger.info(
+                    "Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
 
-                    try: # catch callback error
+                    try:  # catch callback error
                         rawback(data)
-                    except Exception as exception: # and log if needed
+                    except Exception as exception:  # and log if needed
                         self.logger.error("Exception from rawback: {}".format(rawback))
                         out_queue.put(exception)
                         continue
@@ -491,7 +514,7 @@ class SwarmDataCatcher:
                 data_pkg = self._reorder_data(data, int_time, int_length)
                 self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
-		# Put data onto queue
+                # Put data onto queue
                 out_queue.put((acc_n, int_time, data_pkg))
 
                 # Done with this accumulation
@@ -500,26 +523,77 @@ class SwarmDataCatcher:
 
 class SwarmDataHandler:
 
-    def __init__(self, swarm, queue):
+    def __init__(self, swarm, queue, catch_queue):
 
         # Create initial member variables
         self.logger = logging.getLogger('SwarmDataHandler')
         self.callbacks = []
         self.swarm = swarm
         self.queue = queue
+        self.catch_queue = catch_queue
 
     def add_callback(self, callback, *args, **kwargs):
         inst = callback(self.swarm, *args, **kwargs)
         self.callbacks.append(inst)
 
+    def update_itime_from_dsm(self, last_dsm_num_walsh_cycles=None, check_fpga_itime=False):
+
+        # Check DSM for updated scan length.
+        dsm_num_walsh_cycles = pydsm.read('hal9000', 'SWARM_SCAN_LENGTH_L')[0]
+
+        # Error checking, ignore crap values from DSM.
+        if dsm_num_walsh_cycles < 1 or dsm_num_walsh_cycles > 1000.0:
+            self.logger.warning(
+                "DSM returned a SWARM_SCAN_LENGTH_L value not between 0-1000, ignoring..." + str(dsm_num_walsh_cycles))
+            return None
+
+        # Return if last_dsm_num_walsh_cycles param was used, and its the same as the new value.
+        if last_dsm_num_walsh_cycles == dsm_num_walsh_cycles:
+            return dsm_num_walsh_cycles
+
+        # DSM Stores the number of walsh cycles as a long, convert back to seconds.
+        dsm_integration_time = dsm_num_walsh_cycles * SWARM_WALSH_PERIOD
+
+        try:
+            # If check_fpga_itime is set, check the fpga times before setting them.
+            dsm_time_secs = round(dsm_integration_time, 2)
+            if check_fpga_itime:
+                fpga_time_secs = round(self.swarm.get_itime(), 2)
+                if fpga_time_secs == dsm_time_secs:
+                    return dsm_num_walsh_cycles
+
+            self.logger.info("Setting integration time to " + str(dsm_time_secs) + "s...")
+
+            # Do a threaded set_itime.
+            swarm_member_threads = list(Thread(target=m.set_itime, args=(dsm_integration_time,)) for f, m in self.swarm.get_valid_members())
+            for thread in swarm_member_threads:
+                thread.start()
+
+            # Finally join all threads
+            for thread in swarm_member_threads:
+                thread.join()
+
+            with self.queue.mutex:
+                self.queue.queue.clear()
+            with self.catch_queue.mutex:
+                self.catch_queue.queue.clear()
+
+        except Exception as err:
+            self.logger.error("Error setting integration time, exception caught {0}".format(err))
+
+        return dsm_num_walsh_cycles
+
     def loop(self, running):
+
+        # Set the integration time from DSM (function will be a noop if lengths are the same).
+        current_scan_length = self.update_itime_from_dsm()
 
         # Loop until user quits
         while running.is_set():
 
-            try: # to check for data
+            try:  # to check for data
                 message = self.queue.get_nowait()
-            except Empty: # none available
+            except Empty:  # none available
                 sleep(0.01)
                 continue
 
@@ -532,14 +606,17 @@ class SwarmDataHandler:
 
             # Finally, do user callbacks
             for callback in self.callbacks:
-                try: # catch callback error
+                try:  # catch callback error
                     callback(data)
-                except: # and log if needed
+                except:  # and log if needed
                     self.logger.error("Exception from callback: {}".format(callback))
                     raise
 
             # Log that we're done with callbacks
             self.logger.info("Processed all callbacks for accumulation #{:<4}".format(acc_n))
 
-            gc.collect() # Force garbage collection
+            gc.collect()  # Force garbage collection
             self.logger.info("Garbage collected. Processing took {:.4f} secs".format(time() - int_time))
+
+            # Check dsm for updates
+            current_scan_length = self.update_itime_from_dsm(last_dsm_num_walsh_cycles=current_scan_length)

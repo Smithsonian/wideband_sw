@@ -13,6 +13,7 @@ OBJDIR := build
 ARCHDIR := $(OBJDIR)/$(ARCH)
 EXAMPLES := $(addprefix $(ARCHDIR)/, $(addsuffix .so, example alarm))
 SWARM_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, dsm sma_adc sma_walsh sma_astro sma_dsm))
+ADC_ONLY := $(addprefix $(ARCHDIR)/, $(addsuffix .so, sma_adc))
 OBJS := $(EXAMPLES) $(SWARM_ONLY)
 
 $(ARCHDIR)/sma_adc.so:   LDLIBS = -lm
@@ -22,6 +23,7 @@ $(ARCHDIR)/dsm.so:       LDLIBS = -lrt -lpthread -ldsm -L$(COMMON)/lib
 
 examples: $(EXAMPLES)
 swarm: $(SWARM_ONLY)
+adc: $(ADC_ONLY)
 all: $(OBJS)
 
 $(OBJS): | $(ARCHDIR)

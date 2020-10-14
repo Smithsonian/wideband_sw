@@ -48,3 +48,4 @@ tbs_plugins/build/
 
 # Ignore annoying NFS lock files
 *.nfs*
+.idea

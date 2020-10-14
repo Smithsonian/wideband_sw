@@ -7,7 +7,7 @@ import pydsm
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
 RUNNING = Event()
-PERIOD = 1
+PERIOD = .5
 
 # Setup root logger
 logger = logging.getLogger()
@@ -45,7 +45,7 @@ katcp_logger.setLevel(logging.CRITICAL)
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Read source information from newdds via DSM and copy to the ROACH2s')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Display debugging logs')
-parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=[],
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 args = parser.parse_args()
 

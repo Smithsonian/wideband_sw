@@ -1,21 +1,33 @@
 from signal import SIGQUIT
+import sys
 
 SWARM_IDLE_BITCODE = 'idle.bof'
-
+SWARM_CTRL_LOG_CHANNEL = "swarm.logs.ctrl"
 SWARM_ROACH2_IP = 'roach2-%02x'
+SWARM_COLDSTART_PATH = '/otherInstances/tenzing/smainit_req/swarm_ctrl.URG'
+SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'
+ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
 
+# SWARM_MAPPINGS dictates the number of possible quadrants for the rest of the code.
+# If you change the number of quadrants in SWARM, it won't work correctly until you
+# create/remove the mappings in this list.
 SWARM_MAPPINGS = [
     '/global/configFiles/swarmMapping.quad1',
     '/global/configFiles/swarmMapping.quad2',
     '/global/configFiles/swarmMapping.quad3',
     '/global/configFiles/swarmMapping.quad4',
+    '/global/configFiles/swarmMapping.quad5',
+    '/global/configFiles/swarmMapping.quad6',
     ]
+
+SWARM_MAX_NUM_QUADRANTS = len(SWARM_MAPPINGS)
+SWARM_MAPPING_CHUNKS = tuple([q for q in range(SWARM_MAX_NUM_QUADRANTS)])
+
 SWARM_MAPPING_COMMENT = '#'
 SWARM_MAPPING_MEM_PARAM = '!'
 SWARM_MAPPING_QUAD_PARAM = '$'
 SWARM_MAPPING_COLUMNS = 5
 SWARM_MAPPING_INPUTS = (0, 1)
-SWARM_MAPPING_CHUNKS = (0, 1, 2, 3)
 SWARM_MAPPING_POLS = (0, 1)
 
 SWARM_PLUGINS_CONFIG = '/global/configFiles/swarmPlugins'
@@ -49,7 +61,7 @@ SWARM_INT_HB_PERIOD = SWARM_CLOCKS_PER_INT_HB / SWARM_CLOCK_RATE
 # External Walshing parameters
 # (changes with SMA Walshing changes)
 SWARM_EXT_HB_PER_WCYCLE = 64
-SWARM_EXT_HB_PERIOD = (2**19) / (52e6)
+SWARM_EXT_HB_PERIOD = (2**19) / 52e6
 SWARM_WALSH_PERIOD = SWARM_EXT_HB_PERIOD * SWARM_EXT_HB_PER_WCYCLE
 
 # Internal/external relationship
@@ -58,7 +70,7 @@ SWARM_WALSH_SKIP = int(SWARM_INT_HB_PERIOD / SWARM_EXT_HB_PERIOD)
 
 SWARM_ALL_FID = range(8)
 SWARM_ALL_CORE = range(4)
-SWARM_ALL_QDR = range(4)
+SWARM_ALL_QDR = range(4)    # QDR memory, not "quadrants".
 SWARM_N_FIDS = len(SWARM_ALL_FID)
 SWARM_N_INPUTS = len(SWARM_MAPPING_INPUTS)
 SWARM_SHIFT_SCHEDULE = 0x7fff7fff
@@ -102,9 +114,10 @@ SWARM_VISIBS_BASELINES = 128
 SWARM_VISIBS_HEADER_SIZE = 8
 SWARM_VISIBS_HEADER_FMT = '>HBHBH'
 SWARM_VISIBS_PKT_SIZE = 1025 * 8
-SWARM_VISIBS_CHUNK_DELAY = (2**21)
+SWARM_VISIBS_CHUNK_DELAY = (2**20)
 SWARM_VISIBS_SIDEBANDS = len(SWARM_XENG_SIDEBANDS)
 SWARM_VISIBS_ACC_SIZE = SWARM_VISIBS_CHANNELS * SWARM_VISIBS_BASELINES * SWARM_VISIBS_SIDEBANDS * 2
+SWARM_VISIBS_TOTAL = 2**SWARM_VISIBS_N_PKTS-1
 
 SWARM_BENGINE_MACBASE = 0x000f530ce000
 SWARM_BENGINE_IPBASE = 0xc0a80a00
@@ -143,3 +156,37 @@ SMAINIT_NORMAL_RTN = 0
 SMAINIT_SIGNAL_RTN = 0x20
 SMAINIT_SYSERR_RTN = 0x40
 SMAINIT_QUIT_RTN = (SMAINIT_SIGNAL_RTN + SIGQUIT)
+
+
+# Reusable Utility Functions
+def query_yes_no(question, default="yes"):
+    """Ask a yes/no question via raw_input() and return their answer.
+
+    "question" is a string that is presented to the user.
+    "default" is the presumed answer if the user just hits <Enter>.
+        It must be "yes" (the default), "no" or None (meaning
+        an answer is required of the user).
+
+    The "answer" return value is True for "yes" or False for "no".
+    """
+    valid = {"yes": True, "y": True, "ye": True,
+             "no": False, "n": False}
+    if default is None:
+        prompt = " [y/n] "
+    elif default == "yes":
+        prompt = " [(y)/n] "
+    elif default == "no":
+        prompt = " [y/(n)] "
+    else:
+        raise ValueError("invalid default answer: '%s'" % default)
+
+    while True:
+        sys.stdout.write(question + prompt)
+        choice = raw_input().lower()
+        if default is not None and choice == '':
+            return valid[default]
+        elif choice in valid:
+            return valid[choice]
+        else:
+            sys.stdout.write("Please respond with 'yes' or 'no' "
+                             "(or 'y' or 'n').\n")

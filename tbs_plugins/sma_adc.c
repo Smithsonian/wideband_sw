@@ -253,7 +253,7 @@ int read_adc_calibrations(void) {
 
 int write_adc_calibrations(void) {
 
-  if(dsm_write("SWARM_MONITOR_AND_HAL", "SWARM_SAMPLER_CALIBRATIONS_X",
+  if(dsm_write("SWARM_MONITOR", "SWARM_SAMPLER_CALIBRATIONS_X",
       &dsm_adc_cal) != DSM_SUCCESS){
     return FAIL;
   }

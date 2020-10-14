@@ -301,23 +301,27 @@ class SwarmMember(base.SwarmROACH):
         return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
 
     def get_itime(self):
-        
-        # Get the current integration time in spectra
-        try: # use DSM first
-            xeng_time = pydsm.read(self.roach2.host, SWARM_SCAN_DSM_NAME)[SWARM_SCAN_LENGTH][0]
-            self.logger.debug("DSM scan length retrieved")
-        except: # in case of failure, use katcp
+        try:
+            # Read from fpga register using katcp.
             xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
 
-        # Convert it to seconds and return
-        cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP))
-        return cycles * SWARM_WALSH_PERIOD
+            # Convert it to seconds and return.
+            cycles = xeng_time / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP))
+            seconds = cycles * SWARM_WALSH_PERIOD
+            return seconds
+
+        except RuntimeError:
+            # The roach2 isn't accessible
+            return None
 
     def set_itime(self, itime_sec):
 
         # Set the integration (SWARM_ELEVENTHS spectra per step * steps per cycle)
-        self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(itime_sec/SWARM_WALSH_PERIOD)
-        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
+        self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP) * int(round(itime_sec/SWARM_WALSH_PERIOD))
+        try:
+            self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
+        except RuntimeError:
+            self.logger.warning("Unable to set integration time on roach2")
 
     def _reset_corner_turn(self):
 
@@ -437,8 +441,8 @@ class SwarmMember(base.SwarmROACH):
 
     def visibs_delay(self, qid, enable=True, delay_test=False):
 
-        # Disable/enable Laura's DDR3 delay and test
-        this_delay = SWARM_VISIBS_CHUNK_DELAY * (qid * SWARM_N_FIDS + self.fid)
+        initial_delay = SWARM_VISIBS_CHUNK_DELAY
+        this_delay = initial_delay * (qid * SWARM_N_FIDS + self.fid)
         self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + this_delay)
 
     def qdr_ready(self, qdr_num=0):
@@ -460,19 +464,19 @@ class SwarmMember(base.SwarmROACH):
 
         # calibrate each QDR
         for qnum in SWARM_ALL_QDR:
-            self.logger.debug('checking QDR%d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdrs[qnum].qdr_cal(fail_hard=False):
 
                 # try up to max number of tries
                 if try_n < max_tries:
-                    self.logger.warning('QDR{0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
+                    self.logger.warning('QDR memory {0} not ready, retrying calibration (try #{1})'.format(qnum, try_n))
                     try_n += 1
 
                 # max tries exceded, gtfo
                 else:
-                    msg = 'QDR{0} not calibrating, tried max number of tries'.format(qnum)
+                    msg = 'QDR memory {0} not calibrating, tried max number of tries'.format(qnum)
                     self.logger.error(msg)
                     if fail_hard:
                         raise RuntimeError(msg)
@@ -480,30 +484,30 @@ class SwarmMember(base.SwarmROACH):
                         break
 
             if self.qdrs[qnum].qdr_cal_check():
-                self.logger.info('QDR{0} calibrated successfully'.format(qnum))
+                self.logger.info('QDR memory {0} calibrated successfully'.format(qnum))
 
     def verify_qdr(self, max_tries=10):
   
         # verify each QDR
         for qnum in SWARM_ALL_QDR:
-            self.logger.debug('checking QDR%d' % qnum)
+            self.logger.debug('checking QDR memory %d' % qnum)
 
             try_n = 0
             while not self.qdr_ready(qnum):
 
                 # reset up to max number of tries
                 if try_n < max_tries:
-                    self.logger.warning('QDR{0} not ready, resetting (try #{1})'.format(qnum, try_n))
+                    self.logger.warning('QDR memory {0} not ready, resetting (try #{1})'.format(qnum, try_n))
                     self.reset_qdr(qnum)
                     try_n += 1
 
                 # max tries exceded, gtfo
                 else:
-                    msg = 'QDR{0} not calibrating, reset max number of times'
+                    msg = 'QDR memory {0} not calibrating, reset max number of times'
                     self.logger.error(msg)
                     raise RuntimeError(msg)
 
-            self.logger.debug('QDR{0} verified successfully'.format(qnum))
+            self.logger.debug('QDR memory {0} verified successfully'.format(qnum))
 
     def setup_visibs(self, qid, listener, delay_test=False):
 
@@ -1367,22 +1371,20 @@ class SwarmQuadrant:
 
     def get_itime(self):
 
-        itime = None
+        # Initialize a set to hold the itimes from all quads.
+        itime = set()
 
-        # Go through all members, compare itimes
+        # Go through all quadrants compare itimes
         for fid, member in self.get_valid_members():
+            itime.add(member.get_itime())
 
-            # Set our first itime
-            if fid == 0:
-                itime = member.get_itime()
-            else:
-                if member.get_itime() != itime:
-                    err_msg = 'FID #%d has mismatching integration time!' % fid
-                    self.logger.error(err_msg)
-                    raise ValueError(err_msg)
+        if len(itime) > 1:
+            err_msg = 'FIDs have mismatching integration time!'
+            self.logger.error(err_msg)
+            raise ValueError(err_msg)
 
         # Finally return the itime
-        return itime
+        return itime.pop()
 
     def get_member(self, visibs_ip):
 
@@ -1482,15 +1484,21 @@ class SwarmQuadrant:
 
 class Swarm:
 
-    def __init__(self, map_filenames=SWARM_MAPPINGS, parent_logger=module_logger):
+    def __init__(self, map_filenames=[], parent_logger=module_logger, mappings_dict={}):
 
         # Set initial member variables
         self.logger = parent_logger.getChild(
             '{name}'.format(name=self.__class__.__name__)
             )
 
-        # For every mapping file, instantiate one SwarmQuadrant
-        self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
+        # If map_filenames is empty, look up the current list of active swarm quadrants.
+        if not map_filenames:
+            mappings_dict = mappings_dict if mappings_dict else self.get_current_swarm_mappings()
+            self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in mappings_dict.items())
+        else:
+            # Legacy behavior: For every mapping file, instantiate one SwarmQuadrant.
+            # Index problems will occur if the map file paths aren't in sequential order.
+            self.quads = list(SwarmQuadrant(q, m, parent_logger=self.logger) for q, m in enumerate(map_filenames))
 
     def __len__(self):
         return len(self.quads)
@@ -1503,6 +1511,32 @@ class Swarm:
 
     def __str__(self):
         return os.linesep.join(str(quad) for quad in self.quads)
+
+    def get_current_swarm_mappings(self):
+        """
+        Utility function to read the SWARMQuadrantsInArray file, and based on the contents return
+        the appropriate SWARM mapping paths.
+        :return: Dictionary of active quadrants where the keys are quadrant numbers and value is mapfile path.
+        """
+        active_quad_mappings = {}
+        try:
+            with open(ACTIVE_QUADRANTS_FILE_PATH) as quadrants_file:
+                line = quadrants_file.readline().strip()
+            if line:
+                active_quads = [int(x) for x in line.split(" ")]
+                for num in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
+                    if num in active_quads:
+                        active_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
+
+        except IOError as e:
+            self.logger.error(e)
+
+        finally:
+            # If there is a problem reading this file, default to all quadrants active.
+            if not active_quad_mappings:
+                self.logger.info("Unable to read SWARMQuadrantsInArray file, defaulting to all SWARM quadrants active.")
+                active_quad_mappings = SWARM_MAPPINGS
+            return active_quad_mappings
 
     def get_valid_members(self):
 
@@ -1618,19 +1652,15 @@ class Swarm:
             sleep(0.1)
 
         # Set the itime and wait for it to register
-        self.logger.info('Setting integration time and resetting x-engines...')
+        self.logger.info('Setting integration time...')
         for fid, member in self.get_valid_members():
             member.set_itime(itime)
 
+        # Set the dsm scan length to match.
+        pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
+
         # Reset the xengines until window counters to by in sync
-        win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE/SWARM_WALSH_SKIP)
-        win_sync = False
-        while not win_sync:
-            self.reset_xengines()
-            sleep(0.5)
-            win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
-            win_sync = len(set(c/win_period for c in win_count)) == 1
-            self.logger.info('Window sync: {0}'.format(win_sync))
+        self.reset_xengines_and_sync()
 
         # Reset digital noise
         self.reset_digital_noise()
@@ -1734,14 +1764,36 @@ class Swarm:
         for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
             thread.join()
 
-    def reset_xengines(self):
+    def set_chunk_delay(self):
+        for qid, quad in enumerate(self.quads):
+            
+            # We've got a listener, setup this quadrant
+            for fid, member in quad.get_valid_members():
+                member.visibs_delay(qid)
+
+    def reset_xengines_and_sync(self):
+        try:
+            self.logger.info('Resetting the X-engines and syncing windows...')
+
+            win_period = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP)
+            win_sync = False
+            while not win_sync:
+                self.reset_xengines(sleep_after_reset=False)
+                sleep(.1)
+                win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
+                win_sync = len(set(c / win_period for c in win_count)) == 1
+        except Exception as err:
+            self.logger.error("Unable to reset xengines and sync, exception caught {0}".format(err))
+
+    def reset_xengines(self, sleep_after_reset=True):
 
         # Do a threaded reset_xeng
         rstxeng_threads = list(Thread(target=m.reset_xeng) for f, m in self.get_valid_members())
         for thread in rstxeng_threads:
             thread.start()
-        self.logger.info('Resetting the X-engines')
-        sleep(1)
+        if sleep_after_reset:
+            self.logger.info('Resetting the X-engines')
+            sleep(1)
 
         # Finally join all threads
         for thread in rstxeng_threads:
@@ -1792,22 +1844,20 @@ class Swarm:
 
     def get_itime(self):
 
-        itime = None
+        # Initialize a set to hold the itimes from all quads.
+        itime = set()
 
         # Go through all quadrants compare itimes
         for quad in self.quads:
+            itime.add(quad.get_itime())
 
-            # Set our first itime
-            if quad.qid == 0:
-                itime = quad.get_itime()
-            else:
-                if quad.get_itime() != itime:
-                    err_msg = 'QID #%d has mismatching integration time!' % quad.qid
-                    self.logger.error(err_msg)
-                    raise ValueError(err_msg)
+        if len(itime) > 1:
+            err_msg = 'QIDs have mismatching integration time!'
+            self.logger.error(err_msg)
+            raise ValueError(err_msg)
 
         # Finally return the itime
-        return itime
+        return itime.pop()
 
     def get_delay(self, this_input):
 

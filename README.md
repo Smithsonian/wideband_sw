@@ -1,4 +1,4 @@
 wideband_sw
 ===========
 
-Software for the new SMA wideband correlator
+Python Software for the new SMA wideband correlator

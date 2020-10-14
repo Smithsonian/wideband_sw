@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/local/anaconda/envs/swarm/bin/python
 
 import os
 import logging
@@ -87,7 +87,7 @@ cfg.TerminalInteractiveShell.autocall = 2
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Run an interactive SWARM shell')
 parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
-parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=SWARM_MAPPINGS,
+parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=[],
                     help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
 args = parser.parse_args()
 

@@ -86,11 +86,19 @@ class SwarmROACH(object):
         self.roach2.progdev(self._bitcode)
 
     def idle(self, bitcode=SWARM_IDLE_BITCODE):
+        try:
+            # Unload plugins and program with idle code
+            self.unload_plugins()
+            self.roach2.progdev(bitcode)
+            self.logger.info('Idled {0} with {1}'.format(self.roach2_host, bitcode))
+        except:
+            self.logger.warning('Unable to Idle {0} with {1}'.format(self.roach2_host, bitcode))
 
-        # Unload plugins and program with idle code
+    def load_bitcode(self, bitcode="sma_corr_full_rev2_-2.bof.gz"):
+        # Unload plugins and program
         self.unload_plugins()
         self.roach2.progdev(bitcode)
-        self.logger.info('Idled with {0}'.format(bitcode))
+        self.logger.info('Programmed {0} with {1}'.format(self.roach2_host, bitcode))
 
     def send_katcp_cmd(self, cmd, *args):
 

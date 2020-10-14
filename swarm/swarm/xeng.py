@@ -1,5 +1,5 @@
 from defines import *
-
+from numba import jit, b1, u1, i1
 
 simple_mapping = (
     ('in0',  'in1'),
@@ -43,14 +43,25 @@ class SwarmBaseline:
         return self.left == self.right
 
     def is_valid(self):
-        valid_inputs = (self.left != None) and (self.right != None)
-        cross_chunk = self.left.chk != self.right.chk
-        cross_pol = self.left.pol != self.right.pol
-        cross_ant = self.left.ant != self.right.ant
-        if cross_ant:
-            return valid_inputs and not cross_chunk
-        else:
-            return valid_inputs and not cross_chunk and not cross_pol
+        valid_inputs = (self.left is not None) and (self.right is not None)
+        return compiled_is_valid(self.left.chk,
+                                 self.right.chk,
+                                 self.left.pol,
+                                 self.right.pol,
+                                 self.left.ant,
+                                 self.right.ant,
+                                 valid_inputs)
+
+
+@jit(b1(i1, i1, i1, i1, i1, i1, b1))
+def compiled_is_valid(left_chk, right_chk, left_pol, right_pol, left_ant, right_ant, valid_inputs):
+    cross_chunk = left_chk != right_chk
+    cross_pol = left_pol != right_pol
+    cross_ant = left_ant != right_ant
+    if cross_ant:
+        return valid_inputs and not cross_chunk
+    else:
+        return valid_inputs and not cross_chunk and not cross_pol
 
 
 class SwarmXengineWord(SwarmBaseline):
