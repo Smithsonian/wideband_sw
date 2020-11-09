@@ -1,17 +1,17 @@
-import redis
+from redis import StrictRedis
 
 redis_host = "localhost"
 redis_port = 6379
-key = "cgains-update"
+subscribe_key = "cgains-update"
 
 
 def my_handler(message):
     print('MY HANDLER: ', message['data'])
 
 
-redis_connection = redis.Redis(host=redis_host, port=redis_port)
-redis_pubsub = redis_connection.pubsub()
-redis_pubsub.psubscribe(**{key: my_handler})
+redis_server = StrictRedis(host='localhost', port=6379, db=0)
+redis_pubsub = redis_server.pubsub()
+redis_pubsub.psubscribe(**{subscribe_key: my_handler})
 thread = redis_pubsub.run_in_thread(sleep_time=1)
 
 
