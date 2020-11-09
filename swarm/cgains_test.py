@@ -11,7 +11,7 @@ def my_handler(message):
 
 redis_connection = redis.Redis(host=redis_host, port=redis_port)
 redis_pubsub = redis_connection.pubsub()
-redis_pubsub.psubscribe(**{'hello*': my_handler})
+redis_pubsub.psubscribe(**{key: my_handler})
 thread = redis_pubsub.run_in_thread(sleep_time=1)
 
 
