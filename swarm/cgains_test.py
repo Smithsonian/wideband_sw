@@ -10,8 +10,8 @@ def my_handler(message):
 
 
 redis_server = StrictRedis(host='localhost', port=6379, db=0)
-redis_pubsub = redis_server.pubsub()
-redis_pubsub.psubscribe(**{subscribe_key: my_handler})
+redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
+redis_pubsub.subscribe(**{"cgains-update": my_handler})
 thread = redis_pubsub.run_in_thread(sleep_time=1)
 
 
@@ -19,3 +19,4 @@ thread = redis_pubsub.run_in_thread(sleep_time=1)
 # value_from_redis = redis.get(key)
 
 raw_input("Subscribed to channel, press any key to exit...")
+thread.stop()
