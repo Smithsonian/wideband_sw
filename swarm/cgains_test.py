@@ -101,7 +101,7 @@ def parse_cgains_line(line):
     rx = int(line_split[1])
 
     # Cast all the cgain values to unsigned integers
-    gains = [uint16(x) for x in line_split[4:]]
+    gains = [uint16(x) for x in line_split[2:]]
     logging.info("Parsed line of message: quadrant:%d, antenna:%d, rx:%d, num_gains:%d",
                  quadrant, antenna, rx, len(gains))
     logging.debug("Gain values: " + str(gains))
