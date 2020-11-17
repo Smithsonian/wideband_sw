@@ -6,14 +6,21 @@ from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
 from numpy import uint16
 from struct import pack
+import argparse
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
-logging.basicConfig(level=logging.DEBUG)
+
 
 redis_host = "localhost"
 redis_port = 6379
 subscribe_key = "cgains-update"
 
+parser = argparse.ArgumentParser(description='Starts a listener to the cgains-update channel')
+parser.add_argument('-v', dest='verbose', action='store_true', help='Set logging level to DEBUG')
+parser.add_argument('-t', dest='test', action='store_true', help='Test mode, does not update roach2 or smax')
+args = parser.parse_args()
+
+logging.basicConfig(level=logging.DEBUG)
 
 def update_roach2s(cgain_updates):
     """
@@ -48,6 +55,7 @@ def update_roach2s(cgain_updates):
     # Finally join all threads
     for thread in cgain_threads:
         thread.join()
+    logging.info("All cgain update threads completed.")
 
 
 def write_cgain_register(roach2_object, rx, gains_bin):
@@ -57,7 +65,8 @@ def write_cgain_register(roach2_object, rx, gains_bin):
     :param rx: Integer value of 0 or 1 representing which receiver to update.
     :param gains_bin: Packed set of values to write to cgains register
     """
-    roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
+    if not args.test:
+        roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
 
 
 def cgains_handler(message):
@@ -65,6 +74,7 @@ def cgains_handler(message):
     Callback function for the redis client to use when subscribing to teh cgains-update channel.
     :param message: Redis message received from cgains-update channel.
     """
+    logging.info("Message received from cgains-update channel")
 
     # Parse the Redis message
     data = message['data']
@@ -90,6 +100,7 @@ def parse_cgains_line(line):
 
     # Cast all the cgain values to unsigned integers
     gains = [uint16(x) for x in line_split[4:]]
+    logging.info("Parsed line of message: quadrant:%d, antenna:%d, rx:%d", quadrant, antenna, rx)
     return CgainUpdate(quadrant, antenna, rx, gains)
 
 
