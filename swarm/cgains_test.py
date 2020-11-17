@@ -105,7 +105,7 @@ def parse_cgains_line(line):
     logging.info("Parsed line of message: quadrant:%d, antenna:%d, rx:%d, num_gains:%d",
                  quadrant, antenna, rx, len(gains))
     logging.debug("Gain values: " + str(gains))
-    return CgainUpdate(quadrant, antenna, rx, gains)
+    return CgainUpdate(quadrant, antenna, rx - 1, gains)
 
 
 # Create the redis client and subscribe to the cgains-update channel on a seperate thread.
