@@ -39,7 +39,7 @@ def update_roach2s(cgain_updates):
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *cgain_update.gains)
 
         # Look up the quadrant, and then access the correct swarm member object using the antenna index.
-        swarm_member = swarm.quads[cgain_update.quadrant][cgain_update.antenna]
+        swarm_member = swarm.quads[cgain_update.quadrant][cgain_update.antenna - 1]
 
         roach2_update_list.append((swarm_member.roach2, cgain_update.rx, gains_bin))
         logging.info("Mapped quadrant:%d,antenna:%d to %s",
