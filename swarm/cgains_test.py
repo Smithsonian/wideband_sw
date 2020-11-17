@@ -20,7 +20,7 @@ parser.add_argument('-v', dest='verbose', action='store_true', help='Set logging
 parser.add_argument('-t', dest='test', action='store_true', help='Test mode, does not update roach2 or smax')
 args = parser.parse_args()
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
 
 def update_roach2s(cgain_updates):
@@ -101,7 +101,9 @@ def parse_cgains_line(line):
 
     # Cast all the cgain values to unsigned integers
     gains = [uint16(x) for x in line_split[4:]]
-    logging.info("Parsed line of message: quadrant:%d, antenna:%d, rx:%d", quadrant, antenna, rx)
+    logging.info("Parsed line of message: quadrant:%d, antenna:%d, rx:%d, num_gains:%d",
+                 quadrant, antenna, rx, len(gains))
+    logging.debug("Gain values: " + str(gains))
     return CgainUpdate(quadrant, antenna, rx, gains)
 
 
