@@ -22,6 +22,7 @@ args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG)
 
+
 def update_roach2s(cgain_updates):
     """
     Uses the quadrant and antenna number to create a list of roach2s to update, and then
@@ -114,5 +115,5 @@ redis_pubsub_thread = redis_pubsub.run_in_thread(sleep_time=1)
 # manually get value from key.
 # value_from_redis = redis.get(key)
 
-raw_input("Subscribed to " + subscribe_key + " " + "channel, press any key to exit...")
+raw_input("Subscribed to " + subscribe_key + " " + "channel, press enter/return key to exit...")
 redis_pubsub_thread.stop()
