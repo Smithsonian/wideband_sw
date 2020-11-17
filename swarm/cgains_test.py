@@ -79,7 +79,7 @@ def cgains_handler(message):
 
     # Parse the Redis message
     data = message['data']
-    roach2_raw_lines = data.split("|")
+    roach2_raw_lines = data.split(" | ")
     cgain_updates = [parse_cgains_line(line) for line in roach2_raw_lines]
 
     # Write new cgain values to roach2s
