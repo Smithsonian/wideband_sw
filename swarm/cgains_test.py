@@ -7,6 +7,7 @@ from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
 from numpy import uint16
 from struct import pack
 import argparse
+import smax
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 
@@ -28,6 +29,7 @@ def update_roach2s(cgain_updates):
     Uses the quadrant and antenna number to create a list of roach2s to update, and then
     does a threaded "write" to the SWARM_CGAIN_GAIN register of each of the roach2s in the list.
     :param cgain_updates: NamedTuple "CgainUpdate" to hold the attributes received from the redis message.
+    :return: List of tuples, where the tuples are of format (SwarmMember, Rx, Gains_Bin)
     """
 
     # Instantiate a swarm object
@@ -41,15 +43,15 @@ def update_roach2s(cgain_updates):
         # Look up the quadrant, and then access the correct swarm member object using the antenna index.
         swarm_member = swarm.quads[cgain_update.quadrant][cgain_update.antenna - 1]
 
-        roach2_update_list.append((swarm_member.roach2, cgain_update.rx, gains_bin))
+        roach2_update_list.append((swarm_member, cgain_update.rx, gains_bin))
         logging.info("Mapped quadrant:%d,antenna:%d to %s",
                      cgain_update.quadrant,
                      cgain_update.antenna,
                      swarm_member.roach2_host)
 
     # Send cgain updates in parallel.
-    cgain_threads = list(Thread(target=write_cgain_register, args=[roach, rx, gains])
-                         for roach, rx, gains in roach2_update_list)
+    cgain_threads = list(Thread(target=write_cgain_register, args=[swarm_member.roach2, rx, gains])
+                         for swarm_member, rx, gains in roach2_update_list)
     for thread in cgain_threads:
         thread.start()
 
@@ -57,6 +59,8 @@ def update_roach2s(cgain_updates):
     for thread in cgain_threads:
         thread.join()
     logging.info("All cgain update threads completed.")
+
+    return roach2_update_list
 
 
 def write_cgain_register(roach2_object, rx, gains_bin):
@@ -68,6 +72,21 @@ def write_cgain_register(roach2_object, rx, gains_bin):
     """
     if not args.test:
         roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
+
+
+def update_cgain_smax(cgain_updates):
+    """
+    After the roach2 updates is successful, this function is used to post the values to SMAX.
+    :param cgain_updates: NamedTuple "CgainUpdate" to hold the attributes received from the redis message.
+    """
+    redis_client = smax.SendToRedis()
+
+    for cgain in cgain_updates:
+        segment = cgain.quadrant
+        antenna = cgain.antenna
+        rx = cgain.rx
+        smax_key = "correlator:swarm:segment:{}antenna:{}input:{}".format(segment, antenna, rx)
+        redis_client.send(smax_key, "cgains", cgain_updates.gains)
 
 
 def cgains_handler(message):
@@ -86,7 +105,7 @@ def cgains_handler(message):
     update_roach2s(cgain_updates)
 
     # Post updated table to SMAX.
-
+    update_cgain_smax(cgain_updates)
 
 def parse_cgains_line(line):
     """
