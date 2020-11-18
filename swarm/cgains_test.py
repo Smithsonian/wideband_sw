@@ -1,13 +1,15 @@
-from redis import StrictRedis
-from collections import namedtuple
+import argparse
 import logging
 import os
+from collections import namedtuple
+from struct import pack
 from threading import Thread
+
+from numpy import uint16
+from redis import StrictRedis
+
 from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
-from numpy import uint16
-from struct import pack
-import argparse
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 
@@ -50,9 +52,9 @@ def update_roach2s(cgain_updates):
 
         roach2_update_list.append((swarm_member, cgain_update.rx, gains_bin))
         logging.debug("Mapped quadrant:%d,antenna:%d to %s",
-                     cgain_update.quadrant,
-                     cgain_update.antenna,
-                     swarm_member.roach2_host)
+                      cgain_update.quadrant,
+                      cgain_update.antenna,
+                      swarm_member.roach2_host)
 
     # Send cgain updates in parallel.
     cgain_threads = list(Thread(target=write_cgain_register, args=[swarm_member.roach2, rx, gains])
@@ -79,17 +81,14 @@ def write_cgain_register(roach2_object, rx, gains_bin):
         roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
 
 
-
 def update_cgain_smax(cgain_updates):
     """
-    After the roach2 updates is successful, this function is used to post the values to SMAX.
+    After the roach2 updates are successful, this function is used to post the values to SMAX.
     The smax code was yanked from our smax-python-redis-client which is python3. Here is the comment from the
     send() function in that library:
         Send data to redis using the smax macro HSetWithMeta to include
         metadata.  The metadata is typeName, dataDimension(s), dataDate,
-        source of the data, and a sequence number.  The first two are
-        determined from the data and the source from this computer's name
-        plus the program name if given when this class is instantiated.
+        source of the data, and a sequence number.
         Date and sequence number are added by the redis macro.
 
     :param cgain_updates: NamedTuple "CgainUpdate" to hold the attributes received from the redis message.
@@ -117,12 +116,12 @@ def cgains_handler(message):
     """
     logging.info("Message received from cgains-update channel")
 
-    # Parse the Redis message
+    # Parse the Redis message.
     data = message['data']
     roach2_raw_lines = data.split(" | ")
     cgain_updates = [parse_cgains_line(line) for line in roach2_raw_lines]
 
-    # Write new cgain values to roach2s
+    # Write new cgain values to roach2s.
     update_roach2s(cgain_updates)
 
     # Post updated table to SMAX.
@@ -144,20 +143,16 @@ def parse_cgains_line(line):
     # Cast all the cgain values to unsigned integers
     gains = [uint16(x) for x in line_split[2:]]
     logging.debug("Parsed line of message: quadrant:%d, antenna:%d, rx:%d, num_gains:%d",
-                 quadrant, antenna, rx, len(gains))
+                  quadrant, antenna, rx, len(gains))
     logging.debug("Gain values: " + str(gains))
     return CgainUpdate(quadrant, antenna, rx - 1, gains)
 
 
-# Create the redis client and subscribe to the cgains-update channel on a seperate thread.
+# Create the redis client and subscribe to the cgains-update channel on a separate thread.
 redis_server = StrictRedis(host='localhost', port=6379, db=0)
 redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
 redis_pubsub.subscribe(**{"cgains-update": cgains_handler})
 redis_pubsub_thread = redis_pubsub.run_in_thread(sleep_time=1)
-
-
-# manually get value from key.
-# value_from_redis = redis.get(key)
 
 raw_input("Subscribed to " + subscribe_key + " " + "channel, press enter/return key to exit...")
 redis_pubsub_thread.stop()
