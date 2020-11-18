@@ -1,20 +1,25 @@
 from redis import StrictRedis
 from collections import namedtuple
 import logging
+import os
 from threading import Thread
 from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
 from numpy import uint16
 from struct import pack
 import argparse
-import smax
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 
-
+# Tenzing Redis
 redis_host = "localhost"
 redis_port = 6379
 subscribe_key = "cgains-update"
+
+# SMAX Redis
+smax_host = "128.171.116.189"
+smax_port = 6379
+smax_table_name = "cgains"
 
 parser = argparse.ArgumentParser(description='Starts a listener to the cgains-update channel')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Set logging level to DEBUG')
@@ -74,19 +79,34 @@ def write_cgain_register(roach2_object, rx, gains_bin):
         roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
 
 
+
 def update_cgain_smax(cgain_updates):
     """
     After the roach2 updates is successful, this function is used to post the values to SMAX.
+    The smax code was yanked from our smax-python-redis-client which is python3. Here is the comment from the
+    send() function in that library:
+        Send data to redis using the smax macro HSetWithMeta to include
+        metadata.  The metadata is typeName, dataDimension(s), dataDate,
+        source of the data, and a sequence number.  The first two are
+        determined from the data and the source from this computer's name
+        plus the program name if given when this class is instantiated.
+        Date and sequence number are added by the redis macro.
+
     :param cgain_updates: NamedTuple "CgainUpdate" to hold the attributes received from the redis message.
     """
-    redis_client = smax.SendToRedis()
+    redis_client = StrictRedis(host=smax_host, port=smax_port, db=0)
+    setSHA = redis_client.hget('scripts', 'HSetWithMeta')
+    host_name = os.uname()[1]
 
     for cgain in cgain_updates:
         segment = cgain.quadrant
         antenna = cgain.antenna
         rx = cgain.rx
         smax_key = "correlator:swarm:segment:{}antenna:{}input:{}".format(segment, antenna, rx)
-        redis_client.send(smax_key, "cgains", cgain_updates.gains)
+
+        # Convert list of integers into a space separated string of values.
+        string_data = str(cgain.gains).translate(None, '[],\'')
+        redis_client.evalsha(setSHA, '1', smax_key, host_name, smax_table_name, string_data, "int16", len(string_data))
 
 
 def cgains_handler(message):
