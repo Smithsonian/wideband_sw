@@ -107,11 +107,12 @@ def update_cgain_smax(cgain_updates):
         # Convert list of integers into a space separated string of values.
         string_data = str(cgain.gains).translate(None, '[],\'')
         redis_client.evalsha(setSHA, '1', smax_key, host_name, smax_table_name, string_data, "int16", len(string_data))
+    logging.info("SMAX updated")
 
 
 def cgains_handler(message):
     """
-    Callback function for the redis client to use when subscribing to teh cgains-update channel.
+    Callback function for the redis client to use when subscribing to the cgains-update channel.
     :param message: Redis message received from cgains-update channel.
     """
     logging.info("Message received from cgains-update channel")
@@ -126,6 +127,7 @@ def cgains_handler(message):
 
     # Post updated table to SMAX.
     update_cgain_smax(cgain_updates)
+
 
 def parse_cgains_line(line):
     """
