@@ -102,7 +102,7 @@ def update_cgain_smax(cgain_updates):
         segment = cgain.quadrant
         antenna = cgain.antenna
         rx = cgain.rx
-        smax_key = "correlator:swarm:segment:{}:antenna:{}:input:{}".format(segment, antenna, rx)
+        smax_key = "correlator:swarm:segment:{}:antenna:{}:input:{}".format(segment + 1, antenna, rx + 1)
 
         # Convert list of integers into a space separated string of values.
         string_data = str(cgain.gains).translate(None, '[],\'')
