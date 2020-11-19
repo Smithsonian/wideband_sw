@@ -22,6 +22,7 @@ subscribe_key = "cgains-update"
 smax_host = "128.171.116.189"
 smax_port = 6379
 smax_table_name = "cgains"
+host_name = os.uname()[1]   # Hostname is used when sending to SMAX.
 
 parser = argparse.ArgumentParser(description='Starts a listener to the cgains-update channel')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Set logging level to DEBUG')
@@ -95,7 +96,6 @@ def update_cgain_smax(cgain_updates):
     """
     redis_client = StrictRedis(host=smax_host, port=smax_port, db=0)
     setSHA = redis_client.hget('scripts', 'HSetWithMeta')
-    host_name = os.uname()[1]
 
     for cgain in cgain_updates:
         segment = cgain.quadrant
@@ -105,7 +105,9 @@ def update_cgain_smax(cgain_updates):
 
         # Convert list of integers into a space separated string of values.
         string_data = str(cgain.gains).translate(None, '[],\'')
-        redis_client.evalsha(setSHA, '1', smax_key, host_name, smax_table_name, string_data, "int16", len(string_data))
+
+        redis_client.evalsha(setSHA, '1', smax_key, host_name, smax_table_name, string_data, "int16",
+                                 len(string_data))
     logging.info("SMAX updated")
 
 
@@ -125,7 +127,8 @@ def cgains_handler(message):
     update_roach2s(cgain_updates)
 
     # Post updated table to SMAX.
-    update_cgain_smax(cgain_updates)
+    if not args.test:
+        update_cgain_smax(cgain_updates)
 
 
 def parse_cgains_line(line):
