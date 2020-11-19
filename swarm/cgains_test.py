@@ -57,15 +57,10 @@ def update_roach2s(cgain_updates):
                       cgain_update.antenna,
                       swarm_member.roach2_host)
 
-    # Send cgain updates in parallel.
-    cgain_threads = list(Thread(target=write_cgain_register, args=[swarm_member.roach2, rx, gains])
-                         for swarm_member, rx, gains in roach2_update_list)
-    for thread in cgain_threads:
-        thread.start()
+    # Send cgain updates to each roach2.
+    for swarm_member, rx, gains in roach2_update_list:
+        write_cgain_register(swarm_member, rx, gains)
 
-    # Finally join all threads
-    for thread in cgain_threads:
-        thread.join()
     logging.info("All cgain update threads completed.")
 
     return roach2_update_list
