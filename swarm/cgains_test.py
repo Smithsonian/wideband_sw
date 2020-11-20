@@ -3,7 +3,8 @@ import logging
 import os
 from collections import namedtuple
 from struct import pack
-from threading import Thread
+from contextlib import contextmanager
+from multiprocessing.pool import ThreadPool
 
 from numpy import uint16
 from redis import StrictRedis
@@ -12,6 +13,7 @@ from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
+Roach2Update = namedtuple("Roach2Update", "fpga_client rx gains_bin")
 
 # Tenzing Redis
 redis_host = "localhost"
@@ -30,6 +32,13 @@ parser.add_argument('-t', dest='test', action='store_true', help='Test mode, doe
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+
+
+@contextmanager
+def poolcontext(*args, **kwargs):
+    pool = ThreadPool(*args, **kwargs)
+    yield pool
+    pool.terminate()
 
 
 def update_roach2s(cgain_updates):
@@ -51,30 +60,27 @@ def update_roach2s(cgain_updates):
         # Look up the quadrant, and then access the correct swarm member object using the antenna index.
         swarm_member = swarm.quads[cgain_update.quadrant][cgain_update.antenna - 1]
 
-        roach2_update_list.append((swarm_member, cgain_update.rx, gains_bin))
+        roach2_update_list.append(Roach2Update(swarm_member.roach2, cgain_update.rx, gains_bin))
         logging.debug("Mapped quadrant:%d,antenna:%d to %s",
                       cgain_update.quadrant,
                       cgain_update.antenna,
                       swarm_member.roach2_host)
 
-    # Send cgain updates to each roach2.
-    for swarm_member, rx, gains in roach2_update_list:
-        write_cgain_register(swarm_member.roach2, rx, gains)
+    with poolcontext(4) as pool:
+        pool.map(write_cgain_register, roach2_update_list)
 
     logging.info("All cgain update threads completed.")
 
     return roach2_update_list
 
 
-def write_cgain_register(roach2_object, rx, gains_bin):
+def write_cgain_register(roach2_update):
     """
     Simple function to be used in the threaded roach2 cgain update. Uses katcp to update fpga cgain registers.
-    :param roach2_object: Kactp "FpgaClient" object
-    :param rx: Integer value of 0 or 1 representing which receiver to update.
-    :param gains_bin: Packed set of values to write to cgains register
+    :param roach2_update: NamedTuple "Roach2Update": (fpga_client(katcp_wrapper.FpgaClient), rx(int), gains_bin(list))
     """
     if not args.test:
-        roach2_object.write(SWARM_CGAIN_GAIN % rx, gains_bin)
+        roach2_update.fpga_client.write(SWARM_CGAIN_GAIN % roach2_update.rx, roach2_update.gains_bin)
 
 
 def update_cgain_smax(cgain_updates):
@@ -122,7 +128,8 @@ def cgains_handler(message):
     update_roach2s(cgain_updates)
 
     # Post updated table to SMAX.
-    update_cgain_smax(cgain_updates)
+    if not args.test:
+        update_cgain_smax(cgain_updates)
 
 
 def parse_cgains_line(line):
