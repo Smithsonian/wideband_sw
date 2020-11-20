@@ -59,7 +59,7 @@ def update_roach2s(cgain_updates):
 
     # Send cgain updates to each roach2.
     for swarm_member, rx, gains in roach2_update_list:
-        write_cgain_register(swarm_member, rx, gains)
+        write_cgain_register(swarm_member.roach2, rx, gains)
 
     logging.info("All cgain update threads completed.")
 
