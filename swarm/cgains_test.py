@@ -122,8 +122,7 @@ def cgains_handler(message):
     update_roach2s(cgain_updates)
 
     # Post updated table to SMAX.
-    if not args.test:
-        update_cgain_smax(cgain_updates)
+    update_cgain_smax(cgain_updates)
 
 
 def parse_cgains_line(line):
