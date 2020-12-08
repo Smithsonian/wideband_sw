@@ -5,10 +5,11 @@ from collections import namedtuple
 from struct import pack
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
+import signal
 
 from numpy import uint16
 from redis import StrictRedis
-
+from time import sleep
 from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
 
@@ -33,6 +34,13 @@ args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
+interrupted = False
+
+def signal_handler(signal, frame):
+    global interrupted
+    interrupted = True
+
+signal.signal(signal.SIGINT, signal_handler)
 
 @contextmanager
 def poolcontext(*args, **kwargs):
@@ -155,8 +163,11 @@ def parse_cgains_line(line):
 # Create the redis client and subscribe to the cgains-update channel on a separate thread.
 redis_server = StrictRedis(host='localhost', port=6379, db=0)
 redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
-redis_pubsub.subscribe(**{"cgains-update": cgains_handler})
-redis_pubsub_thread = redis_pubsub.run_in_thread(sleep_time=1)
+redis_pubsub.subscribe("cgains-update")
 
-raw_input("Subscribed to " + subscribe_key + " " + "channel, press enter/return key to exit...")
-redis_pubsub_thread.stop()
+while not interrupted:
+    message = redis_pubsub.get_message()
+    if message:
+        cgains_handler(message)
+
+    sleep(1)
