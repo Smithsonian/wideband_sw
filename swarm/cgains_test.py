@@ -34,13 +34,17 @@ args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 
+# Flag for use in the main loop of the program. The interrupt signal handler will toggle this to True.
 interrupted = False
+
 
 def signal_handler(signal, frame):
     global interrupted
     interrupted = True
 
+
 signal.signal(signal.SIGINT, signal_handler)
+
 
 @contextmanager
 def poolcontext(*args, **kwargs):
