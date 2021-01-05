@@ -168,6 +168,7 @@ def parse_cgains_line(line):
 redis_server = StrictRedis(host='localhost', port=6379, db=0)
 redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
 redis_pubsub.subscribe("cgains-update")
+logging.info("Subscribed to cgains-update channel")
 
 while not interrupted:
     message = redis_pubsub.get_message()
