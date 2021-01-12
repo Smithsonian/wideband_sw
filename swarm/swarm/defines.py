@@ -28,10 +28,10 @@ def get_swarm_mappings():
 
     for n in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
         mappings.append(base_path + str(n) + vlbi_path)
-    return mappings
+    return mappings, vlbi_status
 
 
-SWARM_MAPPINGS = get_swarm_mappings()
+SWARM_MAPPINGS, VLBI_STATUS = get_swarm_mappings()
 SWARM_MAPPING_CHUNKS = tuple([q for q in range(SWARM_MAX_NUM_QUADRANTS)])
 
 SWARM_MAPPING_COMMENT = '#'
