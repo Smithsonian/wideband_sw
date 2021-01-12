@@ -1,4 +1,5 @@
 from signal import SIGQUIT
+from redis import StrictRedis
 import sys
 
 SWARM_IDLE_BITCODE = 'idle.bof'
@@ -7,20 +8,30 @@ SWARM_ROACH2_IP = 'roach2-%02x'
 SWARM_COLDSTART_PATH = '/otherInstances/tenzing/smainit_req/swarm_ctrl.URG'
 SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'
 ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
+SWARM_MAX_NUM_QUADRANTS = 6
 
-# SWARM_MAPPINGS dictates the number of possible quadrants for the rest of the code.
+# MAX_NUM_QUADRANTS dictates the number of possible quadrants for the rest of the code.
 # If you change the number of quadrants in SWARM, it won't work correctly until you
 # create/remove the mappings in this list.
-SWARM_MAPPINGS = [
-    '/global/configFiles/swarmMapping.quad1',
-    '/global/configFiles/swarmMapping.quad2',
-    '/global/configFiles/swarmMapping.quad3',
-    '/global/configFiles/swarmMapping.quad4',
-    '/global/configFiles/swarmMapping.quad5',
-    '/global/configFiles/swarmMapping.quad6',
-    ]
+# TODO: Find out why these are stored on /global rather than in this repo...
 
-SWARM_MAX_NUM_QUADRANTS = len(SWARM_MAPPINGS)
+def get_swarm_mappings():
+    mappings = []
+    base_path = "/global/configFiles/swarmMapping.quad"
+    vlbi_path = ""
+    redis_client = StrictRedis(host='localhost', port=6379)
+    vlbi_status = redis_client.get("vlbi")
+    if vlbi_status == "4to8":
+        vlbi_path = ".vlbi4to8"
+    elif vlbi_status == "5to9":
+        vlbi_path = ".vlbi5to9"
+
+    for n in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
+        mappings.append(base_path + str(n) + vlbi_path)
+    return mappings
+
+
+SWARM_MAPPINGS = get_swarm_mappings()
 SWARM_MAPPING_CHUNKS = tuple([q for q in range(SWARM_MAX_NUM_QUADRANTS)])
 
 SWARM_MAPPING_COMMENT = '#'
