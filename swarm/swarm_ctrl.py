@@ -78,6 +78,17 @@ logredis = RedisHandler(LOG_CHANNEL)
 logredis.setLevel(logging.INFO)
 logger.addHandler(logredis)
 
+# Use the logger redis instance to check vlbi status, and use defaults if they aren't set.
+VLBI_MODE = logredis.redis.get("vlbi")
+if not VLBI_MODE:
+    VLBI_MODE = "off"
+REFERENCE_ANT_POL_CHUNK = logredis.redis.get("reference")
+if not REFERENCE_ANT_POL_CHUNK:
+    REFERENCE_ANT_POL_CHUNK = "2,0,0"
+VLBI_CALIBRATE = logredis.redis.get("calibrate")
+if not VLBI_CALIBRATE:
+    VLBI_CALIBRATE = None
+
 # Create and set formatting
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
 stdout.setFormatter(formatter)
