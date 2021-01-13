@@ -115,8 +115,6 @@ parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES
                     help='listen for UDP data on INTERFACES (default="{0}")'.format(SWARM_LISTENER_INTERFACES))
 parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=10.0,
                     help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
-parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
-                    help='use ANT,POL,CHUNK as a REFERENCE; POL and CHUNK are either 0 or 1 (default=2,0,0')
 parser.add_argument('--continue-on-qdr-error', dest='raise_qdr_err', action='store_false',
                     help='do NOT terminate program on a QDR calibration error.')
 parser.add_argument('--no-data-catcher', dest='disable_data_catcher', action='store_true',
@@ -127,9 +125,6 @@ parser.add_argument('--save-raw-data', dest='save_rawdata', action='store_true',
                     help='Save raw data from each FID to file')
 parser.add_argument('--log-stats', dest='log_stats', action='store_true',
                     help='Print out some baselines statistics (NOTE: very slow!)')
-parser.add_argument('--calibrate-vlbi', dest='calibrate_vlbi', nargs='?', const='low', default=None,
-                    help='Solve for complex gains (and possibly delay) to calibrate the phased sum '
-                    '(optionally append either "high" or "low" for different SNR algorithms')
 parser.add_argument('--log-file', dest='log_file', metavar='LOGFILE',
                     help='Write logger output to LOGFILE')
 parser.add_argument('--silence-loggers', nargs='+', default=[],
@@ -156,7 +151,7 @@ for logger_name in args.silence_loggers:
 
 # Construct our reference input
 reference_args = [['antenna', 2], ['chunk', 0], ['polarization', 0]]
-for i, a in enumerate(args.reference.split(',')):
+for i, a in enumerate(REFERENCE_ANT_POL_CHUNK.split(',')):
     reference_args[i][1] = int(a)
 reference = SwarmInput(**dict(reference_args))
 
@@ -307,7 +302,7 @@ if not args.disable_data_catcher:
 if args.log_stats:
 
     # Use a callback to show visibility stats
-    swarm_handler.add_callback(LogStats, reference=reference)
+    swarm_handler.add_callback(LogStats, reference=REFERENCE_ANT_POL_CHUNK)
 
 if VLBI_CALIBRATE == "low" or VLBI_CALIBRATE == "high":
 
