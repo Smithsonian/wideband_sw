@@ -21,10 +21,10 @@ logger.addHandler(stdout)
 parser = argparse.ArgumentParser(description='Script to configure SWARM to support VLBI.')
 
 parser.add_argument('mode', metavar='MODE', type=str, choices=['4to8', '5to9', 'off'],
-                    help='vlbi mode can be set to 4 to 8 GHz, 5 to 9 Ghz, or off.')
+                    help='vlbi mode can be set to 4 to 8 GHz, 5 to 9 Ghz, or off. {4to8,5to9,off}')
 
-parser.add_argument('-r', '--reference', dest='reference', metavar='REFERENCE', type=str, default='2,0,0',
-                    help='use ANT,POL,CHUNK as a REFERENCE; POL and CHUNK are either 0 or 1 (default=2,0,0)')
+parser.add_argument('-r', '--reference', dest='reference', type=str, default='2,0,0',
+                    help='use ANT,POL,CHUNK as a reference; POL and CHUNK are either 0 or 1 (default=2,0,0)')
 
 parser.add_argument('-c', '--calibrate-vlbi', dest='calibrate_vlbi', choices=['low', 'high', 'off'], default='off',
                     help='Solve for complex gains (and possibly delay) to calibrate the phased sum '
