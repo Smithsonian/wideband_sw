@@ -22,9 +22,9 @@ def get_swarm_mappings():
     redis_client = StrictRedis(host='localhost', port=6379)
     vlbi_status = redis_client.get("vlbi")
     if vlbi_status == "4to8":
-        vlbi_path = ".vlbi4to8"
+        vlbi_path = ".vlbi4-8"
     elif vlbi_status == "5to9":
-        vlbi_path = ".vlbi5to9"
+        vlbi_path = ".vlbi5-9"
 
     for n in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
         mappings.append(base_path + str(n) + vlbi_path)
