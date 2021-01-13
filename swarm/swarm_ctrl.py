@@ -1,13 +1,15 @@
-import sys, pickle, traceback, logging, argparse
+import pickle
+import traceback
+import argparse
+import logging
 from time import sleep
 from threading import Event
-from Queue import Queue, Empty
+from Queue import Queue
 from collections import OrderedDict
 from traceback import format_exception
-from redis import StrictRedis, ConnectionError
+from redis import ConnectionError
 from signal import (
     signal,
-    SIGQUIT,
     SIGTERM,
     SIGINT,
     SIGHUP,
@@ -21,7 +23,6 @@ from swarm.defines import *
 from swarm import (
     SwarmDataCatcher,
     SwarmDataHandler,
-    SwarmQuadrant,
     SwarmInput,
     Swarm,
     )
@@ -37,6 +38,7 @@ RETURN_VALUE = SMAINIT_QUIT_RTN
 LOG_CHANNEL = "swarm.logs.ctrl"
 RUNNING = Event()
 
+
 # Custom Redis logging handler
 class RedisHandler(logging.Handler):
 
@@ -46,22 +48,25 @@ class RedisHandler(logging.Handler):
         super(RedisHandler, self).__init__()
 
     def emit(self, record):
-        if record.exc_info: # this is an exception
+        if record.exc_info:  # this is an exception
             record.msg += '\n' + traceback.format_exc(record.exc_info)
-            record.exc_info = None # clear the traceback
+            record.exc_info = None  # clear the traceback
         try:
             self.redis.publish(self.channel, pickle.dumps(record))
         except ConnectionError:
             pass
 
+
 # Setup root logger
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
+
 
 # Exit signal handler
 def quit_handler(signum, frame):
     logger.info("Received signal #{0}; Quitting...".format(signum))
     RUNNING.clear()
+
 
 # Register the exit handler
 EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
@@ -99,11 +104,14 @@ katcp_logger = logging.getLogger('katcp')
 katcp_logger.setLevel(logging.CRITICAL)
 
 # Parse the user's command line arguments
-parser = argparse.ArgumentParser(description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
+parser = argparse.ArgumentParser(
+    description='Idle, setup, or catch and process visibility data from a set of SWARM ROACH2s')
 parser.add_argument('-v', dest='verbose', action='store_true', help='display debugging logs')
 parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SWARM_MAPPINGS', nargs='+', default=[],
-                    help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(SWARM_MAPPINGS))
-parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES', nargs='+', default=SWARM_LISTENER_INTERFACES,
+                    help='Use files SWARM_MAPPINGS to determine the SWARM input to IF mapping (default="{0}")'.format(
+                        SWARM_MAPPINGS))
+parser.add_argument('-i', '--interfaces', dest='interfaces', metavar='INTERFACES', nargs='+',
+                    default=SWARM_LISTENER_INTERFACES,
                     help='listen for UDP data on INTERFACES (default="{0}")'.format(SWARM_LISTENER_INTERFACES))
 parser.add_argument('-t', '--integrate-for', dest='itime', metavar='INTEGRATION-TIME', type=float, default=10.0,
                     help='integrate for approximately INTEGRATION-TIME seconds (default=30)')
@@ -161,15 +169,18 @@ swarm_catcher = SwarmDataCatcher(swarm)
 # Create the data handler
 swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue(), swarm_catcher.get_catch_queue())
 
+
 # Signal handler for idling SWARM
 def idle_handler(signum, frame):
     logger.info('Received signal #{0}; idling SWARM...'.format(signum))
     pyopmess.send(1, 1, 100, 'SWARM is now being idled')
-    swarm_catcher.stop() # stop waiting on data
+    swarm_catcher.stop()  # stop waiting on data
     swarm.members_do(lambda fid, mbr: mbr.idle())
+
 
 # Register it to SIGHUP
 signal(SIGHUP, idle_handler)
+
 
 # Signal handler for "cold-starting" SWARM
 def cold_start_handler(signum, frame):
@@ -255,25 +266,30 @@ def cold_start_handler(signum, frame):
     swarm_catcher.start()
     pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
 
+
 # Register it to SIGURG
 signal(SIGURG, cold_start_handler)
+
 
 # Signal handler to do a re-sync
 def sync_handler(signum, frame):
     logger.info('Received signal #{0}; syncing SWARM...'.format(signum))
-    swarm_catcher.stop() # stop waiting on data
-    swarm.sync() # do the sync
-    swarm_catcher.start() # start waiting on data
+    swarm_catcher.stop()  # stop waiting on data
+    swarm.sync()  # do the sync
+    swarm_catcher.start()  # start waiting on data
     pyopmess.send(1, 1, 100, 'SWARM has been re-synced')
+
 
 # Register it to SIGCONT
 signal(SIGCONT, sync_handler)
+
 
 # Signal handler to do a X-engine reset
 def xeng_reset_handler(signum, frame):
     logger.info('Received signal #{0}; resetting X-eninges...'.format(signum))
     swarm.reset_xengines()
     pyopmess.send(1, 1, 100, 'SWARM X-engines reset')
+
 
 # Register it to #24
 signal(24, xeng_reset_handler)
