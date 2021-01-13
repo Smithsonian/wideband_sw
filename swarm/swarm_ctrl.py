@@ -282,8 +282,7 @@ if not args.disable_data_catcher:
 
     # If VLBI calibration is running, 2nd sideband phases need to be applied to correlator data
     rephase_2nd_sideband_data = False
-
-    if args.calibrate_vlbi:
+    if VLBI_CALIBRATE == "low" or VLBI_CALIBRATE == "high":
         rephase_2nd_sideband_data = True
 
     # Use a callback to send data to dataCatcher/corrSaver
@@ -294,21 +293,18 @@ if args.log_stats:
     # Use a callback to show visibility stats
     swarm_handler.add_callback(LogStats, reference=reference)
 
-if args.calibrate_vlbi:
+if VLBI_CALIBRATE == "low" or VLBI_CALIBRATE == "high":
 
     # Use a callback to calibrate fringes for VLBI
-    if args.calibrate_vlbi == 'low':
+    if VLBI_CALIBRATE == 'low':
 
         # Low SNR. Use single-channel solver and normalize corr. matrix
-        swarm_handler.add_callback(CalibrateVLBI, single_chan=True, normed=True, reference=reference)
+        swarm_handler.add_callback(CalibrateVLBI, single_chan=True, normed=True, reference=REFERENCE_ANT_POL_CHUNK)
 
-    elif args.calibrate_vlbi == 'high':
+    elif VLBI_CALIBRATE == 'high':
 
         # High SNR. Use full spectrum solver and do not normalize corr. matrix
-        swarm_handler.add_callback(CalibrateVLBI, single_chan=False, normed=False, reference=reference)
-
-    else:
-        raise argparse.ArugmentError('--calibrate-vlbi must be either "low" or "high"!')
+        swarm_handler.add_callback(CalibrateVLBI, single_chan=False, normed=False, reference=REFERENCE_ANT_POL_CHUNK)
 
 if args.save_rawdata:
 
