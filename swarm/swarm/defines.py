@@ -10,12 +10,15 @@ SWARM_LAST_COLDSTART_PATH = '/global/logs/swarm/lastColdStart'
 ACTIVE_QUADRANTS_FILE_PATH = '/global/projects/SWARMQuadrantsInArray'
 SWARM_MAX_NUM_QUADRANTS = 6
 
-# MAX_NUM_QUADRANTS dictates the number of possible quadrants for the rest of the code.
-# If you change the number of quadrants in SWARM, it won't work correctly until you
-# create/remove the mappings in this list.
-# TODO: Find out why these are stored on /global rather than in this repo...
 
 def get_swarm_mappings():
+    """
+    There are swarm mapping files on the /global/configFiles summit network area. These are read by
+    both swarm_ctrl and the roach2s.  They define which bitcode to use, and set up frequency ranges.
+    For VLBI, there are currently different mapping files that send special commands to the SDBEs.
+    This function determines which mapping files to use based on whether VLBI is set to active in redis.
+    :return: list of paths, vlbi status {4to8,5to9,off}
+    """
     mappings = []
     base_path = "/global/configFiles/swarmMapping.quad"
     vlbi_path = ""
@@ -27,7 +30,9 @@ def get_swarm_mappings():
         vlbi_path = ".vlbi5-9"
 
     for n in range(1, SWARM_MAX_NUM_QUADRANTS + 1):
-        mappings.append(base_path + str(n) + vlbi_path)
+        # Only quadrants 1, 2, 3 are used for VLBI. The other quadrants can just use the standard mapping.
+        if 1 <= n <= 3:
+            mappings.append(base_path + str(n) + vlbi_path)
     return mappings, vlbi_status
 
 
