@@ -130,6 +130,7 @@ class SwarmMember(base.SwarmROACH):
         self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
 
         # Program the board
+        self.logger.info('Programming bitcode {bc}'.format(bc=self.bitcode))
         self._program(self.bitcode)
 
         # Set noise to perfect correlation
@@ -1159,6 +1160,10 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             ifaces = [base.SwarmDBEInterface(self.qid, fid, sideband=sb.upper()) for sb in beamformer_sidebands]
             member.setup_beamformer(ifaces)
+            self.logger.info('Q #%d FID #%d beamformer enabled' % (self.qid, fid))
+
+            # This sleep was inherited from uncommitted changes found on the phasing-2nd-sb repo.
+            sleep(0.5)
 
     def get_beamformer_inputs(self):
 
