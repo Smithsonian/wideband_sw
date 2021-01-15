@@ -33,6 +33,8 @@ def get_swarm_mappings():
         # Only quadrants 1, 2, 3 are used for VLBI. The other quadrants can just use the standard mapping.
         if 1 <= n <= 3:
             mappings.append(base_path + str(n) + vlbi_path)
+        else:
+            mappings.append(base_path + str(n))
     return mappings, vlbi_status
 
 
