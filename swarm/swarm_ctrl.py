@@ -143,7 +143,7 @@ if args.log_file:
 if args.verbose:
     stdout.setLevel(logging.DEBUG)
 else:
-    stdout.setLevel(logging.INFO)
+    stdout.setLevel(logging.DEBUG)
 
 # Silence user-defined loggers
 for logger_name in args.silence_loggers:
