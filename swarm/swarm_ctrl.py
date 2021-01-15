@@ -75,7 +75,7 @@ for sig in EXIT_ON:
 
 # Stream to stdout
 stdout = logging.StreamHandler(sys.stdout)
-stdout.setLevel(logging.INFO)
+stdout.setLevel(logging.DEBUG)
 logger.addHandler(stdout)
 
 # Also, log to a Redis channel
