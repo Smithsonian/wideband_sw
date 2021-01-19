@@ -112,13 +112,13 @@ class SwarmShellMagics(Magics):
         beams = [None]*len(SWARM_MAPPING_CHUNKS)
         print(beams)
         for quad in self.swarm.quads:
-            qid = quad.qid
+            qid = quad.qid - 1
             print("qid " + str(qid))
             beams[qid] = {}
             for sb in SWARM_BENGINE_SIDEBANDS:
                 beams[qid][sb] = []
         for quad in self.swarm.quads:
-            qid = quad.qid
+            qid = quad.qid - 1
             if hasattr(quad,'sdbe'):
                 sdbe = getattr(quad,'sdbe')
                 for sb in SWARM_BENGINE_SIDEBANDS:
