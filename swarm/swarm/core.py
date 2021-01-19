@@ -1847,7 +1847,7 @@ class Swarm:
 
         # Go through all quadrants get inputs
         for quad in self.quads:
-            quad.set_beamformer_inputs(inputs[quad.qid])
+            quad.set_beamformer_inputs(inputs[quad.qid - 1])
 
     def get_itime(self):
 
