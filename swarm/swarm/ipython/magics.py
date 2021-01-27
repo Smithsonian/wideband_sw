@@ -109,14 +109,14 @@ class SwarmShellMagics(Magics):
                 gain = eval(gain_val)
 
         # Build beams structure
-        beams = [None] * (SWARM_MAX_NUM_QUADRANTS + 1)
+        beams = [None] * (SWARM_MAX_NUM_QUADRANTS)
         for quad in self.swarm.quads:
-            qid = quad.qid
+            qid = quad.qid - 1
             beams[qid] = {}
             for sb in SWARM_BENGINE_SIDEBANDS:
                 beams[qid][sb] = []
         for quad in self.swarm.quads:
-            qid = quad.qid
+            qid = quad.qid - 1
             if hasattr(quad,'sdbe'):
                 sdbe = getattr(quad,'sdbe')
                 for sb in SWARM_BENGINE_SIDEBANDS:
