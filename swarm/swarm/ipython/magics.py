@@ -112,7 +112,6 @@ class SwarmShellMagics(Magics):
         beams = [None] * (SWARM_MAX_NUM_QUADRANTS + 1)
         for quad in self.swarm.quads:
             qid = quad.qid
-            print("qid " + str(qid))
             beams[qid] = {}
             for sb in SWARM_BENGINE_SIDEBANDS:
                 beams[qid][sb] = []
@@ -120,6 +119,8 @@ class SwarmShellMagics(Magics):
             qid = quad.qid
             if hasattr(quad,'sdbe'):
                 sdbe = getattr(quad,'sdbe')
+                print("***Found SDBE")
+                print(sdbe)
                 for sb in SWARM_BENGINE_SIDEBANDS:
                     if sdbe.find(sb) != -1:
                         beams[qid][sb] = [SwarmInput(ant, qid, pol) for pol in SWARM_MAPPING_POLS for ant in ant_list]
