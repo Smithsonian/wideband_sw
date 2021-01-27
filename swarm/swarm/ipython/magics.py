@@ -119,11 +119,10 @@ class SwarmShellMagics(Magics):
             qid = quad.qid
             if hasattr(quad,'sdbe'):
                 sdbe = getattr(quad,'sdbe')
-                print("***Found SDBE")
-                print(sdbe)
                 for sb in SWARM_BENGINE_SIDEBANDS:
                     if sdbe.find(sb) != -1:
                         beams[qid][sb] = [SwarmInput(ant, qid, pol) for pol in SWARM_MAPPING_POLS for ant in ant_list]
+                        print("added input to SwarmInput to beam")
 
         # Apply beams structure to SWARM
         self.swarm.set_beamformer_inputs(beams)
