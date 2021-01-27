@@ -380,6 +380,10 @@ class SwarmMember(base.SwarmROACH):
         # Set the MAC address based on quadrant information in the Swarm DBE(s) MAC
         qid = (dest_list[0].mac & 0x0f00) >> 8
         mac = SWARM_BENGINE_MACBASE + (qid << 8) + 0x10 + self.fid
+        self.logger.info("beamformer ip: " + str(ip))
+        self.logger.info("beamformer mac: " + str(mac))
+        self.logger.info("dest_list: " + str(dest_list))
+        self.logger.info("arp:" + str(arp))
 
         # Set the MAC for our destinatino IP
         for dest in dest_list:
