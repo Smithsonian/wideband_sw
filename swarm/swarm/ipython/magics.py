@@ -124,6 +124,7 @@ class SwarmShellMagics(Magics):
                         beams[qid][sb] = [SwarmInput(ant, qid, pol) for pol in SWARM_MAPPING_POLS for ant in ant_list]
 
         # Apply beams structure to SWARM
+        print(beams)
         self.swarm.set_beamformer_inputs(beams)
 
         # Maximum allowed gain value
