@@ -1211,8 +1211,6 @@ class SwarmQuadrant:
         # Set the mask on all members
         for fid, member in self.get_valid_members():
             member.set_bengine_mask(mask)
-            print("set bengine mask")
-            print(mask)
 
     def get_beamformer_second_sideband_phase(self, inputs):
 
