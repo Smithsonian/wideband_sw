@@ -5,7 +5,7 @@ from collections import namedtuple
 from struct import pack
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
-import signal
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
 
 from numpy import uint16
 from redis import StrictRedis
@@ -43,7 +43,10 @@ def signal_handler(signal, frame):
     interrupted = True
 
 
-signal.signal(signal.SIGINT, signal_handler)
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, signal_handler)
 
 
 @contextmanager
