@@ -1,3 +1,4 @@
+import sys
 import argparse
 import logging
 import os
@@ -11,7 +12,7 @@ from numpy import uint16
 from redis import StrictRedis
 from time import sleep
 from swarm import Swarm
-from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
+from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN, SMAINIT_QUIT_RTN
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 Roach2Update = namedtuple("Roach2Update", "fpga_client rx gains_bin")
@@ -41,7 +42,6 @@ interrupted = False
 def signal_handler(signal, frame):
     global interrupted
     interrupted = True
-
 
 # Register the exit handler
 EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
@@ -179,3 +179,5 @@ while not interrupted:
         cgains_handler(message)
 
     sleep(1)
+
+sys.exit(SMAINIT_QUIT_RTN)
