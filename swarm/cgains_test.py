@@ -1,3 +1,4 @@
+import sys
 import argparse
 import logging
 import os
@@ -5,12 +6,13 @@ from collections import namedtuple
 from struct import pack
 from contextlib import contextmanager
 from multiprocessing.pool import ThreadPool
+from signal import signal, SIGQUIT, SIGTERM, SIGINT
 
 from numpy import uint16
 from redis import StrictRedis
-
+from time import sleep
 from swarm import Swarm
-from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN
+from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN, SMAINIT_QUIT_RTN
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 Roach2Update = namedtuple("Roach2Update", "fpga_client rx gains_bin")
@@ -32,6 +34,19 @@ parser.add_argument('-t', dest='test', action='store_true', help='Test mode, doe
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
+
+# Flag for use in the main loop of the program. The interrupt signal handler will toggle this to True.
+interrupted = False
+
+
+def signal_handler(signal, frame):
+    global interrupted
+    interrupted = True
+
+# Register the exit handler
+EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+for sig in EXIT_ON:
+    signal(sig, signal_handler)
 
 
 @contextmanager
@@ -155,8 +170,14 @@ def parse_cgains_line(line):
 # Create the redis client and subscribe to the cgains-update channel on a separate thread.
 redis_server = StrictRedis(host='localhost', port=6379, db=0)
 redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
-redis_pubsub.subscribe(**{"cgains-update": cgains_handler})
-redis_pubsub_thread = redis_pubsub.run_in_thread(sleep_time=1)
+redis_pubsub.subscribe("cgains-update")
+logging.info("Subscribed to cgains-update channel")
 
-raw_input("Subscribed to " + subscribe_key + " " + "channel, press enter/return key to exit...")
-redis_pubsub_thread.stop()
+while not interrupted:
+    message = redis_pubsub.get_message()
+    if message:
+        cgains_handler(message)
+
+    sleep(1)
+
+sys.exit(SMAINIT_QUIT_RTN)
