@@ -1541,8 +1541,8 @@ class Swarm:
             if not active_quad_mappings:
                 self.logger.info("Unable to read SWARMQuadrantsInArray file, defaulting to all SWARM quadrants active.")
                 active_quad_mappings = SWARM_MAPPINGS
-            self.logger.info("SWARM Mapping files chosen:")
-            self.logger.info(str(active_quad_mappings))
+            self.logger.debug("SWARM Mapping files chosen:")
+            self.logger.debug(str(active_quad_mappings))
             return active_quad_mappings
 
     def get_valid_members(self):
