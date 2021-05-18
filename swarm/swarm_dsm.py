@@ -1,8 +1,12 @@
-import time, sys, logging, logging.handlers, argparse
+import time, sys, logging, logging.handlers, argparse, os, psutil
 from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from threading import Event
 from swarm import *
 import pydsm
+
+
+#Get PID for memory usage
+process = psutil.Process(os.getpid())
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
@@ -91,6 +95,7 @@ def copy_source_geom(source_geom, member):
 # Loop continously
 logger.info('Starting DSM copy loop')
 RUNNING.set()
+print(str(process.memory_info()[0] / 10.0**6) + " MB")
 while RUNNING.is_set():
 
     try: # Unless exception is caught
@@ -104,9 +109,13 @@ while RUNNING.is_set():
 
         # Read source info from newdds
         source_geom = pydsm.read("newdds", "DDS_TO_TENZING_X")
+        print("Read newdds, DDS_TO_TENZING_X")
+        print(str(process.memory_info()[0] / 10.0**6) + " MB")
 
         # Finally copy them over to every ROACH
         swarm.members_do(lambda fid, member: copy_source_geom(source_geom, member))
+        print("Wrote source geom to roach2s")
+        print(str(process.memory_info()[0] / 10.0 ** 6) + " MB")
 
     except RuntimeError as err:
         logger.error("Exception caught: {0}".format(err))
