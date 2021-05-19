@@ -65,7 +65,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 # This function takes the newdds dictionary and 
 # sets the ROACH-specific DSM data
 def copy_source_geom(source_geom, member):
-
+    print("Begin copy_source_geom " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
     # Create our dict first (copied from dsm_allocation)
     rx0 = member[0].pol
     rx1 = member[1].pol
@@ -88,11 +88,11 @@ def copy_source_geom(source_geom, member):
             source_geom['GEOM_DELAY_C_V9_D'][0][ant1],
             ),
         }
-
+    print("Create geom_dict " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
     # Finally write it to our ROACH2 DSM host
-    val = pydsm.write(member.roach2_host, 'SWARM_SOURCE_GEOM_X', geom_dict)
-    del geom_dict
-    print("Wrote dsm value for " + str(member.roach2_host) + " return code:" + str(val))
+    pydsm.write(member.roach2_host, 'SWARM_SOURCE_GEOM_X', geom_dict)
+    print("After write " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
+
 
 # Loop continously
 logger.info('Starting DSM copy loop')
@@ -110,14 +110,13 @@ while RUNNING.is_set():
             break
 
         # Read source info from newdds
+        print("Before Read " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
         source_geom = pydsm.read("newdds", "DDS_TO_TENZING_X")
-        print("Read newdds, DDS_TO_TENZING_X")
-        print(str(process.memory_info()[0] / 10.0**6) + " MB")
+        print("After Read " + str(process.memory_info()[0] / 10.0**6) + " MB")
 
         # Finally copy them over to every ROACH
         swarm.members_do(lambda fid, member: copy_source_geom(source_geom, member))
-        print("Wrote source geom to roach2s")
-        print(str(process.memory_info()[0] / 10.0 ** 6) + " MB")
+        print("After members_do " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
 
     except RuntimeError as err:
         logger.error("Exception caught: {0}".format(err))
