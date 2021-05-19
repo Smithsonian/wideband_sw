@@ -91,6 +91,7 @@ def copy_source_geom(source_geom, member):
 
     # Finally write it to our ROACH2 DSM host
     val = pydsm.write(member.roach2_host, 'SWARM_SOURCE_GEOM_X', geom_dict)
+    del geom_dict
     print("Wrote dsm value for " + str(member.roach2_host) + " return code:" + str(val))
 
 # Loop continously
