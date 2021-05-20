@@ -11,7 +11,7 @@ process = psutil.Process(os.getpid())
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
 RUNNING = Event()
-PERIOD = .5
+PERIOD = 5
 
 # Setup root logger
 logger = logging.getLogger()
