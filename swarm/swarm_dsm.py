@@ -90,6 +90,8 @@ def copy_source_geom(source_geom, member):
         }
     print("Create geom_dict " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
     # Finally write it to our ROACH2 DSM host
+    print("member roach2_host: " + str(member.roach2_host))
+    print("geom_dict: " + str(geom_dict))
     pydsm.write(member.roach2_host, 'SWARM_SOURCE_GEOM_X', geom_dict)
     print("After write " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
 
