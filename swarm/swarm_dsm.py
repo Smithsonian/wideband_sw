@@ -1,4 +1,4 @@
-import time, sys, logging, logging.handlers, argparse, os, psutil
+import time, sys, argparse, os, psutil
 from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from threading import Event
 from swarm import *
@@ -9,42 +9,42 @@ import pydsm
 process = psutil.Process(os.getpid())
 
 # Global variables
-LOGFILE_NAME = '/global/logs/swarm/dsm.log'
+# LOGFILE_NAME = '/global/logs/swarm/dsm.log'
 RUNNING = Event()
 PERIOD = .5
 
 # Setup root logger
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+# logger = logging.getLogger()
+# logger.setLevel(logging.DEBUG)
 
-# Exit signal handler
-def quit_handler(signum, frame):
-    logger.info("Received signal #{0}; Quitting...".format(signum))
-    RUNNING.clear()
-
-# Register the exit handler
-EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
-for sig in EXIT_ON:
-    signal(sig, quit_handler)
-
-# Stream to stdout
-stdout = logging.StreamHandler(sys.stdout)
-stdout.setLevel(logging.INFO)
-logger.addHandler(stdout)
-
-# Also, log to rotating file handler
-logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=10)
-logfile.setLevel(logging.INFO)
-logger.addHandler(logfile)
-
-# Create and set formatting
-formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
-stdout.setFormatter(formatter)
-logfile.setFormatter(formatter)
-
-# Silence all katcp messages
-katcp_logger = logging.getLogger('katcp')
-katcp_logger.setLevel(logging.CRITICAL)
+# # Exit signal handler
+# def quit_handler(signum, frame):
+#     logger.info("Received signal #{0}; Quitting...".format(signum))
+#     RUNNING.clear()
+#
+# # Register the exit handler
+# EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
+# for sig in EXIT_ON:
+#     signal(sig, quit_handler)
+#
+# # Stream to stdout
+# stdout = logging.StreamHandler(sys.stdout)
+# stdout.setLevel(logging.INFO)
+# logger.addHandler(stdout)
+#
+# # Also, log to rotating file handler
+# logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=10)
+# logfile.setLevel(logging.INFO)
+# logger.addHandler(logfile)
+#
+# # Create and set formatting
+# formatter = logging.Formatter('%(name)-24s: %(asctime)s : %(levelname)-8s %(message)s')
+# stdout.setFormatter(formatter)
+# logfile.setFormatter(formatter)
+#
+# # Silence all katcp messages
+# katcp_logger = logging.getLogger('katcp')
+# katcp_logger.setLevel(logging.CRITICAL)
 
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Read source information from newdds via DSM and copy to the ROACH2s')
@@ -54,10 +54,10 @@ parser.add_argument('-m', '--swarm-mappings', dest='swarm_mappings', metavar='SW
 args = parser.parse_args()
 
 # Set logging level given verbosity
-if args.verbose:
-    stdout.setLevel(logging.DEBUG)
-else:
-    stdout.setLevel(logging.INFO)
+# if args.verbose:
+#     stdout.setLevel(logging.DEBUG)
+# else:
+#     stdout.setLevel(logging.INFO)
 
 # Create our SWARM instance
 swarm = Swarm(map_filenames=args.swarm_mappings)
@@ -95,7 +95,7 @@ def copy_source_geom(source_geom, member):
 
 
 # Loop continously
-logger.info('Starting DSM copy loop')
+print('Starting DSM copy loop')
 RUNNING.set()
 print(str(process.memory_info()[0] / 10.0**6) + " MB")
 while RUNNING.is_set():
@@ -119,8 +119,8 @@ while RUNNING.is_set():
         print("After members_do " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
 
     except RuntimeError as err:
-        logger.error("Exception caught: {0}".format(err))
+        print("Exception caught: {0}".format(err))
         continue
 
-logger.info("Exiting normally")
+print("Exiting normally")
 sys.exit(SMAINIT_QUIT_RTN)
