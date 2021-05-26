@@ -3,11 +3,20 @@ from signal import signal, SIGQUIT, SIGTERM, SIGINT
 from threading import Event
 from swarm import *
 import pydsm
+from contextlib import contextmanager
+from functools import partial
+from multiprocessing.pool import ThreadPool
 
 # Global variables
 LOGFILE_NAME = '/global/logs/swarm/dsm.log'
 RUNNING = Event()
-PERIOD = .5
+PERIOD = .1
+
+@contextmanager
+def poolcontext(*args, **kwargs):
+    pool = ThreadPool(*args, **kwargs)
+    yield pool
+    pool.terminate()
 
 # Setup root logger
 logger = logging.getLogger()
@@ -58,7 +67,7 @@ else:
 # Create our SWARM instance
 swarm = Swarm(map_filenames=args.swarm_mappings)
 
-# This function takes the newdds dictionary and 
+# This function takes the newdds dictionary and
 # sets the ROACH-specific DSM data
 def copy_source_geom(source_geom, member):
 
@@ -91,6 +100,11 @@ def copy_source_geom(source_geom, member):
 # Loop continously
 logger.info('Starting DSM copy loop')
 RUNNING.set()
+
+swarm_members = []
+for fid, member in swarm.get_valid_members():
+    swarm_members.append(member)
+
 while RUNNING.is_set():
 
     try: # Unless exception is caught
@@ -105,8 +119,8 @@ while RUNNING.is_set():
         # Read source info from newdds
         source_geom = pydsm.read("newdds", "DDS_TO_TENZING_X")
 
-        # Finally copy them over to every ROACH
-        swarm.members_do(lambda fid, member: copy_source_geom(source_geom, member))
+        with poolcontext(4) as pool:
+            pool.map(partial(copy_source_geom, source_geom=source_geom), swarm_members)
 
     except RuntimeError as err:
         logger.error("Exception caught: {0}".format(err))
