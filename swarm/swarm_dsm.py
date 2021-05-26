@@ -119,6 +119,10 @@ while RUNNING.is_set():
         source_geom = pydsm.read("newdds", "DDS_TO_TENZING_X")
         print("After Read " + str(process.memory_info()[0] / 10.0**6) + " MB")
 
+        if not source_geom:
+            print("EMPTY source_geom dictionary found, skipping...")
+            continue
+
         # Finally copy them over to every ROACH
         swarm.members_do(lambda fid, member: copy_source_geom(source_geom, member))
         print("After members_do " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
