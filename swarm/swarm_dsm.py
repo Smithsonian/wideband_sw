@@ -66,6 +66,9 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 # sets the ROACH-specific DSM data
 def copy_source_geom(source_geom, member):
     print("Begin copy_source_geom " + str(process.memory_info()[0] / 10.0 ** 6) + " MB")
+    print("************************start_source_geom****************************")
+    print(source_geom)
+    print("************************end_source_geom****************************")
     # Create our dict first (copied from dsm_allocation)
     rx0 = member[0].pol
     rx1 = member[1].pol
