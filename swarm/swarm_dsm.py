@@ -69,7 +69,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 
 # This function takes the newdds dictionary and
 # sets the ROACH-specific DSM data
-def copy_source_geom(source_geom, member):
+def copy_source_geom(member, source_geom):
 
     # Create our dict first (copied from dsm_allocation)
     rx0 = member[0].pol
