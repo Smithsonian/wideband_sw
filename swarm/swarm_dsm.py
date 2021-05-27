@@ -20,7 +20,7 @@ def poolcontext(*args, **kwargs):
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Exit signal handler
 def quit_handler(signum, frame):
