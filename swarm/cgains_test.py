@@ -83,7 +83,7 @@ def update_roach2s(cgain_updates):
     for cgain_update in cgain_updates:
 
         # Skip if this is for an inactive quadrant.
-        if cgain_update.quadrant not in ACTIVE_QUADS:
+        if (cgain_update.quadrant + 1) not in ACTIVE_QUADS:
             print("skipped: ", cgain_update.quadrant, cgain_update.antenna)
             continue
 
