@@ -84,10 +84,10 @@ def update_roach2s(cgain_updates):
 
         # Skip if this is for an inactive quadrant.
         if cgain_update.quadrant not in ACTIVE_QUADS:
-            print("skipped: ", cgain_update)
+            print("skipped: ", cgain_update.quadrant, cgain_update.antenna)
             continue
 
-        print("processing: ", cgain_update)
+        print("processing: ", cgain_update.quadrant, cgain_update.antenna)
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *cgain_update.gains)
 
         # Look up the quadrant, and then access the correct swarm member object using the antenna index.
