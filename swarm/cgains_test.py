@@ -12,7 +12,8 @@ from numpy import uint16
 from redis import StrictRedis
 from time import sleep
 from swarm import Swarm
-from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN, SMAINIT_QUIT_RTN
+from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN, SMAINIT_QUIT_RTN, ACTIVE_QUADRANTS_FILE_PATH, \
+    SWARM_MAX_NUM_QUADRANTS
 
 CgainUpdate = namedtuple("CgainUpdate", "quadrant antenna rx gains")
 Roach2Update = namedtuple("Roach2Update", "fpga_client rx gains_bin")
@@ -38,10 +39,20 @@ logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO)
 # Flag for use in the main loop of the program. The interrupt signal handler will toggle this to True.
 interrupted = False
 
+# Look up which quadrants are active.
+with open(ACTIVE_QUADRANTS_FILE_PATH) as qfile:
+    line = qfile.readline().strip()
+if line:
+    ACTIVE_QUADS = [int(x) for x in line.split(" ")]
+else:
+    # If unable to read the file for some reason, just assume all quadrants.
+    ACTIVE_QUADS = [x for x in range(1, SWARM_MAX_NUM_QUADRANTS + 1)]
+
 
 def signal_handler(signal, frame):
     global interrupted
     interrupted = True
+
 
 # Register the exit handler
 EXIT_ON = (SIGQUIT, SIGTERM, SIGINT)
@@ -70,6 +81,11 @@ def update_roach2s(cgain_updates):
 
     # Prepare the gains, and collect the roach2 objects.
     for cgain_update in cgain_updates:
+
+        # Skip if this is for an inactive quadrant.
+        if cgain_update.antenna not in ACTIVE_QUADS:
+            continue
+
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *cgain_update.gains)
 
         # Look up the quadrant, and then access the correct swarm member object using the antenna index.
@@ -137,6 +153,7 @@ def cgains_handler(message):
     # Parse the Redis message.
     data = message['data']
     roach2_raw_lines = data.split(" | ")
+
     cgain_updates = [parse_cgains_line(line) for line in roach2_raw_lines]
 
     # Write new cgain values to roach2s.
