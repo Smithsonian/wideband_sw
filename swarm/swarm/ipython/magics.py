@@ -1,5 +1,5 @@
 import logging
-from Queue import Queue
+from queue import Queue
 from threading import Thread
 from IPython.core.magic import (
     Magics, 
@@ -84,15 +84,15 @@ class SwarmShellMagics(Magics):
         gains = self.swarm.get_bengine_gains()
         for ii,q in enumerate(inputs):
             m = gains[ii][0]
-            print "qid{0}: gains = (RxA-USB = {1}, RxB-USB = {2}, RxA-LSB = {3}, RxB-LSB = {4})".format(ii,m[0],m[1],m[2],m[3])
+            print("qid{0}: gains = (RxA-USB = {1}, RxB-USB = {2}, RxA-LSB = {3}, RxB-LSB = {4})".format(ii,m[0],m[1],m[2],m[3]))
             for ii,sb in enumerate(q.keys()):
-                print "  |"
-                print "  +--{0}".format(sb)
+                print("  |")
+                print("  +--{0}".format(sb))
                 for inp in q[sb]:
-                    if ii+1 < len(q.keys()):
-                        print "  |  +--{0}".format(inp)
+                    if ii+1 < len(list(q.keys())):
+                        print("  |  +--{0}".format(inp))
                     else:
-                        print "     +--{0}".format(inp)
+                        print("     +--{0}".format(inp))
 
     @line_magic
     def setbeam(self, line):
@@ -209,8 +209,8 @@ class SwarmShellMagics(Magics):
     def lcmagic(self, line, cell=None):
         "Magic that works both as %lcmagic and as %%lcmagic"
         if cell is None:
-            print "Called as line magic"
+            print("Called as line magic")
             return line
         else:
-            print "Called as cell magic"
+            print("Called as cell magic")
             return line, cell

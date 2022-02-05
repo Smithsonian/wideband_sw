@@ -1,7 +1,7 @@
 import sys, pickle, traceback, logging, argparse
 from time import sleep
 from threading import Event
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
 from redis import StrictRedis, ConnectionError

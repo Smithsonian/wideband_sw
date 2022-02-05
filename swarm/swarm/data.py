@@ -1,7 +1,7 @@
 import gc, math, logging, fcntl
 from time import time, sleep
 from struct import calcsize, pack, unpack
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
 from socket import (
@@ -13,9 +13,9 @@ from socket import (
 
 from numpy import array, nan, fromstring, empty, reshape
 from numba import jit
-import core
-from defines import *
-from xeng import (
+from . import core
+from .defines import *
+from .xeng import (
     SwarmBaseline,
     SwarmXengine,
     )
@@ -26,8 +26,8 @@ SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR = 0x8927
 SIOCGIFNETMASK = 0x891b
 
-INNER_RANGE = range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2)
-OUTER_RANGE = range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4)
+INNER_RANGE = list(range(0, SWARM_XENG_PARALLEL_CHAN * 4, 2))
+OUTER_RANGE = list(range(0, SWARM_CHANNELS * 2, SWARM_XENG_TOTAL * 4))
 DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 
 ARRIVAL_THRESHOLD = 3
@@ -184,7 +184,7 @@ class SwarmListener(object):
 def has_none(obj):
     try:
         for sub in obj:
-            if not isinstance(sub, basestring):
+            if not isinstance(sub, str):
                 if has_none(sub):
                     return True
     except TypeError:
@@ -338,21 +338,21 @@ class SwarmDataCatcher:
             # self.logger.debug("Caught packet %d from qid: %d fid: %d acc_n: %d" % (pkt_n, qid, fid, acc_n))
 
             # Initialize qid data buffer, if necessary
-            if not data.has_key(qid):
+            if qid not in data:
                 data[qid] = {}
                 mask[qid] = {}
                 meta[qid] = {}
 
             # Initialize fid data buffer, if necessary
-            if not data[qid].has_key(fid):
+            if fid not in data[qid]:
                 data[qid][fid] = {}
                 mask[qid][fid] = {}
                 meta[qid][fid] = {}
 
             # First packet of new accumulation, initalize data buffers
-            if not data[qid][fid].has_key(acc_n):
+            if acc_n not in data[qid][fid]:
                 data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
-                mask[qid][fid][acc_n] = long(0)
+                mask[qid][fid][acc_n] = int(0)
                 meta[qid][fid][acc_n] = {
                     'time': pkt_time,  # these values correspond to those
                     'xnum': xnum,  # of the first packet of this acc
