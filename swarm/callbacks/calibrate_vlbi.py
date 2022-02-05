@@ -41,7 +41,7 @@ from swarm import (
     SWARM_BENGINE_SIDEBANDS,
 )
 from swarm.data import SwarmDataPackage
-from json_file import JSONListFile
+from .json_file import JSONListFile
 from redis import StrictRedis
 
 TODAY = datetime.utcnow()
@@ -62,7 +62,7 @@ def slice_sub_lags(lags, peaks, axis, max_lags=16):
     out_shape[axis] = max_lags * 2
     out_array = empty(out_shape, dtype=lags.dtype)
     for i, peak in enumerate(peaks):
-        indices = fftshift(range(peak-max_lags, peak+max_lags))
+        indices = fftshift(list(range(peak-max_lags, peak+max_lags)))
         out_array.T[i] = lags.T[i].take(indices, mode='wrap')
     return out_array
 
@@ -103,13 +103,13 @@ class CalibrateVLBI(SwarmDataCallback):
 
     def __init__(self, swarm, reference=None, normed=False, single_chan=True, history_size=8, PID_coeffs=(0.75, 0.05, 0.01), outfilename=CALFILE):
         if reference is None:
-            self.reference = dict(zip(SWARM_BENGINE_SIDEBANDS,[None]*len(SWARM_BENGINE_SIDEBANDS)))
+            self.reference = dict(list(zip(SWARM_BENGINE_SIDEBANDS,[None]*len(SWARM_BENGINE_SIDEBANDS))))
             for beam_per_quad in swarm.get_beamformer_inputs():
                 for sb in SWARM_BENGINE_SIDEBANDS:
                     if self.reference[sb] == None and beam_per_quad[sb] is not None:
                         self.reference[sb] = beam_per_quad[sb][0]
         else:
-            self.reference = dict(zip(SWARM_BENGINE_SIDEBANDS,[reference]*len(SWARM_BENGINE_SIDEBANDS)))
+            self.reference = dict(list(zip(SWARM_BENGINE_SIDEBANDS,[reference]*len(SWARM_BENGINE_SIDEBANDS))))
         self.redis = StrictRedis(host='localhost', port=6379)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = len(SWARM_BENGINE_SIDEBANDS)*[zeros(2, dtype=bool)]
@@ -194,9 +194,9 @@ class CalibrateVLBI(SwarmDataCallback):
         pid_phases = p * p_phases + i * i_phases + d * d_phases
         if SWARM_BENGINE_SIDEBANDS[sb_idx] == 'USB':
             if not isnan(pid_delays).any():
-                map(self.feedback_delay_usb, inputs, pid_delays)
+                list(map(self.feedback_delay_usb, inputs, pid_delays))
             if not isnan(pid_phases).any():
-                map(self.feedback_phase_usb, inputs, pid_phases)
+                list(map(self.feedback_phase_usb, inputs, pid_phases))
         elif SWARM_BENGINE_SIDEBANDS[sb_idx] == 'LSB':
             self.feedback_phase_lsb(inputs, pid_phases)
 
@@ -314,8 +314,8 @@ class CalibrateVLBI(SwarmDataCallback):
                 self.pid_servo(inputs,sb_idx)
 
             if sb_str == "USB":
-                new_delays_usb = map(self.swarm.get_delay, inputs)
-                new_phases_usb = map(self.swarm.get_phase, inputs)
+                new_delays_usb = list(map(self.swarm.get_delay, inputs))
+                new_phases_usb = list(map(self.swarm.get_phase, inputs))
                 efficiencies_usb = efficiencies
                 inputs_usb = inputs
                 cal_solution_usb = cal_solution

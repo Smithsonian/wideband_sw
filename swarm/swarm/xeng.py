@@ -1,4 +1,4 @@
-from defines import *
+from .defines import *
 from numba import jit, b1, u1, i1
 
 simple_mapping = (
@@ -70,7 +70,7 @@ class SwarmXengineWord(SwarmBaseline):
         SwarmBaseline.__init__(self, left, right)
         self.baseline = SwarmBaseline(self.left, self.right)
         if sideband not in SWARM_XENG_SIDEBANDS:
-            raise ValueError, "Sideband must be one of {}!".format(SWARM_XENG_SIDEBANDS)
+            raise ValueError("Sideband must be one of {}!".format(SWARM_XENG_SIDEBANDS))
         else:
             self.sideband = sideband
         self.imag = imag
@@ -106,8 +106,8 @@ class SwarmXengine:
             try:
                 # DDR3 interleaves two 64-bit words,
                 # i.e. 4 32-bit words
-                word_0 = xeng_gen.next()
-                word_1 = xeng_gen.next()
+                word_0 = next(xeng_gen)
+                word_1 = next(xeng_gen)
             except StopIteration:
                 break
 
@@ -131,10 +131,10 @@ class SwarmXengine:
             input = clock % inputs
 
             if clock < inputs:
-                valid_stages = range(min(clock, top_stage), -1, -1)
+                valid_stages = list(range(min(clock, top_stage), -1, -1))
                 conjugate = True
             else:
-                valid_stages = range(top_stage-1, input, -1)
+                valid_stages = list(range(top_stage-1, input, -1))
                 conjugate = False
 
             for stage in valid_stages:

@@ -4,7 +4,7 @@ import logging
 from collections import OrderedDict
 import sys
 import time
-from Queue import Queue
+from queue import Queue
 from traceback import format_exception
 
 import pyopmess
@@ -36,10 +36,10 @@ for num in args.integers:
     if (num - 1) in SWARM_MAPPING_CHUNKS:
         quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
     else:
-        print(str(num) + " is not a valid SWARM quadrant and will be ignored.")
+        print((str(num) + " is not a valid SWARM quadrant and will be ignored."))
 
 # Present the request and ask to proceed to IDLE quadrants.
-quad_string = " ".join(map(str, quad_mappings.keys()))
+quad_string = " ".join(map(str, list(quad_mappings.keys())))
 if quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins for quadrant(s) " + quad_string + "?"):
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
@@ -69,11 +69,11 @@ if quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins fo
         adccal_threads[thread] = member
 
     # Now start them all
-    for thread in adccal_threads.iterkeys():
+    for thread in adccal_threads.keys():
         thread.start()
 
     # ...and immediately join them
-    for thread in adccal_threads.iterkeys():
+    for thread in adccal_threads.keys():
         thread.join()
 
     # If there were exceptions log them

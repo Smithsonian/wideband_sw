@@ -100,7 +100,7 @@ for fid, member in swarm.get_valid_members():
                 fmt = '%10.5f %12d'
                 filename = '{}.cnts{}-{}-{}.{}.hist'.format(nowstr, antenna, chunk, polarization, args.source)
                 hist_dtype = ('cnts', int)
-            zipped = array(zip(list(center), list(hist)),
+            zipped = array(list(zip(list(center), list(hist))),
                            dtype=[('bins', float), hist_dtype])
             savetxt(filename, zipped, fmt)
 

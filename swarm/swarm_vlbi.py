@@ -35,8 +35,8 @@ args = parser.parse_args()
 redis_client = StrictRedis(host='localhost', port=6379)
 
 # Print out choices and ask to proceed.
-print("The following will be set:\n mode={}, reference={}, calibrate-vlbi={}".format(
-    args.mode, args.reference, args.calibrate_vlbi))
+print(("The following will be set:\n mode={}, reference={}, calibrate-vlbi={}".format(
+    args.mode, args.reference, args.calibrate_vlbi)))
 
 if query_yes_no("Continue to set values in redis and restart swarm_ctrl?"):
 

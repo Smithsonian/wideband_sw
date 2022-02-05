@@ -3,7 +3,7 @@
 import sys, pickle, traceback, logging, argparse
 from time import sleep
 from threading import Event
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
 from redis import StrictRedis, ConnectionError
@@ -33,4 +33,4 @@ from callbacks.calibrate_vlbi import CalibrateVLBI
 from callbacks.log_stats import LogStats
 from callbacks.sma_data import SMAData
 
-print "Hello World"
+print("Hello World")

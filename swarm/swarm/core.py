@@ -4,7 +4,7 @@ from struct import pack, unpack
 from random import randint
 from socket import inet_ntoa
 from threading import Thread
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from traceback import format_exception
 from collections import OrderedDict
 
@@ -22,12 +22,12 @@ from adc5g import (
 
 import pydsm
 
-from defines import *
-import base
-import xeng
-import data
-import qdr
-import dbe
+from .defines import *
+from . import base
+from . import xeng
+from . import data
+from . import qdr
+from . import dbe
 
 
 class ExceptingThread(Thread):
@@ -860,7 +860,7 @@ class SwarmQuadrant:
         return len(self.members)
 
     def __getitem__(self, fid):
-        return self.members.values()[fid]
+        return list(self.members.values())[fid]
 
     def __repr__(self):
         return '{name}(qid={qid}, members=[{members}])'.format(name=self.__class__.__name__, qid=self.qid, members=self.members)
@@ -869,12 +869,12 @@ class SwarmQuadrant:
         return os.linesep.join('[qid={0!r}] {1:s}'.format(self.qid, m) for f, m in self.get_valid_members())
 
     def __dir__(self):
-        return self.__dict__.keys() + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
+        return list(self.__dict__.keys()) + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
 
     def __getattr__(self, attr):
 
         # See if the non-SwarmQuadrant attribute is a SwarmMember method
-        if callable(getattr(self.members.values()[0], attr, None)):
+        if callable(getattr(list(self.members.values())[0], attr, None)):
 
             # If so, return a callable that passes the users args and kwargs
             # to the appropriate method on all members
@@ -973,7 +973,7 @@ class SwarmQuadrant:
 
                     # Create and attach our member instance
                     member_inst = SwarmMember(fid, roach2_host, parent_logger=self.logger, **parameters)
-                    if not self.members.has_key(roach2_host):
+                    if roach2_host not in self.members:
                         self.members[roach2_host] = member_inst
                         fid += 1
 
@@ -1462,11 +1462,11 @@ class SwarmQuadrant:
                 setup_threads[thread] = member
 
             # Now start them all
-            for thread in setup_threads.iterkeys():
+            for thread in setup_threads.keys():
                 thread.start()
 
             # ...and immediately join them
-            for thread in setup_threads.iterkeys():
+            for thread in setup_threads.keys():
                 thread.join()
 
             # If there were exceptions log them
@@ -1499,7 +1499,7 @@ class Swarm:
         # If map_filenames is empty, look up the current list of active swarm quadrants.
         if not map_filenames:
             mappings_dict = mappings_dict if mappings_dict else self.get_current_swarm_mappings()
-            self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in mappings_dict.items())
+            self.quads = list(SwarmQuadrant(k, v, parent_logger=self.logger) for k, v in list(mappings_dict.items()))
         else:
             # Legacy behavior: For every mapping file, instantiate one SwarmQuadrant.
             # Index problems will occur if the map file paths aren't in sequential order.
@@ -1566,7 +1566,7 @@ class Swarm:
             return return_values
 
     def __dir__(self):
-        return self.__dict__.keys() + dir(Swarm) + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
+        return list(self.__dict__.keys()) + dir(Swarm) + dir(SwarmQuadrant) + dir(SwarmMember) + ['roach2', ]
 
     def __getattr__(self, attr):
 
@@ -1621,11 +1621,11 @@ class Swarm:
                 setup_threads[thread] = quad
 
             # Now start them all
-            for thread in setup_threads.iterkeys():
+            for thread in setup_threads.keys():
                 thread.start()
 
             # ...and immediately join them
-            for thread in setup_threads.iterkeys():
+            for thread in setup_threads.keys():
                 thread.join()
 
             # If there were exceptions log them

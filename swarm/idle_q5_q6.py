@@ -29,6 +29,6 @@ quad_mappings[6] = Q5_Q6_MAPPINGS[1]
 swarm = Swarm(mappings_dict=quad_mappings)
 
 # IDLE the disabled quadrants.
-disabled_quad_string = " ".join(map(str, quad_mappings.keys()))
+disabled_quad_string = " ".join(map(str, list(quad_mappings.keys())))
 # pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + disabled_quad_string + " now being idled")
 # swarm.members_do(lambda fid, mbr: mbr.idle())

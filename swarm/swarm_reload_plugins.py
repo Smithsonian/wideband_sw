@@ -32,10 +32,10 @@ for num in args.integers:
     if (num - 1) in SWARM_MAPPING_CHUNKS:
         idle_quad_mappings[num] = (SWARM_MAPPINGS[num - 1])
     else:
-        print(str(num) + " is not a valid SWARM quadrant and will be ignored.")
+        print((str(num) + " is not a valid SWARM quadrant and will be ignored."))
 
 # Present the request and ask to proceed to IDLE quadrants.
-idle_quad_string = " ".join(map(str, idle_quad_mappings.keys()))
+idle_quad_string = " ".join(map(str, list(idle_quad_mappings.keys())))
 if idle_quad_mappings and query_yes_no("Proceed to load bitcode and reload plugins for quadrant(s) " + idle_quad_string + "?"):
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
