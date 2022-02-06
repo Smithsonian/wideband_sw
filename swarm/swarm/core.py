@@ -169,6 +169,27 @@ class SwarmMember(base.SwarmROACH):
         if not self.soft_qdr_cal:
             self.verify_qdr()
 
+    def hot_setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15), raise_qdr_err=True):
+
+        # Write to log to show we're starting the setup of this member
+        self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
+        
+        # Setup the F-engine
+        self._setup_fengine()
+
+        # Setup flat complex gains
+        self.set_flat_cgains(0, 2048)
+        self.set_flat_cgains(1, 2048)
+
+        # Setup the X-engine
+        self._setup_xeng_tvg()
+        self.set_itime(itime_sec)
+        self.reset_xeng()
+
+        # Initial setup of the switched corner-turn
+        self._setup_corner_turn(qid, fid, fids_expected)
+
+
     def set_digital_seed(self, source_n, seed):
 
         # Set the seed for internal noise
@@ -1486,6 +1507,52 @@ class SwarmQuadrant:
             if exceptions > 0:
                 raise RuntimeError('{0} member(s) had an error during SwarmQuadrant setup!'.format(exceptions))
 
+    def hot_setup(self, raise_qdr_err=True, threaded=False):
+
+        # Setup each member
+        if not threaded:
+            for fid, member in self.get_valid_members():
+                member.hot_setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
+
+        else: # if requested, do threaded setup
+
+            # Create our setup threads
+            exceptions_queue = Queue()
+            setup_threads = OrderedDict()
+            for fid, member in self.get_valid_members():
+                thread = ExceptingThread(
+                    exceptions_queue,
+                    target=member.hot_setup,
+                    logger=member.logger,
+                    kwargs={'raise_qdr_err': raise_qdr_err},
+                    args=(self.qid, fid, self.fids_expected, 0.0),
+                    )
+                setup_threads[thread] = member
+
+            # Now start them all
+            for thread in setup_threads.iterkeys():
+                thread.start()
+
+            # ...and immediately join them
+            for thread in setup_threads.iterkeys():
+                thread.join()
+
+            # If there were exceptions log them
+            exceptions = 0
+            while not exceptions_queue.empty():
+                exceptions += 1
+                thread, exc = exceptions_queue.get()
+                fmt_exc = format_exception(*exc)
+                tb_str = ''.join(fmt_exc[0:-1])
+                exc_str = ''.join(fmt_exc[-1])
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+
+            # If any exception occurred raise error
+            if exceptions > 0:
+                raise RuntimeError('{0} member(s) had an error during SwarmQuadrant setup!'.format(exceptions))
 
 class Swarm:
 
@@ -1616,6 +1683,95 @@ class Swarm:
                 thread = ExceptingThread(
                     exceptions_queue,
                     target=quad.setup,
+                    kwargs={'raise_qdr_err': raise_qdr_err, 'threaded': True},
+                    )
+                setup_threads[thread] = quad
+
+            # Now start them all
+            for thread in setup_threads.iterkeys():
+                thread.start()
+
+            # ...and immediately join them
+            for thread in setup_threads.iterkeys():
+                thread.join()
+
+            # If there were exceptions log them
+            exceptions = 0
+            while not exceptions_queue.empty():
+                exceptions += 1
+                thread, exc = exceptions_queue.get()
+                fmt_exc = format_exception(*exc)
+                tb_str = ''.join(fmt_exc[0:-1])
+                exc_str = ''.join(fmt_exc[-1])
+                for line in tb_str.splitlines():
+                    setup_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+                for line in exc_str.splitlines():
+                    setup_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+
+            # If any exception occurred raise error
+            if exceptions > 0:
+                raise RuntimeError('{0} quadrant(s) had an error during Swarm setup!'.format(exceptions))
+
+        # Sync the SWARM
+        self._sync()
+
+        # Do the post-sync setup
+        for fid, member in self.get_valid_members():
+            member.set_source(3, 3)
+            member.enable_network()
+
+        # Wait for initial accumulations to finish
+        self.logger.info('Waiting for initial accumulations to finish...')
+        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
+            sleep(0.1)
+
+        # Set the itime and wait for it to register
+        self.logger.info('Setting integration time...')
+        for fid, member in self.get_valid_members():
+            member.set_itime(itime)
+
+        # Set the dsm scan length to match.
+        pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
+
+        # Reset the xengines until window counters to by in sync
+        self.reset_xengines_and_sync()
+
+        # Reset digital noise
+        self.reset_digital_noise()
+
+        # Setup the visibility outputs per quad
+        listener = data.SwarmListener('lo') # default to loopback
+        for qid, quad in enumerate(self.quads):
+
+            # Pop an interface (should be at least one)
+            try:
+                listener = data.SwarmListener(interfaces.pop(0))
+            except IndexError:
+                self.logger.debug('Reached end of interface list; using last given')
+
+            # We've got a listener, setup this quadrant
+            for fid, member in quad.get_valid_members():
+                member.setup_visibs(qid, listener, delay_test=delay_test)
+
+    def hot_setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True, threaded=False):
+
+        # Copy interfaces over, and make sure it's a list
+        interfaces = list(interfaces[:])
+
+        # Setup each quadrant
+        if not threaded:
+            for quad in self.quads:
+                quad.hot_setup(raise_qdr_err=raise_qdr_err, threaded=False)
+
+        else: # if requested, do threaded setup
+
+            # Create our setup threads
+            exceptions_queue = Queue()
+            setup_threads = OrderedDict()
+            for quad in self.quads:
+                thread = ExceptingThread(
+                    exceptions_queue,
+                    target=quad.hot_setup,
                     kwargs={'raise_qdr_err': raise_qdr_err, 'threaded': True},
                     )
                 setup_threads[thread] = quad
