@@ -273,6 +273,7 @@ def hot_start_handler(signum, frame):
     swarm_catcher.stop()
 
     # Wait some time for switch state to clear
+    logger.info('Waiting for switch state to clear')
     sleep(5)
 
     # Do the intial setup
@@ -287,20 +288,24 @@ def hot_start_handler(signum, frame):
         )
 
     # Switch to IF input
+    logger.info('Switch to IF Input')
     swarm.members_do(lambda fid, mbr: mbr.set_source(2, 2))
 
     # Load all plugins
+    logger.info('Load all plugins')
     swarm.members_do(lambda fid, mbr: mbr.reload_plugins())
 
     # Enable Walshing and fringe rotation
+    logger.info('Enable Walshing and fringe rotation')
     swarm.quadrants_do(lambda qid, quad: quad.set_walsh_patterns())
     swarm.quadrants_do(lambda qid, quad: quad.set_sideband_states())
     swarm.quadrants_do(lambda qid, quad: quad.fringe_stopping(True))
 
     # Start up catcher again
     swarm.reset_xengines_and_sync()
+    sleep(1)
     swarm_catcher.start()
-    pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
+    pyopmess.send(1, 4, 100, 'SWARM hot-start is finished')
 
 
 # Register it to SIGUSR1 signal 10

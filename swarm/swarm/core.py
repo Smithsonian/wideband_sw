@@ -177,17 +177,11 @@ class SwarmMember(base.SwarmROACH):
         # Setup the F-engine
         self._setup_fengine()
 
-        # Setup flat complex gains
-        self.set_flat_cgains(0, 2048)
-        self.set_flat_cgains(1, 2048)
 
         # Setup the X-engine
         self._setup_xeng_tvg()
         self.set_itime(itime_sec)
         self.reset_xeng()
-
-        # Initial setup of the switched corner-turn
-        self._setup_corner_turn(qid, fid, fids_expected)
 
 
     def set_digital_seed(self, source_n, seed):
@@ -1803,11 +1797,6 @@ class Swarm:
 
         # Sync the SWARM
         self._sync()
-
-        # Do the post-sync setup
-        for fid, member in self.get_valid_members():
-            member.set_source(3, 3)
-            member.enable_network()
 
         # Wait for initial accumulations to finish
         self.logger.info('Waiting for initial accumulations to finish...')
