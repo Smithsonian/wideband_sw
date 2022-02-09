@@ -174,6 +174,13 @@ class SwarmMember(base.SwarmROACH):
         # Write to log to show we're starting the setup of this member
         self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
         
+
+        # Program the board
+        self.logger.info('Programming bitcode {bc}'.format(bc=self.bitcode))
+        self._program(self.bitcode)
+
+        sleep(20)
+
         # Setup the F-engine
         self._setup_fengine()
 
