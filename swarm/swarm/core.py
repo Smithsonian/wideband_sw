@@ -1,16 +1,20 @@
-import logging, os, sys
+import logging
+import os
+import sys
 from time import sleep
 from struct import pack, unpack
 from random import randint
 from socket import inet_ntoa
 from threading import Thread
-from queue import Queue, Empty
+from queue import Queue
 from traceback import format_exception
 from collections import OrderedDict
 
-from numpy import angle, array, cos, clip, isnan, nan, pi, roll, sin, uint16, uint32, zeros
+from numpy import (
+    angle, array, cos, clip, isnan, nan, pi, roll, sin, uint32, zeros
+)
 
-from corr.katcp_wrapper import FpgaClient
+from casperfpga import CasperFpga
 
 from adc5g import (
     pretty_glitch_profile,
@@ -22,7 +26,77 @@ from adc5g import (
 
 import pydsm
 
-from .defines import *
+from .defines import (
+    SWARM_REG_FMT,
+    SWARM_MAPPING_INPUTS,
+    SWARM_ALL_QDR,
+    SWARM_SOURCE_SEED,
+    SWARM_SOURCE_CTRL,
+    SWARM_XENG_CTRL,
+    SWARM_SCOPE_CTRL,
+    SWARM_SCOPE_SNAP,
+    SWARM_SHIFT_SCHEDULE,
+    SWARM_VISIBS_DELAY_CTRL,
+    SWARM_CHANNELS,
+    SWARM_BENGINE_DISABLE,
+    SWARM_FENGINE_CTRL,
+    SWARM_CGAIN_GAIN,
+    SWARM_BLACK_HOLE_MAC,
+    SWARM_BENGINE_GAIN,
+    SWARM_EXT_HB_PER_WCYCLE,
+    SWARM_NETWORK_CTRL,
+    SWARM_NETWORK_FIDS_EXPECTED,
+    SWARM_ELEVENTHS,
+    SWARM_WALSH_SKIP,
+    SWARM_WALSH_PERIOD,
+    SWARM_XENG_XN_NUM,
+    SWARM_SYNC_CTRL,
+    SWARM_INT_HB_PER_SOWF,
+    SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+    SWARM_N_FIDS,
+    SWARM_MAPPINGS,
+    ACTIVE_QUADRANTS_FILE_PATH,
+    SWARM_MAX_NUM_QUADRANTS,
+    SWARM_N_INPUTS,
+    SWARM_BENGINE_SIDEBANDS,
+    SWARM_ALL_FID,
+    SWARM_MAPPING_CHUNKS,
+    SWARM_MAPPING_MEM_PARAM,
+    SWARM_MAPPING_POLS,
+    SWARM_MAPPING_QUAD_PARAM,
+    SWARM_MAPPING_COMMENT,
+    SWARM_MAPPING_COLUMNS,
+    SWARM_ROACH2_IP,
+    SWARM_WALSH_PATTERNS,
+    SWARM_FIXED_OFFSETS_DSM_NAME,
+    SWARM_FIXED_OFFSETS_PHASE,
+    SWARM_FIXED_OFFSETS_DELAY,
+    SWARM_SB_STATE_BRAM,
+    SWARM_WALSH_TABLE_BRAM,
+    SWARM_WALSH_TABLE_LEN,
+    SWARM_FSTOP_START_CMD,
+    SWARM_FSTOP_STOP_CMD,
+    SWARM_FSTOP_SET_CMD,
+    SWARM_WALSH_CTRL,
+    SWARM_VISIBS_CORE,
+    SWARM_VISIBS_TENGBE_CTRL,
+    SWARM_VISIBS_SENDTO_IP,
+    SWARM_VISIBS_SENDTO_PORT,
+    SWARM_NETWORK_IPBASE,
+    SWARM_NETWORK_FID,
+    SWARM_QDR_CTRL,
+    SWARM_BENGINE_CTRL,
+    SWARM_ALL_CORE,
+    SWARM_NETWORK_CORE,
+    SWARM_VISIBS_CHANNELS,
+    SWARM_BENGINE_MACBASE,
+    SWARM_BENGINE_CORE,
+    SWARM_BENGINE_PORT,
+    SWARM_BENGINE_SIDEBAND_MACIP_OFFSET,
+    SWARM_VISIBS_CHUNK_DELAY,
+    SWARM_BENGINE_SENDTO_IP,
+    SWARM_XENG_TVG,
+)
 from . import base
 from . import xeng
 from . import data
@@ -40,7 +114,7 @@ class ExceptingThread(Thread):
     def run(self):
         try:
             super(ExceptingThread, self).run()
-        except:
+        except Exception:
             exc = sys.exc_info()
             if self.logger:
                 fmt_exc = format_exception(*exc)
@@ -55,7 +129,12 @@ module_logger = logging.getLogger(__name__)
 
 class SwarmInput:
 
-    def __init__(self, antenna=None, chunk=None, polarization=None, parent_logger=module_logger):
+    def __init__(
+        self, antenna=None,
+        chunk=None,
+        polarization=None,
+        parent_logger=module_logger
+    ):
 
         # Set all initial members
         self.ant = antenna
@@ -63,8 +142,15 @@ class SwarmInput:
         self.pol = polarization
 
     def __repr__(self):
-        repr_str = '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
-        return repr_str.format(name=self.__class__.__name__, ant=self.ant, chk=self.chk, pol=self.pol)
+        repr_str = (
+            '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
+        )
+        return repr_str.format(
+            name=self.__class__.__name__,
+            ant=self.ant,
+            chk=self.chk,
+            pol=self.pol,
+        )
 
     def __str__(self):
         repr_str = 'ant{ant!r}:chk{chk!r}:pol{pol!r}'
@@ -75,7 +161,9 @@ class SwarmInput:
 
     def __eq__(self, other):
         if other is not None:
-            return (self.ant, self.chk, self.pol) == (other.ant, other.chk, other.pol)
+            return (self.ant, self.chk, self.pol) == (
+                other.ant, other.chk, other.pol
+            )
         else:
             return not self.is_valid()
 
@@ -83,17 +171,31 @@ class SwarmInput:
         return not self.__eq__(other)
 
     def is_valid(self):
-        return (self.ant != None) and (self.chk != None) and (self.pol != None)
+        return not (
+            (self.ant is None) or (self.chk is None) or (self.pol is None)
+        )
 
 
 class SwarmMember(base.SwarmROACH):
 
-    def __init__(self, fid, roach2_host, bitcode=None, dc_if_freqs=[0.0, 0.0], soft_qdr_cal=True,
-                 parent_logger=module_logger):
+    def __init__(
+            self,
+            fid,
+            roach2_host,
+            bitcode=None,
+            dc_if_freqs=[0.0, 0.0],
+            soft_qdr_cal=True,
+            parent_logger=module_logger
+    ):
         super(SwarmMember, self).__init__(roach2_host)
         if self.roach2_host:
-            self.qdrs = [qdr.SwarmQDR(self.roach2,'qdr%d' % qnum) for qnum in SWARM_ALL_QDR]
-        self._inputs = [SwarmInput(parent_logger=self.logger),] * len(SWARM_MAPPING_INPUTS)
+            self.qdrs = [
+                qdr.SwarmQDR(self.roach2, 'qdr%d' % qnum)
+                for qnum in SWARM_ALL_QDR
+            ]
+        self._inputs = [
+            SwarmInput(parent_logger=self.logger),
+        ] * len(SWARM_MAPPING_INPUTS)
         assert len(dc_if_freqs) == 2, \
             "DC IF Frequencies given are invalid: %r" % dc_if_freqs
         self.dc_if_freqs = list(float(i) for i in dc_if_freqs)
@@ -108,12 +210,22 @@ class SwarmMember(base.SwarmROACH):
             )
 
     def __repr__(self):
-        repr_str = '{name}(fid={fid!r}, roach2_host={host!r})[{inputs[0]!r}][{inputs[1]!r}]'
-        return repr_str.format(name=self.__class__.__name__, fid=self.fid, host=self.roach2_host, inputs=self._inputs)
+        repr_str = (
+            '{name}(fid={fid!r}, roach2_host={host!r})'
+            '[{inputs[0]!r}][{inputs[1]!r}]'
+        )
+        return repr_str.format(
+            name=self.__class__.__name__,
+            fid=self.fid,
+            host=self.roach2_host,
+            inputs=self._inputs
+        )
 
     def __str__(self):
         repr_str = '[fid={fid!r}] {host} [{inputs[0]!s}] [{inputs[1]!s}]'
-        return repr_str.format(fid=self.fid, host=self.roach2_host, inputs=self._inputs)
+        return repr_str.format(
+            fid=self.fid, host=self.roach2_host, inputs=self._inputs
+        )
 
     def __getitem__(self, input_n):
         return self._inputs[input_n]
@@ -124,7 +236,15 @@ class SwarmMember(base.SwarmROACH):
     def set_input(self, input_n, input_inst):
         self._inputs[input_n] = input_inst
 
-    def setup(self, qid, fid, fids_expected, itime_sec, noise=randint(0, 15), raise_qdr_err=True):
+    def setup(
+        self,
+        qid,
+        fid,
+        fids_expected,
+        itime_sec,
+        noise=randint(0, 15),
+        raise_qdr_err=True,
+    ):
 
         # Write to log to show we're starting the setup of this member
         self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
@@ -180,7 +300,7 @@ class SwarmMember(base.SwarmROACH):
         # Setup our digital noise
         self.set_digital_seed(0, seed_0)
         self.set_digital_seed(1, seed_1)
- 
+
     def reset_digital_noise(self, source_0=True, source_1=True):
 
         # Reset the given sources by twiddling the right bits
@@ -364,14 +484,16 @@ class SwarmMember(base.SwarmROACH):
         for core in SWARM_ALL_CORE:
             name = SWARM_NETWORK_CORE % core
             last_byte = (self.fid << 4) + 0b1100 + core
-            self.roach2.config_10gbe_core(name, macbase + last_byte, ipbase + last_byte, 18008, arp)
+            self.config_10gbe_core(
+                name, macbase + last_byte, ipbase + last_byte, 18008, arp
+            )
 
         # Lastly enable the TX only (for now)
         self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
     def setup_beamformer(self, dest_list, bh_mac=SWARM_BLACK_HOLE_MAC):
 
-        # Initialize the ARP table 
+        # Initialize the ARP table
         arp = [bh_mac] * 256
 
         # Set the IP address to be in the same net as Swarm DBE(s)
@@ -386,7 +508,7 @@ class SwarmMember(base.SwarmROACH):
             arp[dest.ip & 0xff] = dest.mac
 
         # Configure 10 GbE device
-        self.roach2.config_10gbe_core(SWARM_BENGINE_CORE, mac, ip, SWARM_BENGINE_PORT, arp)
+        self.config_10gbe_core(SWARM_BENGINE_CORE, mac, ip, SWARM_BENGINE_PORT, arp)
 
         # Configure the B-engine destination IPs
         for dest in dest_list:
@@ -544,7 +666,7 @@ class SwarmMember(base.SwarmROACH):
         arp[listener.ip & 0xff] = listener.mac
 
         # Configure the transmit interface
-        self.roach2.config_10gbe_core(SWARM_VISIBS_CORE, mac, ip, port, arp)
+        self.config_10gbe_core(SWARM_VISIBS_CORE, mac, ip, port, arp)
 
         # Configure the visibility packet buffer
         self.roach2.write(SWARM_VISIBS_SENDTO_IP, pack(SWARM_REG_FMT, listener.ip))
@@ -888,9 +1010,9 @@ class SwarmQuadrant:
             # Define an anonymous class we will instantiate and return
             class AnonClass(object):
                 def __dir__(self):
-                    return dir(FpgaClient)
+                    return dir(CasperFpga)
                 def __getattr__(self_, attr):
-                    if callable(getattr(FpgaClient, attr, None)):
+                    if callable(getattr(CasperFpga, attr, None)):
                         return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.roach2, attr)(*args, **kwargs))
                     else:
                         return self.members_do(lambda fid, member: getattr(member.roach2, attr))
@@ -1585,9 +1707,9 @@ class Swarm:
             # Define an anonymous class we will instantiate and return
             class AnonClass(object):
                 def __dir__(self):
-                    return dir(FpgaClient)
+                    return dir(CasperFpga)
                 def __getattr__(self_, attr):
-                    if callable(getattr(FpgaClient, attr, None)):
+                    if callable(getattr(CasperFpga, attr, None)):
                         return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.roach2, attr)(*args, **kwargs))
                     else:
                         return self.members_do(lambda fid, member: getattr(member.roach2, attr))
