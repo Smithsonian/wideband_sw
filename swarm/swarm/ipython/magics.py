@@ -2,11 +2,11 @@ import logging
 from queue import Queue
 from threading import Thread
 from IPython.core.magic import (
-    Magics, 
-    magics_class, 
+    Magics,
+    magics_class,
     line_magic,
-    cell_magic, 
-    line_cell_magic
+    cell_magic,
+    line_cell_magic,
     )
 
 from swarm.core import SwarmInput
@@ -169,7 +169,7 @@ class SwarmShellMagics(Magics):
             swarm_roach2_status[memb]["programmed"] = "OK" if reply[0].reply_ok() else "not OK"
 
         # Check firmware version information
-        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.get_rcs())),
+        threads = [Thread(target=lambda q,m: q.put((m,m.get_rcs())),
           args=(queue,memb)) for memb in members]
         [t.start() for t in threads]
         [t.join() for t in threads]
@@ -181,7 +181,7 @@ class SwarmShellMagics(Magics):
               "dirty" if rcs["app_dirty"] else "clean")
 
         # Get clock information
-        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.est_brd_clk())),
+        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.estimate_fpga_clock())),
           args=(queue,memb)) for memb in members]
         [t.start() for t in threads]
         [t.join() for t in threads]

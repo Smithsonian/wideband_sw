@@ -108,7 +108,7 @@ class SwarmDBE(base.SwarmROACH):
         self.bhmac = bhmac
 
         # Initialize the ARP table
-        arp = [bh_mac] * 256
+        arp = [bhmac] * 256
 
         # Determine our TX interfaces first
         fids = list(range(self.swarm.fids_expected))
@@ -130,7 +130,12 @@ class SwarmDBE(base.SwarmROACH):
         for core in cores:
 
             # Configure each core with net info
-            self.roach2.config_10gbe_core(SWARM_DBE_RX_CORE % core, rx_iface[core].mac, rx_iface[core].port, rx_iface[core].arp)
+            self.config_10gbe_core(
+                SWARM_DBE_RX_CORE % core,
+                rx_ifaces[core].mac,
+                rx_ifaces[core].port,
+                rx_ifaces[core].arp
+            )
 
         # Finish up
         return tx_ifaces
