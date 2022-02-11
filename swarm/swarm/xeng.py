@@ -121,10 +121,9 @@ class SwarmXengine:
 
 
     def _xeng_out(self):
-
         inputs = len(self.mapping)
-        top_stage = inputs / 2
-        clocks = inputs + inputs/2 - 1
+        top_stage = inputs // 2
+        clocks = inputs + inputs//2 - 1
 
         for clock in range(clocks):
 
@@ -167,4 +166,3 @@ class SwarmXengine:
 
                     yield SwarmXengineWord(left[1], right[0], imag=False) # pol1xpol0 real
                     yield SwarmXengineWord(left[1], right[0],  imag=True) # pol1xpol0 imag
-
