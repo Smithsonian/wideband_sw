@@ -1,4 +1,4 @@
-#!/usr/local/anaconda/envs/swarm/bin/python
+#!/opt/conda/envs/SWARM2to3/bin/python
 
 import os
 import logging
