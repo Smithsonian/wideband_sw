@@ -3,6 +3,7 @@ from configparser import ConfigParser
 import struct
 
 from casperfpga import CasperFpga
+from casperfpga import KatcpTransport
 from katcp import Message
 
 from .defines import (
@@ -92,7 +93,7 @@ class SwarmROACH(object):
     def _connect(self, roach2_host):
 
         # Connect and wait until ready
-        self.roach2 = CasperFpga(roach2_host)
+        self.roach2 = CasperFpga(roach2_host, logger=self.logger, transport=KatcpTransport)
         if roach2_host:
             if not self.roach2.transport.wait_connected(timeout=5):
                 raise RuntimeError(
