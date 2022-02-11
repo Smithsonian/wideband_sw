@@ -190,7 +190,7 @@ class SwarmMember(base.SwarmROACH):
         super(SwarmMember, self).__init__(roach2_host)
         if self.roach2_host:
             self.qdrs = [
-                qdr.SwarmQDR(self.roach2, 'qdr%d' % qnum)
+                qdr.SwarmQDR(self.fpga, 'qdr%d' % qnum)
                 for qnum in SWARM_ALL_QDR
             ]
         self._inputs = [
@@ -247,7 +247,7 @@ class SwarmMember(base.SwarmROACH):
     ):
 
         # Write to log to show we're starting the setup of this member
-        self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.roach2.host, fid=fid))
+        self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.fpga.host, fid=fid))
 
         # Program the board
         self.logger.info('Programming bitcode {bc}'.format(bc=self.bitcode))
@@ -293,7 +293,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Set the seed for internal noise
         seed_bin = pack(SWARM_REG_FMT, seed)
-        self.roach2.write(SWARM_SOURCE_SEED % source_n, seed_bin)
+        self.fpga.write(SWARM_SOURCE_SEED % source_n, seed_bin)
 
     def set_noise(self, seed_0, seed_1):
 
@@ -305,35 +305,35 @@ class SwarmMember(base.SwarmROACH):
 
         # Reset the given sources by twiddling the right bits
         mask = (source_1 << 31) + (source_0 << 30)
-        val = self.roach2.read_uint(SWARM_SOURCE_CTRL)
-        self.roach2.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SOURCE_CTRL)
+        self.fpga.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SOURCE_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def set_source(self, source_0, source_1):
 
         # Set our sources to the given values
         ctrl_bin = pack(SWARM_REG_FMT, (source_1<<3) + source_0)
-        self.roach2.write(SWARM_SOURCE_CTRL, ctrl_bin)
+        self.fpga.write(SWARM_SOURCE_CTRL, ctrl_bin)
 
     def set_scope(self, sync_out, scope_0, scope_1):
 
         # Set our scopes to the given values
         ctrl_bin = pack(SWARM_REG_FMT, (sync_out<<16) + (scope_1<<8) + scope_0)
-        self.roach2.write(SWARM_SCOPE_CTRL, ctrl_bin)
+        self.fpga.write(SWARM_SCOPE_CTRL, ctrl_bin)
 
     def calibrate_adc(self):
 
         # Set ADCs to test mode
         for inp in SWARM_MAPPING_INPUTS:
-            set_test_mode(self.roach2, inp)
+            set_test_mode(self, inp)
 
         # Send a sync
-        sync_adc(self.roach2)
+        sync_adc(self)
 
         # Do the calibration
         for inp in SWARM_MAPPING_INPUTS:
-            opt, glitches = calibrate_mmcm_phase(self.roach2, inp, [SWARM_SCOPE_SNAP % inp,])
+            opt, glitches = calibrate_mmcm_phase(self, inp, [SWARM_SCOPE_SNAP % inp,])
             gprof = pretty_glitch_profile(opt, glitches)
             if opt is None:
                 self.logger.error('ADC%d calibration failed! Glitch profile: [%s]' % (inp, gprof))
@@ -342,7 +342,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Unset test modes
         for inp in SWARM_MAPPING_INPUTS:
-            unset_test_mode(self.roach2, inp)
+            unset_test_mode(self, inp)
 
     def warm_calibrate_adc(self):
 
@@ -350,14 +350,14 @@ class SwarmMember(base.SwarmROACH):
         for inp in SWARM_MAPPING_INPUTS:
 
             # First set to test mode
-            set_test_mode(self.roach2, inp)
+            set_test_mode(self, inp)
 
             # Send a sync
             if inp != 0: # if not ZDOK0
-                sync_adc(self.roach2, zdok_0=False)
+                sync_adc(self, zdok_0=False)
 
             # Do the calibration
-            opt, glitches = calibrate_mmcm_phase(self.roach2, inp, [SWARM_SCOPE_SNAP % inp,])
+            opt, glitches = calibrate_mmcm_phase(self, inp, [SWARM_SCOPE_SNAP % inp,])
             gprof = pretty_glitch_profile(opt, glitches)
             if opt is None:
                 self.logger.error('ADC%d calibration failed! Glitch profile: [%s]' % (inp, gprof))
@@ -365,25 +365,25 @@ class SwarmMember(base.SwarmROACH):
                 self.logger.info( 'ADC%d calibration found optimal phase: %2d [%s]' % (inp, opt, gprof))
 
             # Unset test mode
-            unset_test_mode(self.roach2, inp)
+            unset_test_mode(self, inp)
 
     def _setup_fengine(self):
 
         # Set the shift schedule of the F-engine
         sched_bin = pack(SWARM_REG_FMT, SWARM_SHIFT_SCHEDULE)
-        self.roach2.write(SWARM_FENGINE_CTRL, sched_bin)
+        self.fpga.write(SWARM_FENGINE_CTRL, sched_bin)
 
     def set_flat_cgains(self, input_n, flat_value):
 
         # Set gains for input to a flat value
         gains = [flat_value,] * SWARM_CHANNELS
         gains_bin = pack('>%dH' % SWARM_CHANNELS, *gains)
-        self.roach2.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
+        self.fpga.write(SWARM_CGAIN_GAIN % input_n, gains_bin)
 
     def get_bengine_gains(self):
 
         # read value from the register
-        psum_reg = self.roach2.read_uint(SWARM_BENGINE_GAIN)
+        psum_reg = self.fpga.read_uint(SWARM_BENGINE_GAIN)
 
         # interpret to floating point gains per sideband / polarization
         gains = [None, ]*4
@@ -399,32 +399,32 @@ class SwarmMember(base.SwarmROACH):
           + (int(round(psum_gain_pol1_sb0 * 16)) << 8) + int(round(psum_gain_pol0_sb0 * 16))
 
         # Write value to the register
-        self.roach2.write_int(SWARM_BENGINE_GAIN, psum_reg)
+        self.fpga.write_int(SWARM_BENGINE_GAIN, psum_reg)
 
     def reset_xeng(self):
 
         # Twiddle bit 29
         mask = 1 << 29 # reset bit location
-        val = self.roach2.read_uint(SWARM_XENG_CTRL)
-        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_XENG_CTRL)
+        self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def get_bengine_mask(self):
 
         # Get the phased sum mask
-        return self.roach2.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffffffff
+        return self.fpga.read_uint(SWARM_BENGINE_DISABLE) ^ 0xffffffff
 
     def set_bengine_mask(self, mask):
 
         # Set the phased sum mask
         disable = (mask & 0xffffffff) ^ 0xffffffff
-        return self.roach2.write_int(SWARM_BENGINE_DISABLE, disable)
+        return self.fpga.write_int(SWARM_BENGINE_DISABLE, disable)
 
     def get_itime(self):
         try:
             # Read from fpga register using katcp.
-            xeng_time = self.roach2.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
+            xeng_time = self.fpga.read_uint(SWARM_XENG_XN_NUM) & 0x1fffffff
 
             # Convert it to seconds and return.
             cycles = xeng_time // (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE // SWARM_WALSH_SKIP))
@@ -440,7 +440,7 @@ class SwarmMember(base.SwarmROACH):
         # Set the integration (SWARM_ELEVENTHS spectra per step * steps per cycle)
         self._xeng_itime = SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE//SWARM_WALSH_SKIP) * int(round(itime_sec/SWARM_WALSH_PERIOD))
         try:
-            self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
+            self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, self._xeng_itime & 0x1fffffff))
         except RuntimeError:
             self.logger.warning("Unable to set integration time on roach2")
 
@@ -448,10 +448,10 @@ class SwarmMember(base.SwarmROACH):
 
         # Twiddle bits 31 and 30
         mask = (1 << 31) + (1 << 30)
-        val = self.roach2.read_uint(SWARM_NETWORK_CTRL)
-        self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_NETWORK_CTRL)
+        self.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def _setup_corner_turn(self, qid, fid, fids_expected, bh_mac=SWARM_BLACK_HOLE_MAC):
 
@@ -467,9 +467,9 @@ class SwarmMember(base.SwarmROACH):
         macbase = 0x000f530cd500 + (qid<<8)
 
         # Set static parameters
-        self.roach2.write_int(SWARM_NETWORK_FIDS_EXPECTED, self.fids_expected)
-        self.roach2.write_int(SWARM_NETWORK_IPBASE, ipbase)
-        self.roach2.write_int(SWARM_NETWORK_FID, self.fid)
+        self.fpga.write_int(SWARM_NETWORK_FIDS_EXPECTED, self.fids_expected)
+        self.fpga.write_int(SWARM_NETWORK_IPBASE, ipbase)
+        self.fpga.write_int(SWARM_NETWORK_FID, self.fid)
 
         # Initialize the ARP table 
         arp = [bh_mac] * 256
@@ -489,7 +489,7 @@ class SwarmMember(base.SwarmROACH):
             )
 
         # Lastly enable the TX only (for now)
-        self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
+        self.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x20))
 
     def setup_beamformer(self, dest_list, bh_mac=SWARM_BLACK_HOLE_MAC):
 
@@ -513,12 +513,12 @@ class SwarmMember(base.SwarmROACH):
         # Configure the B-engine destination IPs
         for dest in dest_list:
             ip_reg_id = 1 if dest.mac & SWARM_BENGINE_SIDEBAND_MACIP_OFFSET else 0
-            self.roach2.write(SWARM_BENGINE_SENDTO_IP%ip_reg_id, pack(SWARM_REG_FMT, dest.ip))
+            self.fpga.write(SWARM_BENGINE_SENDTO_IP%ip_reg_id, pack(SWARM_REG_FMT, dest.ip))
 
         # Reset the 10 GbE cores before enabling
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x40000000))
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+        self.fpga.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+        self.fpga.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x40000000))
+        self.fpga.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, 0x00000000))
 
         # Configure the B-engine gains (for optimal state counts)
         self.set_bengine_gains(10.0, 10.0, 10.0, 10.0)
@@ -527,51 +527,51 @@ class SwarmMember(base.SwarmROACH):
         tx_enable = 0x80000000
         for dest in dest_list:
             tx_enable |= 0x02 if dest.mac & SWARM_BENGINE_SIDEBAND_MACIP_OFFSET else 0x01
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_enable))
+        self.fpga.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_enable))
 
     def disable_beamformer(self):
 
         tx_disable = 0x7FFFFFFC
-        ctrl = unpack(SWARM_REG_FMT,self.roach2.read(SWARM_BENGINE_CTRL,4))[0]
+        ctrl = unpack(SWARM_REG_FMT,self.fpga.read(SWARM_BENGINE_CTRL,4))[0]
         ctrl = ctrl & tx_disable
-        self.roach2.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_disable))
+        self.fpga.write(SWARM_BENGINE_CTRL, pack(SWARM_REG_FMT, tx_disable))
 
     def reset_ddr3(self):
 
         # Twiddle bit 30
         mask = 1 << 30 # reset bit location
-        val = self.roach2.read_uint(SWARM_VISIBS_DELAY_CTRL)
-        self.roach2.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_VISIBS_DELAY_CTRL)
+        self.fpga.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_VISIBS_DELAY_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def xengine_tvg(self, enable=False):
 
         # Disable/enable using bit 31
         mask = 1 << 31 # enable bit location
-        val = self.roach2.read_uint(SWARM_XENG_CTRL)
+        val = self.fpga.read_uint(SWARM_XENG_CTRL)
         if enable:
-            self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val | mask))
+            self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val | mask))
         else:
-            self.roach2.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+            self.fpga.write(SWARM_XENG_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def _setup_xeng_tvg(self):
 
         # Give each input a different constant value
         const_inputs = [0x0102, 0x0304, 0x0506, 0x0708, 0x090a, 0x0b0c, 0x0d0e, 0x0f10] * (SWARM_VISIBS_CHANNELS/8)
         for i in SWARM_ALL_FID:
-            self.roach2.write(SWARM_XENG_TVG % i, pack('>%dH' % SWARM_VISIBS_CHANNELS, *const_inputs))
+            self.fpga.write(SWARM_XENG_TVG % i, pack('>%dH' % SWARM_VISIBS_CHANNELS, *const_inputs))
 
     def visibs_delay(self, qid, enable=True, delay_test=False):
 
         initial_delay = SWARM_VISIBS_CHUNK_DELAY
         this_delay = initial_delay * (qid * SWARM_N_FIDS + self.fid)
-        self.roach2.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + this_delay)
+        self.fpga.write_int(SWARM_VISIBS_DELAY_CTRL, (enable<<31) + (delay_test<<29) + this_delay)
 
     def qdr_ready(self, qdr_num=0):
 
         # get the QDR status
-        status = self.roach2.read_uint(SWARM_QDR_CTRL % qdr_num, offset=1)
+        status = self.fpga.read_uint(SWARM_QDR_CTRL % qdr_num, offset=1)
         phy_rdy = bool(status & 1)
         cal_fail = bool((status >> 8) & 1)
         #print 'fid %s qdr%d status %s' %(self.fid, qdr_num, stat)
@@ -580,8 +580,8 @@ class SwarmMember(base.SwarmROACH):
     def reset_qdr(self, qdr_num=0):
 
         # set the QDR status
-        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
-        self.roach2.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
+        self.fpga.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0xffffffff))
+        self.fpga.blindwrite(SWARM_QDR_CTRL % qdr_num, pack(SWARM_REG_FMT, 0x0))
 
     def calibrate_and_verify_qdr(self, max_tries=3, fail_hard=True):
 
@@ -669,70 +669,70 @@ class SwarmMember(base.SwarmROACH):
         self.config_10gbe_core(SWARM_VISIBS_CORE, mac, ip, port, arp)
 
         # Configure the visibility packet buffer
-        self.roach2.write(SWARM_VISIBS_SENDTO_IP, pack(SWARM_REG_FMT, listener.ip))
-        self.roach2.write(SWARM_VISIBS_SENDTO_PORT, pack(SWARM_REG_FMT, listener.port))
+        self.fpga.write(SWARM_VISIBS_SENDTO_IP, pack(SWARM_REG_FMT, listener.ip))
+        self.fpga.write(SWARM_VISIBS_SENDTO_PORT, pack(SWARM_REG_FMT, listener.port))
 
         # Reset (and disable) visibility transmission
-        self.roach2.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 1<<30))
-        self.roach2.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 0))
+        self.fpga.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 1<<30))
+        self.fpga.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 0))
 
         # Finally enable transmission
-        self.roach2.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 1<<31))
+        self.fpga.write(SWARM_VISIBS_TENGBE_CTRL, pack(SWARM_REG_FMT, 1<<31))
 
     def get_visibs_ip(self):
 
         # Return the visibs core IPs
-        return inet_ntoa(self.roach2.read(SWARM_VISIBS_CORE, 4, offset=0x10))
+        return inet_ntoa(self.fpga.read(SWARM_VISIBS_CORE, 4, offset=0x10))
 
     def sync_sowf(self):
 
         # Twiddle bit 31
         mask = 1 << 31 # reset bit location
-        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SYNC_CTRL)
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def sync_1pps(self):
 
         # Twiddle bit 30
         mask = 1 << 30 # reset bit location
-        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SYNC_CTRL)
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def sync_mcnt(self):
 
         # Twiddle bit 29
         mask = 1 << 29 # reset bit location
-        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SYNC_CTRL)
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def sync_beng(self):
 
         # Twiddle bit 28
         mask = 1 << 28 # reset bit location
-        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SYNC_CTRL)
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def sync_rtime(self):
 
         # Twiddle bit 28
         mask = 1 << 27 # reset bit location
-        val = self.roach2.read_uint(SWARM_SYNC_CTRL)
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
-        self.roach2.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        val = self.fpga.read_uint(SWARM_SYNC_CTRL)
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val |  mask))
+        self.fpga.write(SWARM_SYNC_CTRL, pack(SWARM_REG_FMT, val & ~mask))
 
     def enable_network(self):
 
         # Enable the RX and TX
-        self.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x30))
+        self.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x30))
 
     def fringe_stop(self, enable):
 
@@ -762,12 +762,12 @@ class SwarmMember(base.SwarmROACH):
     def dewalsh(self, enable_0, enable_1, walsh_mask=0x3ff, sb1_sowf_ph11=10):
 
         # Set the Walsh control register
-        self.roach2.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + (sb1_sowf_ph11<<10) + walsh_mask))
+        self.fpga.write(SWARM_WALSH_CTRL, pack(SWARM_REG_FMT, (enable_1<<30) + (enable_0<<28) + (sb1_sowf_ph11<<10) + walsh_mask))
 
     def set_walsh_pattern(self, input_n, pattern, offset=0):
 
         # Get the current Walsh table
-        walsh_table_bin = self.roach2.read(SWARM_WALSH_TABLE_BRAM, SWARM_WALSH_TABLE_LEN*4)
+        walsh_table_bin = self.fpga.read(SWARM_WALSH_TABLE_BRAM, SWARM_WALSH_TABLE_LEN*4)
         walsh_table = list(unpack('>%dI' % SWARM_WALSH_TABLE_LEN, walsh_table_bin))
 
         # Find out many repeats we need
@@ -802,19 +802,19 @@ class SwarmMember(base.SwarmROACH):
 
         # Finally write the updated table back
         walsh_table_bin = pack('>%dI' % SWARM_WALSH_TABLE_LEN, *walsh_table)
-        self.roach2.write(SWARM_WALSH_TABLE_BRAM, walsh_table_bin)
+        self.fpga.write(SWARM_WALSH_TABLE_BRAM, walsh_table_bin)
 
     def set_sideband_states(self, sb_states):
 
         # Write the states to the right BRAM
         sb_states_bin = pack('>%dB' % (len(sb_states)), *sb_states)
-        self.roach2.write(SWARM_SB_STATE_BRAM, sb_states_bin)
+        self.fpga.write(SWARM_SB_STATE_BRAM, sb_states_bin)
 
     def get_delay(self, input_n):
 
         # Get the DSM response
         try:
-            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+            dsm_reply = pydsm.read(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME)
         except:
             self.logger.exception("DSM read failed")
             return None
@@ -827,7 +827,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Get the DSM response first
         try:
-            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+            dsm_reply = pydsm.read(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME)
         except:
             self.logger.exception("DSM read failed")
             return None
@@ -841,7 +841,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Send our modified DSM request back
         try:
-            pydsm.write(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
+            pydsm.write(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
         except:
             self.logger.exception("DSM read failed")
 
@@ -849,7 +849,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Get the DSM response
         try:
-            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+            dsm_reply = pydsm.read(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME)
         except:
             self.logger.exception("DSM read failed")
             return None
@@ -862,7 +862,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Get the DSM response first
         try:
-            dsm_reply = pydsm.read(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME)
+            dsm_reply = pydsm.read(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME)
         except:
             self.logger.exception("DSM read failed")
             return None
@@ -876,7 +876,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Send our modified DSM request back
         try:
-            pydsm.write(self.roach2.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
+            pydsm.write(self.fpga.host, SWARM_FIXED_OFFSETS_DSM_NAME, dsm_reply_back)
         except:
             self.logger.exception("DSM read failed")
 
@@ -884,7 +884,7 @@ class SwarmMember(base.SwarmROACH):
 
         # Read the phase pattern, only need the first SWARM_N_FIDS entries
         pattern_partial = array(
-          unpack('>%dI'%(SWARM_N_FIDS),self.roach2.read(
+          unpack('>%dI'%(SWARM_N_FIDS),self.fpga.read(
             SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS)),
           dtype=uint32)
 
@@ -915,7 +915,7 @@ class SwarmMember(base.SwarmROACH):
         # Read existing pattern
         pattern = array(
           unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-            self.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+            self.fpga.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
           dtype=uint32)
 
         # Intialize update to current phase settings
@@ -953,7 +953,7 @@ class SwarmMember(base.SwarmROACH):
         pattern |= pattern_update
 
         # Write back the result
-        self.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+        self.fpga.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
           pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
 class SwarmQuadrant:
@@ -1004,7 +1004,7 @@ class SwarmQuadrant:
                              "calling on all members!".format(attr))
             return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member, attr)(*args, **kwargs))
 
-        # See if user is trying to access the SwarmMember.roach2 attribute
+        # See if user is trying to access the SwarmMember.fpga attribute
         if attr == 'roach2':
 
             # Define an anonymous class we will instantiate and return
@@ -1013,9 +1013,9 @@ class SwarmQuadrant:
                     return dir(CasperFpga)
                 def __getattr__(self_, attr):
                     if callable(getattr(CasperFpga, attr, None)):
-                        return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.roach2, attr)(*args, **kwargs))
+                        return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.fpga, attr)(*args, **kwargs))
                     else:
-                        return self.members_do(lambda fid, member: getattr(member.roach2, attr))
+                        return self.members_do(lambda fid, member: getattr(member.fpga, attr))
 
             return AnonClass()
 
@@ -1419,7 +1419,7 @@ class SwarmQuadrant:
             # Read existing pattern (to preserve phasing)
             pattern = array(
               unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+                member.fpga.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
               dtype=uint32)
 
             # Mask out Walsh-phase in existing pattern
@@ -1435,7 +1435,7 @@ class SwarmQuadrant:
                 pattern |= (wpat_flat<<15)<<ii*16
 
             # Write back the result
-            member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+            member.fpga.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
               pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
     def set_beamformer_second_sideband_walsh_patterns(self, input_n, patterns, offset=0):
@@ -1446,7 +1446,7 @@ class SwarmQuadrant:
             # Read existing pattern (to preserve phasing)
             pattern = array(
               unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+                member.fpga.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
               dtype=uint32)
 
             # Mask out Walsh-phase in existing pattern
@@ -1459,7 +1459,7 @@ class SwarmQuadrant:
             pattern |= (wpat_flat<<15)<<(input_n*16)
 
             # Write back the result
-            member.roach2.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
+            member.fpga.write(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,
               pack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),*pattern))
 
     def get_beamformer_second_sideband_walsh_patterns(self, input_n):
@@ -1472,7 +1472,7 @@ class SwarmQuadrant:
             # Read existing patterns
             pattern = array(
               unpack('>%dI'%(SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF),
-                member.roach2.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
+                member.fpga.read(SWARM_BENGINE_SB1DEMODPHASE_PATTERNS,4*SWARM_N_FIDS*SWARM_INT_HB_PER_SOWF)),
               dtype=uint32)
 
             # Mask out complex phase
@@ -1701,7 +1701,7 @@ class Swarm:
                              "calling on all quadrants!".format(attr))
             return lambda *args, **kwargs: self.quadrants_do(lambda qid, quad: getattr(quad, attr)(*args, **kwargs))
 
-        # See if user is trying to access the SwarmMember.roach2 attribute
+        # See if user is trying to access the SwarmMember.fpga attribute
         if attr == 'roach2':
 
             # Define an anonymous class we will instantiate and return
@@ -1710,9 +1710,9 @@ class Swarm:
                     return dir(CasperFpga)
                 def __getattr__(self_, attr):
                     if callable(getattr(CasperFpga, attr, None)):
-                        return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.roach2, attr)(*args, **kwargs))
+                        return lambda *args, **kwargs: self.members_do(lambda fid, member: getattr(member.fpga, attr)(*args, **kwargs))
                     else:
-                        return self.members_do(lambda fid, member: getattr(member.roach2, attr))
+                        return self.members_do(lambda fid, member: getattr(member.fpga, attr))
 
             return AnonClass()
 
@@ -1777,7 +1777,7 @@ class Swarm:
 
         # Wait for initial accumulations to finish
         self.logger.info('Waiting for initial accumulations to finish...')
-        while any(m.roach2.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
+        while any(m.fpga.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
             sleep(0.1)
 
         # Set the itime and wait for it to register
@@ -1812,7 +1812,7 @@ class Swarm:
 
         # Check to make sure corner-turn is in nominal state
         for fid, member in self.get_valid_members():
-            if member.roach2.read_uint(SWARM_NETWORK_CTRL) != 0x00000030:
+            if member.fpga.read_uint(SWARM_NETWORK_CTRL) != 0x00000030:
                 err_msg = "Corner-turn is in unknown state! Aborting sync"
                 member.logger.error(err_msg)
                 raise ValueError(err_msg)
@@ -1820,13 +1820,13 @@ class Swarm:
         # Disable corner-turn Rx
         self.logger.info('Disabling the corner-turn Rx')
         for fid, member in self.get_valid_members():
-            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
+            member.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
         sleep(5)
 
         # Disable corner-turn Tx
         self.logger.info('Disabling the corner-turn Tx')
         for fid, member in self.get_valid_members():
-            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000000))
+            member.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000000))
         sleep(5)
 
         # Do the usual sync operation
@@ -1839,19 +1839,19 @@ class Swarm:
         # Reset the corner-turn
         self.logger.info('Resetting the corner-turn Rx')
         for fid, member in self.get_valid_members():
-            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x40000000))
+            member.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x40000000))
         sleep(5)
 
         # Enable the corner-turn Tx
         self.logger.info('Enabling the corner-turn Tx')
         for fid, member in self.get_valid_members():
-            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
+            member.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000020))
         sleep(5)
 
         # Enable the corner-turn Rx
         self.logger.info('Enabling the corner-turn Rx')
         for fid, member in self.get_valid_members():
-            member.roach2.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000030))
+            member.fpga.write(SWARM_NETWORK_CTRL, pack(SWARM_REG_FMT, 0x00000030))
         sleep(5)
 
         # Finally reset the DDR3 just in case
@@ -1909,7 +1909,7 @@ class Swarm:
             while not win_sync:
                 self.reset_xengines(sleep_after_reset=False)
                 sleep(.1)
-                win_count = array([m.roach2.read_uint('xeng_status') for f, m in self.get_valid_members()])
+                win_count = array([m.fpga.read_uint('xeng_status') for f, m in self.get_valid_members()])
                 win_sync = len(set(c / win_period for c in win_count)) == 1
         except Exception as err:
             self.logger.error("Unable to reset xengines and sync, exception caught {0}".format(err))

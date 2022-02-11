@@ -48,11 +48,11 @@ def sync_rtime(member):
 
     # write in sec_ref for the next second tick
     # and re-sync the 1PPS
-    member.roach2.write_int('sync_rtime_gen_epoch_sec', sec_ref)
+    member.fpga.write_int('sync_rtime_gen_epoch_sec', sec_ref)
     member.sync_rtime()
 
     # critical stuff done, now write in the ref epoch
-    member.roach2.write_int('sync_rtime_gen_ref_epoch', ref_ep)
+    member.fpga.write_int('sync_rtime_gen_ref_epoch', ref_ep)
 
     return sec_ref
 

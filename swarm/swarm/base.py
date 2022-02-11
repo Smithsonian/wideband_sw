@@ -94,19 +94,19 @@ class SwarmROACH(object):
     def _connect(self, roach2_host):
 
         # Connect and wait until ready
-        self.roach2 = CasperFpga(roach2_host, logger=self.logger, transport=KatcpTransport)
+        self.fpga = CasperFpga(roach2_host, logger=self.logger, transport=KatcpTransport)
         if roach2_host:
-            if not self.roach2.transport.wait_connected(timeout=5):
+            if not self.fpga.transport.wait_connected(timeout=5):
                 raise RuntimeError(
                     "Timeout trying to connect to %s. "
-                    "Is it up and running the swarm sever?" % self.roach2.host
+                    "Is it up and running the swarm sever?" % self.fpga.host
                 )
 
     def _program(self, bitcode):
 
         # Program with the bitcode
         self._bitcode = bitcode
-        self.roach2.transport.program(self._bitcode)
+        self.fpga.transport.program(self._bitcode)
 
     def config_10gbe_core(self,device_name,mac,ip,port,arp_table,gateway=1):
         """Hard-codes a 10GbE core with the provided params. It does a blindwrite,
@@ -151,8 +151,8 @@ class SwarmROACH(object):
             '>QLLLLLLBBH', mac, 0, gateway, ip, 0, 0, 0, 0, 1, port
         )
         arp_pack = struct.pack('>256Q',*arp_table)
-        self.roach2.blindwrite(device_name, ctrl_pack, offset=0)
-        self.roach2.write(device_name, arp_pack, offset=0x3000)
+        self.fpga.blindwrite(device_name, ctrl_pack, offset=0)
+        self.fpga.write(device_name, arp_pack, offset=0x3000)
 
     def get_rcs(self, rcs_block_name='rcs'):
         """Retrieves and decodes a revision control block.
@@ -160,9 +160,9 @@ class SwarmROACH(object):
         Stolen from katcp_wrapper inside of the corr library.
         """
         rv = {}
-        rv['user'] = self.roach2.read_uint(rcs_block_name+'_user')
-        app = self.roach2.read_uint(rcs_block_name+'_app')
-        lib = self.roach2.read_uint(rcs_block_name+'_lib')
+        rv['user'] = self.fpga.read_uint(rcs_block_name+'_user')
+        app = self.fpga.read_uint(rcs_block_name+'_app')
+        lib = self.fpga.read_uint(rcs_block_name+'_lib')
 
         if lib & (1 << 31):
             rv['compile_timestamp'] = lib & ((2**31)-1)
@@ -207,7 +207,7 @@ class SwarmROACH(object):
         message = Message.request(cmd, *args)
 
         # Send the request, and block for 60 seconds
-        reply, informs = self.roach2.transport.blocking_request(message, timeout=60)
+        reply, informs = self.fpga.transport.blocking_request(message, timeout=60)
 
         # Check for error, and raise one if present
         if not reply.reply_ok():
@@ -250,13 +250,13 @@ class SwarmROACH(object):
         # hardware-configurable datawidth and user-selectable features.
         # TODO Test offset, get_extra_val and circular capture modes.
         if offset >= 0:
-            self.roach2.write_int(dev_name+'_trig_offset', offset)
+            self.fpga.write_int(dev_name+'_trig_offset', offset)
 
-        self.roach2.write_int(
+        self.fpga.write_int(
             dev_name+'_ctrl',
             0 + (man_trig << 1) + (man_valid << 2) + (circular_capture << 3),
         )
-        self.roach2.write_int(
+        self.fpga.write_int(
             dev_name+'_ctrl',
             1 + (man_trig << 1) + (man_valid << 2) + (circular_capture << 3),
         )
@@ -266,7 +266,7 @@ class SwarmROACH(object):
         while not done and (
             ((time.time()-start_time) < wait_period) or (wait_period < 0)
         ):
-            addr = self.roach2.read_uint(dev_name+'_status')
+            addr = self.fpga.read_uint(dev_name+'_status')
             done = not bool(addr & 0x80000000)
             time.sleep(0.05)
 
@@ -274,7 +274,7 @@ class SwarmROACH(object):
         bram_dmp = dict()
         bram_dmp['length'] = bram_size
         if (bram_size == 0) or (
-            bram_size != self.roach2.read_uint(dev_name+'_status') & 0x7fffffff
+            bram_size != self.fpga.read_uint(dev_name+'_status') & 0x7fffffff
         ):
             # if address is still changing, then the snap block didn't
             # finish capturing. we return empty.
@@ -289,7 +289,7 @@ class SwarmROACH(object):
             # started writing into memory. Must thus add requested offset.
             # Done later anyway.
             bram_dmp['offset'] = (
-                self.roach2.read_uint(dev_name+'_tr_en_cnt') - bram_size
+                self.fpga.read_uint(dev_name+'_tr_en_cnt') - bram_size
             )
         else:
             bram_dmp['offset'] = 0
@@ -304,10 +304,10 @@ class SwarmROACH(object):
         if (bram_size == 0):
             bram_dmp['data'] = []
         else:
-            bram_dmp['data'] = self.roach2.read(dev_name+'_bram', (bram_size))
+            bram_dmp['data'] = self.fpga.read(dev_name+'_bram', (bram_size))
 
         if get_extra_val:
-            bram_dmp['val'] = self.roach2.read_uint(dev_name+'_val')
+            bram_dmp['val'] = self.fpga.read_uint(dev_name+'_val')
 
         return bram_dmp
 

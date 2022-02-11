@@ -54,7 +54,7 @@ for fid, member in swarm.get_valid_members():
 
     for input_n in SWARM_MAPPING_INPUTS:
 
-        roach = member.roach2
+        roach = member.fpga
         scope = SWARM_SCOPE_SNAP % input_n
         input_inst = member.get_input(input_n)
         polarization = input_inst.pol
