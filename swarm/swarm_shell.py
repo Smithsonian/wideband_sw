@@ -5,7 +5,7 @@ import logging
 import argparse
 from swarm import *
 from swarm.ipython import magics
-from IPython.config.loader import Config
+from traitlets.config.loader import Config
 from IPython.terminal.embed import InteractiveShellEmbed
 
 # The SWARM Shell banner
