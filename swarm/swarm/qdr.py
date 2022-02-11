@@ -94,17 +94,17 @@ class SwarmQDR(object):
         self.ctrl_reg.write_int(0, blindwrite=True)
 
     def disable_fabric(self):
-        self.parent.write_int(self.control_mem, 1, blindwrite=True, offset=2)
+        self.parent.write_int(self.control_mem, 1, blindwrite=True, word_offset=2)
 
     def enable_fabric(self):
-        self.parent.write_int(self.control_mem, 0, blindwrite=True, offset=2)
+        self.parent.write_int(self.control_mem, 0, blindwrite=True, word_offset=2)
 
     def qdr_reset(self):
         "Resets the QDR and the IO delays (sets all taps=0)."
-        self.parent.write_int(self.control_mem, 1, blindwrite=True,offset=0)
-        self.parent.write_int(self.control_mem, 0, blindwrite=True,offset=0)
-        self.parent.write_int(self.control_mem, 0, blindwrite=True,offset=9) #extra latency ctrl
-        self.parent.write_int(self.control_mem, 0, blindwrite=True,offset=2) #enable fabric interface
+        self.parent.write_int(self.control_mem, 1, blindwrite=True,word_offset=0)
+        self.parent.write_int(self.control_mem, 0, blindwrite=True,word_offset=0)
+        self.parent.write_int(self.control_mem, 0, blindwrite=True,word_offset=9) #extra latency ctrl
+        self.parent.write_int(self.control_mem, 0, blindwrite=True,word_offset=2) #enable fabric interface
 
     def add_extra_latency(self, extra_lat):
         """
@@ -112,52 +112,52 @@ class SwarmQDR(object):
         input data. Useful for clock rates <~200.
         If false, remove any extra latency already applied.
         """
-        self.parent.write_int(self.control_mem, int(extra_lat), blindwrite=True,offset=9)
+        self.parent.write_int(self.control_mem, int(extra_lat), blindwrite=True,word_offset=9)
 
 
     def qdr_delay_out_step(self, bitmask, step):
         "Steps all bits in bitmask by 'step' number of taps."
         if step > 0:
-            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,word_offset=7)
         elif step < 0:
-            self.parent.write_int(self.control_mem,(0),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0),blindwrite=True,word_offset=7)
         else:
             return
         for i in range(abs(step)):
-            self.parent.write_int(self.control_mem,0,blindwrite=True,offset=6)
-            self.parent.write_int(self.control_mem,0,blindwrite=True,offset=5)
-            self.parent.write_int(self.control_mem,(0xffffffff&bitmask),blindwrite=True,offset=6)
-            self.parent.write_int(self.control_mem,((0xf)&(bitmask>>32))<<4,blindwrite=True,offset=5)
+            self.parent.write_int(self.control_mem,0,blindwrite=True,word_offset=6)
+            self.parent.write_int(self.control_mem,0,blindwrite=True,word_offset=5)
+            self.parent.write_int(self.control_mem,(0xffffffff&bitmask),blindwrite=True,word_offset=6)
+            self.parent.write_int(self.control_mem,((0xf)&(bitmask>>32))<<4,blindwrite=True,word_offset=5)
 
     def qdr_delay_clk_step(self,step):
         "Steps the output clock by 'step' amount."
         if step >0:
-            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,word_offset=7)
         elif step <0:
-            self.parent.write_int(self.control_mem,(0),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0),blindwrite=True,word_offset=7)
         else:
             return
         for i in range(abs(step)):
-            self.parent.write_int(self.control_mem,0,blindwrite=True,offset=5)
-            self.parent.write_int(self.control_mem,(1<<8),blindwrite=True,offset=5)
+            self.parent.write_int(self.control_mem,0,blindwrite=True,word_offset=5)
+            self.parent.write_int(self.control_mem,(1<<8),blindwrite=True,word_offset=5)
 
     def qdr_delay_in_step(self,bitmask,step):
         "Steps all bits in bitmask by 'step' number of taps."
         if step >0:
-            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0xffffffff),blindwrite=True,word_offset=7)
         elif step <0:
-            self.parent.write_int(self.control_mem,(0),blindwrite=True,offset=7)
+            self.parent.write_int(self.control_mem,(0),blindwrite=True,word_offset=7)
         else:
             return
         for i in range(abs(step)):
-            self.parent.write_int(self.control_mem,0,blindwrite=True,offset=4)
-            self.parent.write_int(self.control_mem,0,blindwrite=True,offset=5)
-            self.parent.write_int(self.control_mem,(0xffffffff&bitmask),blindwrite=True,offset=4)
-            self.parent.write_int(self.control_mem,((0xf)&(bitmask>>32)),blindwrite=True,offset=5)
+            self.parent.write_int(self.control_mem,0,blindwrite=True,word_offset=4)
+            self.parent.write_int(self.control_mem,0,blindwrite=True,word_offset=5)
+            self.parent.write_int(self.control_mem,(0xffffffff&bitmask),blindwrite=True,word_offset=4)
+            self.parent.write_int(self.control_mem,((0xf)&(bitmask>>32)),blindwrite=True,word_offset=5)
 
     def qdr_delay_clk_get(self):
         "Gets the current value for the clk delay."
-        raw=self.parent.read_uint(self.control_mem, offset=8)
+        raw=self.parent.read_uint(self.control_mem, word_offset=8)
         if (raw&0x1f) != ((raw&(0x1f<<5))>>5):
             raise RuntimeError("Counter values not the same -- logic error! Got back %i."%raw)
         return raw&(0x1f)
@@ -166,8 +166,8 @@ class SwarmQDR(object):
         "checks calibration on a qdr. Raises an exception if it failed."
         patfail=0
         for pattern in CAL_DATA:
-            self.parent.blindwrite(self.memory,struct.pack('>%iL'%len(pattern),*pattern), offset=2**22)
-            retdat=struct.unpack('>%iL'%len(pattern), self.parent.read(self.memory,len(pattern)*4, offset=2**22))
+            self.parent.blindwrite(self.memory,struct.pack('>%iL'%len(pattern),*pattern), word_offset=2**22)
+            retdat=struct.unpack('>%iL'%len(pattern), self.parent.read(self.memory,len(pattern)*4, word_offset=2**22))
             for word_n,word in enumerate(pattern):
                 patfail=patfail|(word ^ retdat[word_n])
                 if verbosity>2:
