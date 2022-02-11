@@ -5,6 +5,7 @@ import struct
 from casperfpga import CasperFpga
 from casperfpga import KatcpTransport
 from katcp import Message
+import time
 
 from .defines import (
     SWARM_BENGINE_SIDEBANDS,
@@ -214,6 +215,101 @@ class SwarmROACH(object):
 
         # Otherwise return what we got
         return reply, informs
+
+    def snapshot_get(
+        self,
+        dev_name,
+        man_trig=False,
+        man_valid=False,
+        wait_period=1,
+        offset=-1,
+        circular_capture=False,
+        get_extra_val=False
+    ):
+        """
+        Grabs all brams from a single snap block on this FPGA device.
+
+        Note that this was basically stolen from the corr library.
+
+        PARMETERS:
+            dev_name: string, name of the snap block.
+            man_trig: boolean, Trigger the snap block manually.
+            offset: integer, wait this number of bytes before
+                beginning capture. Set to negative to ignore.
+            circular_capture: boolean, Enable the circular capture function.
+            wait_period: integer, wait this number of seconds between
+                triggering and trying to read-back the data.
+                Make it negative to wait forever.
+
+        RETURNS: dictionary with keywords: 
+            lengths: number of bytes captured.
+            offset: number of bytes since last trigger.
+            data: list of data from each fpga for corresponding bram.
+        """
+        # new snapshot block support (bytes instead of words) with
+        # hardware-configurable datawidth and user-selectable features.
+        # TODO Test offset, get_extra_val and circular capture modes.
+        if offset >= 0:
+            self.roach2.write_int(dev_name+'_trig_offset', offset)
+
+        self.roach2.write_int(
+            dev_name+'_ctrl',
+            0 + (man_trig << 1) + (man_valid << 2) + (circular_capture << 3),
+        )
+        self.roach2.write_int(
+            dev_name+'_ctrl',
+            1 + (man_trig << 1) + (man_valid << 2) + (circular_capture << 3),
+        )
+
+        done = False
+        start_time = time.time()
+        while not done and (
+            ((time.time()-start_time) < wait_period) or (wait_period < 0)
+        ):
+            addr = self.roach2.read_uint(dev_name+'_status')
+            done = not bool(addr & 0x80000000)
+            time.sleep(0.05)
+
+        bram_size = addr & 0x7fffffff
+        bram_dmp = dict()
+        bram_dmp['length'] = bram_size
+        if (bram_size == 0) or (
+            bram_size != self.roach2.read_uint(dev_name+'_status') & 0x7fffffff
+        ):
+            # if address is still changing, then the snap block didn't
+            # finish capturing. we return empty.
+            raise RuntimeError(
+                "A snap block logic error occurred or it didn't finish "
+                "capturing  in the allotted %2.2f seconds. Reported %i "
+                "bytes captured." % (wait_period, bram_size)
+            )
+
+        if circular_capture:
+            # Snap block only starts incrementing tr_en_cnt after it has
+            # started writing into memory. Must thus add requested offset.
+            # Done later anyway.
+            bram_dmp['offset'] = (
+                self.roach2.read_uint(dev_name+'_tr_en_cnt') - bram_size
+            )
+        else:
+            bram_dmp['offset'] = 0
+
+        bram_dmp['offset'] += offset
+
+        if (bram_dmp['offset'] < 0):
+            # you got a trigger and then a stop before
+            # the bram could even fill.
+            bram_dmp['offset'] = 0
+
+        if (bram_size == 0):
+            bram_dmp['data'] = []
+        else:
+            bram_dmp['data'] = self.roach2.read(dev_name+'_bram', (bram_size))
+
+        if get_extra_val:
+            bram_dmp['val'] = self.roach2.read_uint(dev_name+'_val')
+
+        return bram_dmp
 
     def plugin_list(self):
 
