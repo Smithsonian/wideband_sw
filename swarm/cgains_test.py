@@ -94,7 +94,7 @@ def update_roach2s(cgain_updates):
                 swarm_member = quad[cgain_update.antenna - 1]
                 break
 
-        roach2_update_list.append(Roach2Update(swarm_member.roach2, cgain_update.rx, gains_bin))
+        roach2_update_list.append(Roach2Update(swarm_member.fpga, cgain_update.rx, gains_bin))
         logging.debug("Mapped quadrant:%d,antenna:%d to %s",
                       cgain_update.quadrant,
                       cgain_update.antenna,

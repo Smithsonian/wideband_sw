@@ -181,7 +181,7 @@ class SwarmShellMagics(Magics):
               "dirty" if rcs["app_dirty"] else "clean")
 
         # Get clock information
-        threads = [Thread(target=lambda q,m: q.put((m,m.roach2.estimate_fpga_clock())),
+        threads = [Thread(target=lambda q,m: q.put((m,m.fpga.estimate_fpga_clock())),
           args=(queue,memb)) for memb in members]
         [t.start() for t in threads]
         [t.join() for t in threads]

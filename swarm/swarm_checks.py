@@ -104,7 +104,7 @@ while RUNNING.is_set():
 
                         # Read current register values
                         reg = reg_fmt.format(core, regtype)
-                        new = member.roach2.read_int(reg)
+                        new = member.fpga.read_int(reg)
                         errors += abs(new)
 
                         # Get the old value from redis
