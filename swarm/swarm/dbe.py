@@ -143,9 +143,13 @@ class SwarmDBE(base.SwarmROACH):
 
 class BengineDataCatcher(Thread):
 
-    def __init__(self, queue, stopevent,
-                 listen_host, listen_port,
-                 pkt_size = SWARM_BENGINE_PKT_SIZE):
+    def __init__(
+        self,
+        queue,
+        stopevent,
+        listen_host, listen_port,
+        pkt_size=SWARM_BENGINE_PKT_SIZE,
+    ):
         self.queue = queue
         self.pkt_size = pkt_size
         self.stopevent = stopevent
@@ -162,18 +166,17 @@ class BengineDataCatcher(Thread):
         self.udp_sock.close()
 
     def _unpack_pkt(self, datar):
+        # Unpack it to get bcount, fid, and chan id
+        bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
+        self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
 
-	    # Unpack it to get bcount, fid, and chan id
-            bcount_msb, bcount_lsb, fid, chan_id = unpack(SWARM_BENGINE_HEADER_FMT, datar[:SWARM_BENGINE_HEADER_SIZE])
-            self.logger.debug("Received chan. id #%d for bcount=#%d from FID=%d" %(chan_id, bcount_lsb, fid))
+        # Grab the payload
+        payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
 
-            # Grab the payload
-            payload_bin = datar[SWARM_BENGINE_HEADER_SIZE:]
+        # Get the real "bcount"
+        bcount = (bcount_msb << 32) | (bcount_lsb)
 
-            # Get the real "bcount"
-            bcount = (bcount_msb << 32) | (bcount_lsb)
-
-            return bcount, fid, chan_id, payload_bin
+        return bcount, fid, chan_id, payload_bin
 
     def run(self):
         self.logger.info('Catching loop has started')
@@ -190,7 +193,7 @@ class BengineDataCatcher(Thread):
             # Check if packet is wrong size
             if len(datar) != self.pkt_size:
                 self.logger.error("Received packet is of wrong size, %d bytes" %(len(datar)))
-		continue
+                continue
 
             # Unpack and put header onto queue
             self.queue.put(self._unpack_pkt(datar))
