@@ -3,7 +3,7 @@ import argparse
 import logging
 import sys
 import subprocess
-import pyopmess
+#import pyopmess
 from swarm.defines import query_yes_no
 from redis import StrictRedis
 
@@ -49,4 +49,4 @@ if query_yes_no("Continue to set values in redis and restart swarm_ctrl?"):
     out = subprocess.check_output(["/global/bin/killdaemon", "tenzing", "swarm_ctrl", "restart"])
     logger.debug(out)
 
-    pyopmess.send(1, 1, 100, "SWARM VLBI set to " + args.mode)
+    #pyopmess.send(1, 1, 100, "SWARM VLBI set to " + args.mode)

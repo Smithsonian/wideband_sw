@@ -4,7 +4,7 @@ import logging
 from collections import OrderedDict
 import sys
 
-import pyopmess
+#import pyopmess
 from swarm import Swarm
 from swarm.defines import query_yes_no, SWARM_MAPPING_CHUNKS, SWARM_MAPPINGS
 
@@ -49,5 +49,5 @@ if idle_quad_mappings and query_yes_no("Proceed to IDLE quadrant(s) " + idle_qua
     swarm = Swarm(mappings_dict=idle_quad_mappings)
 
     # IDLE the disabled quadrants.
-    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being idled")
+    #pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being idled")
     swarm.members_do(lambda fid, mbr: mbr.idle())
