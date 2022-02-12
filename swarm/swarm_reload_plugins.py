@@ -4,7 +4,7 @@ import logging
 from collections import OrderedDict
 import sys, time
 
-import pyopmess
+#import pyopmess
 from swarm import Swarm
 from swarm.defines import query_yes_no, SWARM_MAPPING_CHUNKS, SWARM_MAPPINGS
 

@@ -3,7 +3,6 @@ import logging
 import sys
 import argparse
 from time import sleep
-import pyopmess
 from swarm import Swarm
 from swarm.defines import *
 from numpy import array

@@ -14,7 +14,7 @@ from signal import (
     SIGURG,
     SIGCONT,
     )
-import pyopmess
+#import pyopmess
 
 from swarm.core import ExceptingThread
 from swarm.defines import *
@@ -48,7 +48,7 @@ swarm = Swarm(map_filenames=DISABLE_SWARM_MAPPINGS)
 
 # Signal handler for idling SWARM
 def idle_quadrant():
-    pyopmess.send(1, 1, 100, 'SWARM quadrant is now being idled')
+    #pyopmess.send(1, 1, 100, 'SWARM quadrant is now being idled')
     swarm.members_do(lambda fid, mbr: mbr.idle())
 
 

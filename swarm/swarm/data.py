@@ -188,7 +188,7 @@ def has_none(obj):
                 if has_none(sub):
                     return True
     except TypeError:
-        if obj == None:
+        if obj is None:
             return True
     return False
 

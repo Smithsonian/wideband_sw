@@ -16,7 +16,7 @@ from signal import (
     SIGURG,
     SIGCONT,
     )
-import pyopmess
+#import pyopmess
 
 from swarm.core import ExceptingThread
 from swarm.defines import *
@@ -168,7 +168,7 @@ swarm_handler = SwarmDataHandler(swarm, swarm_catcher.get_queue(), swarm_catcher
 # Signal handler for idling SWARM
 def idle_handler(signum, frame):
     logger.info('Received signal #{0}; idling SWARM...'.format(signum))
-    pyopmess.send(1, 1, 100, 'SWARM is now being idled')
+    #pyopmess.send(1, 1, 100, 'SWARM is now being idled')
     swarm_catcher.stop()  # stop waiting on data
     swarm.members_do(lambda fid, mbr: mbr.idle())
 
@@ -188,7 +188,7 @@ def cold_start_handler(signum, frame):
 
     # Do the intial setup
     logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
-    pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
+    #pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
     swarm.setup(
         args.itime,
         args.interfaces,
@@ -216,7 +216,7 @@ def cold_start_handler(signum, frame):
     swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
 
     # Do a threaded calibration
-    pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
+    #pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
     exceptions_queue = Queue()
     adccal_threads = OrderedDict()
     for fid, member in swarm.get_valid_members():
@@ -250,7 +250,7 @@ def cold_start_handler(signum, frame):
 
     # If any exception occurred raise error
     if exceptions > 0:
-        pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
+        #pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
         raise RuntimeError('{0} member(s) had an error during ADC warm-calibration!'.format(exceptions))
 
     # Re-enable the ADC monitor
@@ -259,7 +259,7 @@ def cold_start_handler(signum, frame):
     # Start up catcher again
     swarm.reset_xengines_and_sync()
     swarm_catcher.start()
-    pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
+    #pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
 
 
 # Register it to SIGURG
@@ -272,7 +272,7 @@ def sync_handler(signum, frame):
     swarm_catcher.stop()  # stop waiting on data
     swarm.sync()  # do the sync
     swarm_catcher.start()  # start waiting on data
-    pyopmess.send(1, 1, 100, 'SWARM has been re-synced')
+    #pyopmess.send(1, 1, 100, 'SWARM has been re-synced')
 
 
 # Register it to SIGCONT
@@ -283,7 +283,7 @@ signal(SIGCONT, sync_handler)
 def xeng_reset_handler(signum, frame):
     logger.info('Received signal #{0}; resetting X-eninges...'.format(signum))
     swarm.reset_xengines()
-    pyopmess.send(1, 1, 100, 'SWARM X-engines reset')
+    #pyopmess.send(1, 1, 100, 'SWARM X-engines reset')
 
 
 # Register it to #24
@@ -347,7 +347,7 @@ except Exception as err:
     # Some other exception detected
     RETURN_VALUE = SMAINIT_SYSERR_RTN
     logger.error("Exception caught: {0}".format(err))
-    pyopmess.send(1, 1, 100, 'Listener crashed; should restart but check smainit status')
+    #pyopmess.send(1, 1, 100, 'Listener crashed; should restart but check smainit status')
 
 # Stop the data catcher
 swarm_catcher.stop()
