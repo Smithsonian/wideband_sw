@@ -87,7 +87,7 @@ logger.addHandler(logredis)
 VLBI_MODE = logredis.redis.get("vlbi")
 if not VLBI_MODE:
     VLBI_MODE = "off"
-REFERENCE_ANT_POL_CHUNK = logredis.redis.get("reference")
+REFERENCE_ANT_POL_CHUNK = logredis.redis.get("reference").decode()
 if not REFERENCE_ANT_POL_CHUNK:
     REFERENCE_ANT_POL_CHUNK = "2,0,0"
 VLBI_CALIBRATE = logredis.redis.get("calibrate")

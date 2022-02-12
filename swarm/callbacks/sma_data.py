@@ -1,6 +1,5 @@
 from redis import StrictRedis
 from numpy import array, conjugate, exp, pi, vstack, zeros
-from swarm.pysendint import send_integration
 from swarm import SwarmDataCallback
 from swarm.data import SwarmDataPackage
 
