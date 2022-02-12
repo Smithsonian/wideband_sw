@@ -170,11 +170,11 @@ class SwarmListener(object):
 
     def _set_netinfo(self, port=4100):
         s = socket(AF_INET, SOCK_DGRAM)
-        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface))
-        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface))
-        info_mask = fcntl.ioctl(s.fileno(), SIOCGIFNETMASK, pack('256s', self.interface))
+        info_adr = fcntl.ioctl(s.fileno(), SIOCGIFADDR, pack('256s', self.interface.encode()))
+        info_mac = fcntl.ioctl(s.fileno(), SIOCSIFHWADDR, pack('256s', self.interface.encode()))
+        info_mask = fcntl.ioctl(s.fileno(), SIOCGIFNETMASK, pack('256s', self.interface.encode()))
         self.netmask = unpack(SWARM_REG_FMT, info_mask[20:24])[0]
-        self.mac = unpack('>Q', '\x00' * 2 + info_mac[18:24])[0]
+        self.mac = unpack('>Q', b'\x00' * 2 + info_mac[18:24])[0]
         self.ip = unpack(SWARM_REG_FMT, info_adr[20:24])[0]
         self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
         self.port = port
@@ -366,7 +366,7 @@ class SwarmDataCatcher:
             if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
                 # Put data onto the queue
                 mask[qid][fid].pop(acc_n)
-                datas = ''.join(data[qid][fid].pop(acc_n))
+                datas = b''.join(data[qid][fid].pop(acc_n))
                 out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
 
         udp_sock.close()

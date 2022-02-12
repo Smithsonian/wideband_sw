@@ -558,7 +558,7 @@ class SwarmMember(base.SwarmROACH):
     def _setup_xeng_tvg(self):
 
         # Give each input a different constant value
-        const_inputs = [0x0102, 0x0304, 0x0506, 0x0708, 0x090a, 0x0b0c, 0x0d0e, 0x0f10] * (SWARM_VISIBS_CHANNELS/8)
+        const_inputs = [0x0102, 0x0304, 0x0506, 0x0708, 0x090a, 0x0b0c, 0x0d0e, 0x0f10] * (SWARM_VISIBS_CHANNELS//8)
         for i in SWARM_ALL_FID:
             self.fpga.write(SWARM_XENG_TVG % i, pack('>%dH' % SWARM_VISIBS_CHANNELS, *const_inputs))
 
@@ -1910,7 +1910,7 @@ class Swarm:
                 self.reset_xengines(sleep_after_reset=False)
                 sleep(.1)
                 win_count = array([m.fpga.read_uint('xeng_status') for f, m in self.get_valid_members()])
-                win_sync = len(set(c / win_period for c in win_count)) == 1
+                win_sync = len(set(c // win_period for c in win_count)) == 1
         except Exception as err:
             self.logger.error("Unable to reset xengines and sync, exception caught {0}".format(err))
 

@@ -166,8 +166,8 @@ class SwarmQDR(object):
         "checks calibration on a qdr. Raises an exception if it failed."
         patfail=0
         for pattern in CAL_DATA:
-            self.parent.blindwrite(self.memory,struct.pack('>%iL'%len(pattern),*pattern), word_offset=2**22)
-            retdat=struct.unpack('>%iL'%len(pattern), self.parent.read(self.memory,len(pattern)*4, word_offset=2**22))
+            self.parent.blindwrite(self.memory,struct.pack('>%iL'%len(pattern),*pattern), offset=2**22)
+            retdat=struct.unpack('>%iL'%len(pattern), self.parent.read(self.memory,len(pattern)*4, offset=2**22))
             for word_n,word in enumerate(pattern):
                 patfail=patfail|(word ^ retdat[word_n])
                 if verbosity>2:
