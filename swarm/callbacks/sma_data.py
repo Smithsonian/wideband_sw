@@ -1,4 +1,4 @@
-from redis import StrictRedis
+from redis import Redis
 from numpy import array, conjugate, exp, pi, vstack, zeros
 from swarm import SwarmDataCallback
 from swarm.data import SwarmDataPackage
@@ -9,7 +9,7 @@ REDIS_UNIX_SOCKET = '/tmp/redis.sock'
 class SMAData(SwarmDataCallback):
 
     def __init__(self, swarm, redis_host='localhost', redis_port=6379, pub_channel='swarm.data', rephase_2nd_sideband_data=False):
-        self.redis = StrictRedis(redis_host, redis_port, unix_socket_path=REDIS_UNIX_SOCKET)
+        self.redis = Redis(redis_host, redis_port, unix_socket_path=REDIS_UNIX_SOCKET)
         self.rephase_2nd_sideband_data = rephase_2nd_sideband_data
         super(SMAData, self).__init__(swarm)
         self.pub_channel = pub_channel
@@ -25,8 +25,7 @@ class SMAData(SwarmDataCallback):
             self.logger.debug("Applied 2nd sideband beamformer phases to correlator data")
 
         # Publish the raw data to redis
-        subs = self.redis.publish(self.pub_channel, data)
-
+        subs = self.redis.publish(self.pub_channel, bytes(data))
         # Info log the set
         self.logger.info("Data sent to %d subscribers", subs)
 
