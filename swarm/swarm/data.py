@@ -103,8 +103,8 @@ class SwarmDataPackage(object):
         except:
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
-    def __str__(self):
-        return ''.join([self.header, self.array.tostring()])
+    def __bytes__(self):
+        return b''.join([self.header, self.array.tobytes()])
 
     def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
@@ -184,7 +184,7 @@ class SwarmListener(object):
 def has_none(obj):
     try:
         for sub in obj:
-            if not isinstance(sub, str):
+            if not isinstance(sub, bytes):
                 if has_none(sub):
                     return True
     except TypeError:
@@ -193,30 +193,30 @@ def has_none(obj):
     return False
 
 
-@jit
+#@jit
 def unpack_ip(addr):
     # Parse the IP address
     return unpack('BBBB', inet_aton(addr))
 
 
-@jit
+#@jit
 def determine_qid(ip):
     # Determine the QID
     return (ip >> 4) & 0x7
 
 
-@jit
+#@jit
 def determine_fid(ip):
     # Determine the FID
     return ip & 0x7
 
 
-@jit
+#@jit
 def determine_xnum(xnum_mb, xnum_lh):
     return ((xnum_mb << 16) | xnum_lh) << 5
 
 
-@jit
+#@jit
 def determine_acc_n(acc_n_mb, acc_n_lh):
     return (acc_n_mb << 16) | acc_n_lh
 
@@ -311,7 +311,6 @@ class SwarmDataCatcher:
         mask = {}
         meta = {}
         udp_sock = self._create_socket()
-
         while not stop.is_set():
             # Receive a packet and get host info
             try:
@@ -590,7 +589,6 @@ class SwarmDataHandler:
 
         # Loop until user quits
         while running.is_set():
-
             try:  # to check for data
                 message = self.queue.get_nowait()
             except Empty:  # none available
