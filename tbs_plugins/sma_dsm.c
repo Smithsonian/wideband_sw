@@ -111,42 +111,6 @@ int write_scan_progress(struct tbs_raw *tr){
   return 0;
 }
 
-/* Scan length handler */
-int handle_scan_length(struct tbs_raw *tr, int scan_length){
-  uint32_t xn_num;
-  struct tbs_entry *te;
-  uint32_t old_value, new_value;
-
-  /* Derive xn_num from scan_length in Walsh cycles */
-  xn_num = SWARM_VECTORS_PER_WSTEP * SWARM_TOTAL_WSTEPS * scan_length;
-
-  /* Make sure we're programmed */
-  if(tr->r_fpga != TBS_FPGA_MAPPED){
-    return -1;
-  }
-
-  /* Get the xeng_ctrl register pointer */
-  te = find_data_avltree(tr->r_registers, SWARM_XENG_CTRL);
-  if(te == NULL){
-    return -2;
-  }
-
-  pthread_mutex_lock(&fpga_mutex);
-
-  /* Get current value of the register */
-  old_value = *((uint32_t *)(tr->r_map + te->e_pos_base));
-
-  /* Set the proper xn_num bits */
-  new_value = (old_value & 0xe0000000) + (xn_num & 0x1fffffff);
-
-  /* Finally, write it to the mmap region */
-  *((uint32_t *)(tr->r_map + te->e_pos_base)) = new_value;
-  msync(tr->r_map, tr->r_map_size, MS_SYNC);
-
-  pthread_mutex_unlock(&fpga_mutex);
-
-  return 0;
-}
 
 /* SIGINT handler stops waiting */
 void sigint_handler(int sig){
