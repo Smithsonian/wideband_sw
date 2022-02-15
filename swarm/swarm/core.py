@@ -1664,7 +1664,7 @@ class Swarm:
             member.set_itime(itime)
 
         # Set the dsm scan length to match.
-        pydsm.write('hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
+        pydsm.write('!hal9000', 'SWARM_SCAN_LENGTH_L', int(round(itime / SWARM_WALSH_PERIOD)))
 
         # Reset the xengines until window counters to by in sync
         self.reset_xengines_and_sync()
