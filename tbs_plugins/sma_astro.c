@@ -191,6 +191,7 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
 /* Update DSM-derived variables */
 int fstop_dsm_read() {
   static FILE *f;
+  static hostname[DSM_NAME_LENGTH] = {'\0'};
 
   int s;
   time_t timeStamp;
@@ -199,7 +200,11 @@ int fstop_dsm_read() {
   double del_off[2], pha_off[2];
   double dut1;
 
-  if(!f) f = fopen("/global/logs/sma_astro.log", "w");
+  if(hostname[0] == '\0') gethostname(hostname, DSM_NAME_LENGTH - 1);
+
+  if(!strcmp("roach2-01", hostname)) {
+    if(!f) f = fopen("/global/logs/sma_astro.log", "w");
+  }
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
