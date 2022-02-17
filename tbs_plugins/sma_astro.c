@@ -197,7 +197,7 @@ int fstop_dsm_read() {
   double del_off[2], pha_off[2];
   double dut1;
 
-  fprintf(stderr, "--- fstop_dsm_read()\n");
+  printf("--- fstop_dsm_read()\n");
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -280,7 +280,7 @@ int fstop_dsm_read() {
     return -9;
   }
 
-  fprintf(stderr, "--- Got delays: %.6f %.6f\n", del_off[0], del_off[1]);
+  printf("--- Got delays: %.6f %.6f\n", del_off[0], del_off[1]);
 
   /* Get the fixed phase offset */
   s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
@@ -309,7 +309,7 @@ int fstop_dsm_read() {
   /* Destroy structure before re-creating */
   dsm_structure_destroy(&structure);
 
-  fprintf(stderr, "%s: fstop_dsm_read() complete.\n");
+  printf("fstop_dsm_read() complete.\n");
 
   return 0;
 }
