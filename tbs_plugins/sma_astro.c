@@ -4,12 +4,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <katcp.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <tcpborphserver3.h>
 #include <plugin.h>
-#include <dsm.h>
+
+#include "dsm.h"
 #include "lst.h"
 
 #define TRUE 1
@@ -188,12 +190,16 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
 
 /* Update DSM-derived variables */
 int fstop_dsm_read() {
+  static FILE *f;
+
   int s;
   time_t timeStamp;
   dsm_structure structure;
   double rA, a[2], b[2], c[2];
   double del_off[2], pha_off[2];
   double dut1;
+
+  if(!f) f = fopen("/tmp/sma_astro.log", "w");
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -276,6 +282,8 @@ int fstop_dsm_read() {
     return -9;
   }
 
+  if(f) fprintf(f, "Got delays: %.6f %.6f\n", del_off[0], del_off[1]);
+
   /* Get the fixed phase offset */
   s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
   if (s != DSM_SUCCESS) {
@@ -302,6 +310,8 @@ int fstop_dsm_read() {
 
   /* Destroy structure before re-creating */
   dsm_structure_destroy(&structure);
+
+  if(f) fprintf(f, " -- fstop_dsm_read() complete.\n");
 
   return 0;
 }
