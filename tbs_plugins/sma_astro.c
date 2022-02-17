@@ -157,7 +157,7 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
   uint32_t old_value, new_value;
 
   /* Check that the delay is within range */
-  if ((fdelay_samp>FDELAY_MAX) || (fdelay_samp<FDELAY_MIN)){
+  if ((fdelay_samp>FDELAY_MAX) || (fdelay_samp<FDELAY_MIN)) {
     return -1;
   }
 
@@ -190,7 +190,7 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
 
 /* Update DSM-derived variables */
 int fstop_dsm_read() {
-  static FILE *f;
+  static FILE *log;
   static hostname[DSM_NAME_LENGTH] = {'\0'};
 
   int s;
@@ -202,9 +202,12 @@ int fstop_dsm_read() {
 
   if(hostname[0] == '\0') gethostname(hostname, DSM_NAME_LENGTH - 1);
 
-  if(!strcmp("roach2-01", hostname)) {
-    if(!f) f = fopen("/global/logs/sma_astro.log", "w");
+  if(!log) {
+    log = fopen("/sma/global/logs/sma_astro.log", "a");
+    if(log) fprintf(log, "%s: ---- Starting logging -----\n", hostname);
   }
+
+  if(log) fprintf(log, "%s: fstop_dsm_read()\n", hostname);
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -287,7 +290,7 @@ int fstop_dsm_read() {
     return -9;
   }
 
-  if(f) fprintf(f, "Got delays: %.6f %.6f\n", del_off[0], del_off[1]);
+  if(log) fprintf(log, "%s: Got delays: %.6f %.6f\n", hostname, del_off[0], del_off[1]);
 
   /* Get the fixed phase offset */
   s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
@@ -316,7 +319,7 @@ int fstop_dsm_read() {
   /* Destroy structure before re-creating */
   dsm_structure_destroy(&structure);
 
-  if(f) fprintf(f, " -- fstop_dsm_read() complete.\n");
+  if(log) fprintf(log, "%s: fstop_dsm_read() complete.\n", hostname);
 
   return 0;
 }
