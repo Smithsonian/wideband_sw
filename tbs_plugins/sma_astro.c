@@ -199,7 +199,7 @@ int fstop_dsm_read() {
   double del_off[2], pha_off[2];
   double dut1;
 
-  if(!f) f = fopen("/tmp/sma_astro.log", "w");
+  if(!f) f = fopen("/global/logs/sma_astro.log", "w");
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
