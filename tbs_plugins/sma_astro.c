@@ -190,9 +190,6 @@ int set_fdelay(int input, double fdelay_samp, struct tbs_raw *tr){
 
 /* Update DSM-derived variables */
 int fstop_dsm_read() {
-  static FILE *log;
-  static hostname[DSM_NAME_LENGTH] = {'\0'};
-
   int s;
   time_t timeStamp;
   dsm_structure structure;
@@ -200,14 +197,7 @@ int fstop_dsm_read() {
   double del_off[2], pha_off[2];
   double dut1;
 
-  if(hostname[0] == '\0') gethostname(hostname, DSM_NAME_LENGTH - 1);
-
-  if(!log) {
-    log = fopen("/sma/global/logs/sma_astro.log", "a");
-    if(log) fprintf(log, "%s: ---- Starting logging -----\n", hostname);
-  }
-
-  if(log) fprintf(log, "%s: fstop_dsm_read()\n", hostname);
+  fprintf(stderr, "--- fstop_dsm_read()\n");
 
   /* Initialize the DSM geometry structure */
   s = dsm_structure_init(&structure, DSM_GEOM_VAR);
@@ -290,7 +280,7 @@ int fstop_dsm_read() {
     return -9;
   }
 
-  if(log) fprintf(log, "%s: Got delays: %.6f %.6f\n", hostname, del_off[0], del_off[1]);
+  fprintf(stderr, "--- Got delays: %.6f %.6f\n", del_off[0], del_off[1]);
 
   /* Get the fixed phase offset */
   s = dsm_structure_get_element(&structure, DSM_PHA_OFF, &pha_off[0]);
@@ -319,7 +309,7 @@ int fstop_dsm_read() {
   /* Destroy structure before re-creating */
   dsm_structure_destroy(&structure);
 
-  if(log) fprintf(log, "%s: fstop_dsm_read() complete.\n", hostname);
+  fprintf(stderr, "%s: fstop_dsm_read() complete.\n");
 
   return 0;
 }
