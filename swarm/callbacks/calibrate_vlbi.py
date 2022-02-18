@@ -251,7 +251,7 @@ class CalibrateVLBI(SwarmDataCallback):
         bl_phases = exp(-1j * pi/180.0 * (left_phases - right_phases))
 
         # Apply transformation to each baseline
-        new_data = SwarmDataPackage.from_string(str(data))
+        new_data = SwarmDataPackage.from_bytes(bytes(data))
         for ibl, bl in enumerate(data.baselines):
 
             # Extract complex correlator data

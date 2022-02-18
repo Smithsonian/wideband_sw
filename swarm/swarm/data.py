@@ -11,7 +11,7 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
 )
 
-from numpy import array, nan, fromstring, empty, reshape
+from numpy import array, frombuffer, nan, frombuffer, empty, reshape
 from numba import jit
 from . import core
 from .defines import *
@@ -61,22 +61,22 @@ class SwarmDataPackage(object):
         return inst
 
     @classmethod
-    def from_string(cls, str_):
+    def from_bytes(cls, bytearr):
 
         # Generate baselines list
         header_prefix_size = calcsize(cls.header_prefix_fmt)
         n_baselines, n_sidebands, n_channels, int_time, int_length = unpack(
-            cls.header_prefix_fmt, str_[0:header_prefix_size])
+            cls.header_prefix_fmt, bytearr[0:header_prefix_size])
         header_size = header_prefix_size + 6 * n_baselines
-        baselines_s = reshape(unpack('BBBBBB' * n_baselines, str_[header_prefix_size:header_size]), (n_baselines, 6))
+        baselines_s = reshape(unpack('BBBBBB' * n_baselines, bytearr[header_prefix_size:header_size]), (n_baselines, 6))
         baselines = list(
             SwarmBaseline(core.SwarmInput(a, b, c), core.SwarmInput(d, e, f)) for a, b, c, d, e, f in baselines_s)
 
         # Create an instance, populate header & data, and return it
         data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS * 2)
         inst = cls(baselines, int_time, int_length)
-        inst.header = str_[:header_size]
-        inst.array = fromstring(str_[header_size:], dtype='<f4').reshape(data_shape)
+        inst.header = bytearr[:header_size]
+        inst.array = frombuffer(bytearr[header_size:], dtype='<f4').reshape(data_shape)
         return inst
 
     def __getitem__(self, item):
@@ -388,7 +388,7 @@ class SwarmDataCatcher:
             for fid, datas in enumerate(datas_list[qid]):
 
                 # Unpack this FID's data
-                data = fromstring(datas, dtype='>i4')
+                data = frombuffer(datas, dtype='>i4')
 
                 # Reorder by Xengine word (per channel)
                 for offset, word in enumerate(order):
