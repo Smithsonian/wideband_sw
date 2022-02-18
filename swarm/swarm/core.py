@@ -934,8 +934,8 @@ class SwarmMember(base.SwarmROACH):
                 im = -sin(phase_per_fid_input[fid,inp_n] * pi/180.0)
 
                 # Convert float to Fix_7_5 representation
-                re_7b = (ord(array(re*64,'>b').tostring())>>1) & 0x7f
-                im_7b = (ord(array(im*64,'>b').tostring())>>1) & 0x7f
+                re_7b = (ord(array(re*64,'>b').tobytes())>>1) & 0x7f
+                im_7b = (ord(array(im*64,'>b').tobytes())>>1) & 0x7f
 
                 # Zero out existing phase
                 phase_uint32[fid] &= 0xffff << ((1-inp_n)*16)
