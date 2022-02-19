@@ -104,7 +104,12 @@ class SwarmDataPackage(object):
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def __bytes__(self):
-        return b''.join([self.header, self.array.tobytes()])
+        return b''.join(
+            [self.header] + [
+                subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
+                for arr in self.array for subarr in arr
+            ]
+        )
 
     def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
@@ -122,9 +127,10 @@ class SwarmDataPackage(object):
         # Initialize our data array
         data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS * 2)
         self.array = empty(shape=data_shape, dtype='<f4')
-        self.array[:] = nan
+        self.array[:, :, 0::2] = nan
+        self.array[:, :, 1::2] = 0.0
 
-    def set_data(self, xeng_word, fid, data):
+    def set_data(self, xeng_word, data):
 
         # Get info from the data word
         imag = xeng_word.imag
@@ -133,12 +139,11 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = compute_slice(fid, imag_off)
-        self.get(baseline, sideband)[slice_] = data
+        self.get(baseline, sideband)[imag_off::2] = data
 
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
-            self.get(baseline, sideband)[slice_ + 1] = 0.0
+            self.get(baseline, sideband)[1::2] = 0.0
 
 
 @jit
@@ -179,18 +184,6 @@ class SwarmListener(object):
         self.host = inet_ntoa(pack(SWARM_REG_FMT, self.ip))
         self.port = port
         s.close()
-
-
-def has_none(obj):
-    try:
-        for sub in obj:
-            if not isinstance(sub, bytes):
-                if has_none(sub):
-                    return True
-    except TypeError:
-        if obj is None:
-            return True
-    return False
 
 
 #@jit
@@ -365,8 +358,15 @@ class SwarmDataCatcher:
             if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
                 # Put data onto the queue
                 mask[qid][fid].pop(acc_n)
-                datas = b''.join(data[qid][fid].pop(acc_n))
-                out_queue.put((qid, fid, acc_n, meta[qid][fid].pop(acc_n), datas))
+                out_queue.put(
+                    (
+                        qid,
+                        fid,
+                        acc_n,
+                        meta[qid][fid].pop(acc_n),
+                        data[qid][fid].pop(acc_n),
+                    )
+                )
 
         udp_sock.close()
 
@@ -374,7 +374,8 @@ class SwarmDataCatcher:
         inst = callback(self.swarm, *args, **kwargs)
         self.rawbacks.append(inst)
 
-    def _reorder_data(self, datas_list, int_time, int_length):
+    def _legacy_reorder_data(self, datas_list, int_time, int_length):
+        # This is the old method, left here for the sake of testing.
 
         # Create data package to hold baseline data
         data_pkg = SwarmDataPackage.from_swarm(self.swarm, int_time=int_time, int_length=int_length)
@@ -388,7 +389,7 @@ class SwarmDataCatcher:
             for fid, datas in enumerate(datas_list[qid]):
 
                 # Unpack this FID's data
-                data = frombuffer(datas, dtype='>i4')
+                data = frombuffer(b''.join(datas), dtype='>i4')
 
                 # Reorder by Xengine word (per channel)
                 for offset, word in enumerate(order):
@@ -400,7 +401,56 @@ class SwarmDataCatcher:
         # Return the (hopefully) complete data packages
         return data_pkg
 
+    def _reorder_data(self, data_group, int_time, int_length):
+
+        # Create data package to hold baseline data
+        data_pkg = SwarmDataPackage.from_swarm( 
+            self.swarm, int_time=int_time, int_length=int_length
+        )
+        for qid, data_list in enumerate(data_group):
+            # order = full_order[qid]
+            order = list(self.xengines[qid].packet_order())
+
+            data_arr = frombuffer(
+                b''.join(
+                    [
+                        data_list[jdx][kdx]
+                        for idx in range(0, SWARM_VISIBS_N_PKTS, 4)
+                        for jdx in range(SWARM_N_FIDS)
+                        for kdx in range(idx, idx + 4)
+                    ]
+                ),
+            )
+            # Create two views for the data -- note that these have little
+            # overhead, since they are just modifying the stride on the array.
+            cross_data = data_arr.view("S8").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS // 2).T
+            auto_data = data_arr.view(">i4").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS).T
+
+            for idx, (word1, word2) in enumerate(zip(order[0::2], order[1::2])):
+                if (word1.baseline == word2.baseline) and (not word1.imag and word2.imag):
+                    if not (word1.is_valid() and word2.is_valid()):
+                        continue
+                    # Select out the relevant subarray here, to make this
+                    # operation as fast as possible.
+                    sb_i = SWARM_XENG_SIDEBANDS.index(word1.sideband)
+                    bl_i = data_pkg.baselines_i[word1.baseline]
+                    sub_arr = data_pkg.array[bl_i, sb_i]
+                    sub_arr.view('S8')[:] = cross_data[idx]
+                    sub_arr[:] = sub_arr.view('>i4')
+                elif word1.is_auto() and word2.is_auto():
+                    if word1.is_valid():
+                        data_pkg[word1.baseline, word1.sideband][::2] = auto_data[(2 * idx)]
+                    if word2.is_valid():
+                        data_pkg[word2.baseline, word2.sideband][::2] = auto_data[(2 * idx) + 1]
+
+        # Return the (hopefully) complete data packages
+        return data_pkg
+
     def order(self, stop, in_queue, out_queue):
+        # Initialize the data object we need up front, 
+        data_pkg = SwarmDataPackage.from_swarm(
+            self.swarm, int_time=int_time, int_length=int_length
+        )
 
         last_acc = []
         current_acc = None
@@ -421,7 +471,7 @@ class SwarmDataCatcher:
                 continue  # pass on exemption and move on
 
             # Otherwise, continue and parse message
-            qid, fid, acc_n, meta, datas = message
+            qid, fid, acc_n, meta, data_list = message
             this_length = meta['xnum'] * XNUM_TO_LENGTH
             this_time = meta['time']
 
@@ -433,6 +483,11 @@ class SwarmDataCatcher:
 
                 # Initiate the data buffer
                 data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
+                check_list = [
+                    (idx, jdx)
+                    for idx, quad in enumerate(self.swarm.quads)
+                    for jdx in range(quad.fids_expected)
+                ]
 
                 # Establish meta data for new scan
                 int_length = this_length
@@ -470,12 +525,22 @@ class SwarmDataCatcher:
                 out_queue.put(exception)
                 continue
 
+            # Check if the data has already been populated
+            try:
+                check_list.remove((qid, fid))
+            except ValueError:
+                self.logger.info(
+                    "Ignoring duplicate data from quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid)
+                )
+                continue  # ignore and move on
+
             # Populate this data
             try:
-                data[qid][fid] = datas
+                data[qid][fid] = data_list
             except IndexError:
                 self.logger.info(
-                    "Ignoring data from unexpected quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid))
+                    "Ignoring data from unexpected quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid)
+                )
                 continue  # ignore and move on
 
             # Get the member/fid this set is from
@@ -490,15 +555,13 @@ class SwarmDataCatcher:
             last_acc[qid][fid] = time()
 
             # If we've gotten all pkts for this acc_n from all QIDs & FIDs
-            if not has_none(data):
-
+            if not check_list:
                 # We have all data for this accumulation, log it
                 self.logger.info(
                     "Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
-
                     try:  # catch callback error
                         rawback(data)
                     except Exception as exception:  # and log if needed
