@@ -130,7 +130,7 @@ class SwarmDataPackage(object):
         self.array[:, :, 0::2] = nan
         self.array[:, :, 1::2] = 0.0
 
-    def set_data(self, xeng_word, data):
+    def set_data(self, xeng_word, fid, data):
 
         # Get info from the data word
         imag = xeng_word.imag
@@ -139,11 +139,12 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        self.get(baseline, sideband)[imag_off::2] = data
+        slice_ = compute_slice(fid, imag_off)
+        self.get(baseline, sideband)[slice_] = data
 
         # Special case for autos, fill imag with zeros
         if baseline.is_auto():
-            self.get(baseline, sideband)[1::2] = 0.0
+            self.get(baseline, sideband)[slice_ + 1] = 0.0
 
 
 @jit
