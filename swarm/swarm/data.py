@@ -12,7 +12,6 @@ from socket import (
 )
 
 from numpy import array, frombuffer, nan, frombuffer, empty, reshape
-from numba import jit
 from . import core
 from .defines import *
 from .xeng import (
@@ -104,15 +103,19 @@ class SwarmDataPackage(object):
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def __bytes__(self):
-        return b''.join(
-            [self.header] + [
-                subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
-                for arr in self.array for subarr in arr
-            ]
-        )
+        if self.byte_arr is None:
+            self.byte_arr = b''.join(
+                [self.header] + [
+                    subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
+                    for arr in self.array for subarr in arr
+                ]
+            )
+
+        return self.byte_arr
 
     def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
+        self.byte_arr = None
         self.header = pack(
             hdr_fmt,
             len(self.baselines),
@@ -122,11 +125,6 @@ class SwarmDataPackage(object):
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
         )
 
-    def update_header(self, int_time=None, int_length=None):
-        self.int_time = int_time
-        self.int_length = int_length
-        self.init_header()
-
     def init_data(self):
 
         # Initialize our data array
@@ -135,7 +133,7 @@ class SwarmDataPackage(object):
         self.array[:, :, 0::2] = nan
         self.array[:, :, 1::2] = 0.0
 
-    def set_data(self, xeng_word, fid, data):
+    def set_data(self, xeng_word, data):
 
         # Get info from the data word
         imag = xeng_word.imag
@@ -144,21 +142,7 @@ class SwarmDataPackage(object):
         sideband = xeng_word.sideband
 
         # Fill this baseline
-        slice_ = compute_slice(fid, imag_off)
-        self.get(baseline, sideband)[slice_] = data
-
-        # Special case for autos, fill imag with zeros
-        if baseline.is_auto():
-            self.get(baseline, sideband)[slice_ + 1] = 0.0
-
-
-@jit
-def compute_slice(fid, imag_off):
-    """
-    Moved this calculation into its own function in order to make use of numba's @jit feature.
-    We gain a %5 improvement from doing this.
-    """
-    return DATA_FID_IND + fid * SWARM_XENG_PARALLEL_CHAN * 4 + imag_off
+        self.get(baseline, sideband)[imag_off::2] = data
 
 
 class SwarmDataCallback(object):
@@ -380,82 +364,53 @@ class SwarmDataCatcher:
         inst = callback(self.swarm, *args, **kwargs)
         self.rawbacks.append(inst)
 
-    def _legacy_reorder_data(self, datas_list, int_time, int_length):
-        # This is the old method, left here for the sake of testing.
+    def _reorder_data(self, data_list, data_pkg, packet_order):
+        data_arr = frombuffer(
+            b''.join(
+                [
+                    data_list[jdx][kdx]
+                    for idx in range(0, SWARM_VISIBS_N_PKTS, 4)
+                    for jdx in range(SWARM_N_FIDS)
+                    for kdx in range(idx, idx + 4)
+                ]
+            ),
+        )
+        # Create two views for the data -- note that these have little
+        # overhead, since they are just modifying the stride on the array.
+        cross_data = data_arr.view("S8").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS // 2).T
+        auto_data = data_arr.view(">i4").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS).T
 
-        # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage.from_swarm(self.swarm, int_time=int_time, int_length=int_length)
+        for idx, (word1, word2) in enumerate(
+            zip(packet_order[0::2], packet_order[1::2])
+        ):
+            if (
+                (word1.baseline == word2.baseline)
+                and (word1.sideband == word2.sideband)
+                and (not word1.imag and word2.imag)
+            ):
+                if not (word1.is_valid() and word2.is_valid()):
+                    continue
+                # Select out the relevant subarray here, to make this
+                # operation as fast as possible.
+                sb_i = SWARM_XENG_SIDEBANDS.index(word1.sideband)
+                bl_i = data_pkg.baselines_i[word1.baseline]
+                sub_arr = data_pkg.array[bl_i, sb_i]
+                sub_arr.view('S8')[:] = cross_data[idx]
+                sub_arr[:] = sub_arr.view('>i4')
+            elif word1.is_auto() and word2.is_auto():
+                if word1.is_valid():
+                    data_pkg[word1.baseline, word1.sideband][::2] = auto_data[(2 * idx)]
+                if word2.is_valid():
+                    data_pkg[word2.baseline, word2.sideband][::2] = auto_data[(2 * idx) + 1]
+            else:
+                if word1.is_valid():
+                    data_pkg.set_data(word1, auto_data[(2 * idx)])
+                if word2.is_valid():
+                    data_pkg.set_data(word2, auto_data[(2 * idx) + 1])
 
-        for qid, quad in enumerate(self.swarm.quads):
-
-            # Get the xengine packet ordering
-            order = list(self.xengines[qid].packet_order())
-
-            # Unpack and reorder each FID's data
-            for fid, datas in enumerate(datas_list[qid]):
-
-                # Unpack this FID's data
-                data = frombuffer(b''.join(datas), dtype='>i4')
-
-                # Reorder by Xengine word (per channel)
-                for offset, word in enumerate(order):
-
-                    if word.baseline.is_valid():
-                        sub_data = data[offset::len(order)]
-                        data_pkg.set_data(word, fid, sub_data)
-
-        # Return the (hopefully) complete data packages
-        return data_pkg
-
-    def _reorder_data(self, data_group, data_pkg, packet_order):
-        for data_list, order in zip(data_group, packet_order):
-            data_arr = frombuffer(
-                b''.join(
-                    [
-                        data_list[jdx][kdx]
-                        for idx in range(0, SWARM_VISIBS_N_PKTS, 4)
-                        for jdx in range(SWARM_N_FIDS)
-                        for kdx in range(idx, idx + 4)
-                    ]
-                ),
-            )
-            # Create two views for the data -- note that these have little
-            # overhead, since they are just modifying the stride on the array.
-            cross_data = data_arr.view("S8").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS // 2).T
-            auto_data = data_arr.view(">i4").reshape(SWARM_CHANNELS, SWARM_VISIBS_N_PKTS).T
-
-            for idx, (word1, word2) in enumerate(zip(order[0::2], order[1::2])):
-                if (word1.baseline == word2.baseline) and (not word1.imag and word2.imag):
-                    if not (word1.is_valid() and word2.is_valid()):
-                        continue
-                    # Select out the relevant subarray here, to make this
-                    # operation as fast as possible.
-                    sb_i = SWARM_XENG_SIDEBANDS.index(word1.sideband)
-                    bl_i = data_pkg.baselines_i[word1.baseline]
-                    sub_arr = data_pkg.array[bl_i, sb_i]
-                    sub_arr.view('S8')[:] = cross_data[idx]
-                    sub_arr[:] = sub_arr.view('>i4')
-                elif word1.is_auto() and word2.is_auto():
-                    if word1.is_valid():
-                        data_pkg[word1.baseline, word1.sideband][::2] = auto_data[(2 * idx)]
-                    if word2.is_valid():
-                        data_pkg[word2.baseline, word2.sideband][::2] = auto_data[(2 * idx) + 1]
-                else:
-                    self.logger.info(
-                        "Something is wrong with data ordering, defaulting to "
-                        "legacy methods (which will slow data accumulations)."
-                    )
-                    return self._legacy_reorder_data(
-                        data_group, data_pkg.int_time, data_pkg.int_length
-                    )
-
-        # Return the (hopefully) complete data packages
         return data_pkg
 
     def order(self, stop, in_queue, out_queue):
-        # Initialize the data object we need up front.
-        data_pkg = SwarmDataPackage.from_swarm(self.swarm)
-
         # Also grab packet ordering, since it should remain static while
         # collection thread is running.
         packet_order = list(
@@ -487,21 +442,27 @@ class SwarmDataCatcher:
 
             # Check if we've started a new scan
             if current_acc is None:
-
                 self.logger.info("First data of accumulation #{0} received".format(acc_n))
                 current_acc = acc_n
 
                 # Initiate the data buffer
-                data = list(list(None for fid in range(quad.fids_expected)) for quad in self.swarm.quads)
-                check_list = [
-                    (idx, jdx)
-                    for idx, quad in enumerate(self.swarm.quads)
-                    for jdx in range(quad.fids_expected)
-                ]
+                data = list(
+                    [None] * quad.fids_expected for quad in self.swarm.quads
+                )
+
+                check_dict = {
+                    qid: list(range(quad.fids_expected))
+                    for qid, quad in enumerate(self.swarm.quads)
+                }
 
                 # Establish meta data for new scan
                 int_length = this_length
                 int_time = this_time
+
+                # Initialize the data object to plug things into.
+                data_pkg = SwarmDataPackage.from_swarm(
+                    self.swarm, int_time=int_time, int_length=int_length
+                )
 
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
@@ -537,8 +498,13 @@ class SwarmDataCatcher:
 
             # Check if the data has already been populated
             try:
-                check_list.remove((qid, fid))
+                check_dict[qid].remove(fid)
             except ValueError:
+                self.logger.info(
+                    "Ignoring duplicate data from quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid)
+                )
+                continue  # ignore and move on
+            except KeyError:
                 self.logger.info(
                     "Ignoring duplicate data from quadrant (qid #{}) or F-engine (fid #{})".format(qid, fid)
                 )
@@ -559,16 +525,32 @@ class SwarmDataCatcher:
             # Log the fact
             suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
             self.logger.debug(
-                "Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix))
+                "Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix)
+            )
 
             # Set the last acc time
             last_acc[qid][fid] = time()
 
+            # If a list inside of check_dict is empty, that means that we have a full
+            # accumulation of a quadrant, and can proceed with reordering.
+            if not check_dict[qid]:
+                if len(check_dict) == len(data):
+                    self.logger.info(
+                        "Beginning reordering of data for accumulation #{0}".format(acc_n)
+                    )
+
+                # Reorder the xengine data, plug it into the data_pkg
+                data_pkg = self._reorder_data(data[qid], data_pkg, packet_order[qid])
+                del check_dict[qid]
+                self.logger.debug(
+                    "Reorderded full accumulation #{:<4} from qid #{}".format(acc_n, qid)
+                )
+
             # If we've gotten all pkts for this acc_n from all QIDs & FIDs
-            if not check_list:
+            if not check_dict:
                 # We have all data for this accumulation, log it
                 self.logger.info(
-                    "Received full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
+                    "Received and reordered full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
@@ -581,13 +563,6 @@ class SwarmDataCatcher:
 
                 # Log that we're done with rawbacks
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
-
-                # Update the existing package w/ header information
-                data_pkg.update_header(int_time=int_time, int_length=int_length)
-
-                # Reorder the xengine data, plug it into the data_pkg
-                data_pkg = self._reorder_data(data, data_pkg, packet_order)
-                self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
                 # Put data onto queue
                 out_queue.put((acc_n, int_time, data_pkg))
