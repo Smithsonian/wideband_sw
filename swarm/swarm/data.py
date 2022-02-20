@@ -431,7 +431,7 @@ class SwarmDataCatcher:
             try:
                 message = in_queue.get_nowait()
             except Empty:
-                sleep(0.01)
+                sleep(0.001)
                 continue
 
             # Check if we received an exception
@@ -552,7 +552,8 @@ class SwarmDataCatcher:
             if not check_dict:
                 # We have all data for this accumulation, log it
                 self.logger.info(
-                    "Received and reordered full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length))
+                    "Received and reordered full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length)
+                )
 
                 # Do user rawbacks first
                 for rawback in self.rawbacks:
@@ -568,6 +569,10 @@ class SwarmDataCatcher:
 
                 # Put data onto queue
                 out_queue.put((acc_n, int_time, bytes(data_pkg)))
+
+                self.logger.debug(
+                    "Full accumulation #{:<4} queued for callbacks".format(acc_n)
+                )
 
                 # Done with this accumulation
                 current_acc = None
