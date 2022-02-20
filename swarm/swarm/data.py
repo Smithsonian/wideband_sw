@@ -122,6 +122,11 @@ class SwarmDataPackage(object):
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
         )
 
+    def update_header(self, int_time=None, int_length=None):
+        self.int_time = int_time
+        self.int_length = int_length
+        self.init_header()
+
     def init_data(self):
 
         # Initialize our data array
@@ -402,16 +407,8 @@ class SwarmDataCatcher:
         # Return the (hopefully) complete data packages
         return data_pkg
 
-    def _reorder_data(self, data_group, int_time, int_length):
-
-        # Create data package to hold baseline data
-        data_pkg = SwarmDataPackage.from_swarm( 
-            self.swarm, int_time=int_time, int_length=int_length
-        )
-        for qid, data_list in enumerate(data_group):
-            # order = full_order[qid]
-            order = list(self.xengines[qid].packet_order())
-
+    def _reorder_data(self, data_group, data_pkg, packet_order):
+        for data_list, order in zip(data_group, packet_order):
             data_arr = frombuffer(
                 b''.join(
                     [
@@ -443,14 +440,26 @@ class SwarmDataCatcher:
                         data_pkg[word1.baseline, word1.sideband][::2] = auto_data[(2 * idx)]
                     if word2.is_valid():
                         data_pkg[word2.baseline, word2.sideband][::2] = auto_data[(2 * idx) + 1]
+                else:
+                    self.logger.info(
+                        "Something is wrong with data ordering, defaulting to "
+                        "legacy methods (which will slow data accumulations)."
+                    )
+                    return self._legacy_reorder_data(
+                        data_group, data_pkg.int_time, data_pkg.int_length
+                    )
 
         # Return the (hopefully) complete data packages
         return data_pkg
 
     def order(self, stop, in_queue, out_queue):
-        # Initialize the data object we need up front, 
-        data_pkg = SwarmDataPackage.from_swarm(
-            self.swarm, int_time=int_time, int_length=int_length
+        # Initialize the data object we need up front.
+        data_pkg = SwarmDataPackage.from_swarm(self.swarm)
+
+        # Also grab packet ordering, since it should remain static while
+        # collection thread is running.
+        packet_order = list(
+            list(xengine.packet_order()) for xengine in self.xengines
         )
 
         last_acc = []
@@ -573,8 +582,11 @@ class SwarmDataCatcher:
                 # Log that we're done with rawbacks
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
-                # Reorder the xengine data
-                data_pkg = self._reorder_data(data, int_time, int_length)
+                # Update the existing package w/ header information
+                data_pkg.update_header(int_time=int_time, int_length=int_length)
+
+                # Reorder the xengine data, plug it into the data_pkg
+                data_pkg = self._reorder_data(data, data_pkg, packet_order)
                 self.logger.info("Reordered accumulation #{:<4}".format(acc_n))
 
                 # Put data onto queue
