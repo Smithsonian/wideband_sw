@@ -103,19 +103,15 @@ class SwarmDataPackage(object):
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def __bytes__(self):
-        if self.byte_arr is None:
-            self.byte_arr = b''.join(
-                [self.header] + [
-                    subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
-                    for arr in self.array for subarr in arr
-                ]
-            )
-
-        return self.byte_arr
+        return b''.join(
+            [self.header] + [
+                subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
+                for arr in self.array for subarr in arr
+            ]
+        )
 
     def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
-        self.byte_arr = None
         self.header = pack(
             hdr_fmt,
             len(self.baselines),
@@ -124,6 +120,11 @@ class SwarmDataPackage(object):
             self.int_time, self.int_length,
             *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
         )
+
+    def update_header(self, int_time=None, int_length=None):
+        self.int_time = int_time
+        self.int_length = int_length
+        self.init_header()
 
     def init_data(self):
 
@@ -411,6 +412,9 @@ class SwarmDataCatcher:
         return data_pkg
 
     def order(self, stop, in_queue, out_queue):
+        # Initialize the data object to plug things into.
+        data_pkg = SwarmDataPackage.from_swarm(self.swarm)
+
         # Also grab packet ordering, since it should remain static while
         # collection thread is running.
         packet_order = list(
@@ -459,10 +463,8 @@ class SwarmDataCatcher:
                 int_length = this_length
                 int_time = this_time
 
-                # Initialize the data object to plug things into.
-                data_pkg = SwarmDataPackage.from_swarm(
-                    self.swarm, int_time=int_time, int_length=int_length
-                )
+                # Update the existing package w/ header information
+                data_pkg.update_header(int_time=int_time, int_length=int_length)
 
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
@@ -565,7 +567,7 @@ class SwarmDataCatcher:
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Put data onto queue
-                out_queue.put((acc_n, int_time, data_pkg))
+                out_queue.put((acc_n, int_time, bytes(data_pkg)))
 
                 # Done with this accumulation
                 current_acc = None
@@ -651,12 +653,12 @@ class SwarmDataHandler:
                 raise message
 
             # Otherwise, continue and parse message
-            acc_n, int_time, data = message
+            acc_n, int_time, data_bytes = message
 
             # Finally, do user callbacks
             for callback in self.callbacks:
                 try:  # catch callback error
-                    callback(data)
+                    callback(data_bytes)
                 except:  # and log if needed
                     self.logger.error("Exception from callback: {}".format(callback))
                     raise
