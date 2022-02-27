@@ -11,7 +11,9 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
 )
 
-from numpy import array, frombuffer, nan, frombuffer, empty, reshape
+from numpy import array, frombuffer, full, empty, nan, reshape, vstack, zeros
+from numba import njit, prange
+
 from . import core
 from .defines import *
 from .xeng import (
@@ -103,12 +105,7 @@ class SwarmDataPackage(object):
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def __bytes__(self):
-        return b''.join(
-            [self.header] + [
-                subarr.view('S%i' % (SWARM_CHANNELS * 4 * 2))
-                for arr in self.array for subarr in arr
-            ]
-        )
+        return b''.join([self.header, self.array.data])
 
     def init_header(self):
         hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
@@ -203,6 +200,31 @@ def determine_xnum(xnum_mb, xnum_lh):
 #@jit
 def determine_acc_n(acc_n_mb, acc_n_lh):
     return (acc_n_mb << 16) | acc_n_lh
+
+
+def reorder_packets(data_list):
+    return vstack(
+        [
+            frombuffer(packet_data, dtype='>i4')
+            for idx in range(0, SWARM_VISIBS_N_PKTS, 4)
+            for sub_list in data_list
+            for packet_data in sub_list[idx: idx + 4]
+        ]
+    )
+
+
+@njit(parallel=True)
+def fast_sort_data(data_arr, ordered_packets, order_array):
+    for idx in prange(SWARM_VISIBS_N_PKTS * SWARM_N_FIDS):
+        packet_data = ordered_packets[idx]
+        for jdx in range(SWARM_VISIBS_N_PKTS):
+            pos_idx = order_array[jdx]
+            if pos_idx < 0:
+                continue
+            sub_data = data_arr[pos_idx >> 1]
+            chan_idx = (idx << 3) + (pos_idx & 0x1)
+            sub_data[chan_idx:chan_idx + 8:2] = packet_data[(jdx & 0x1ff):2048:512]
+    return data_arr
 
 
 class SwarmDataCatcher:
@@ -365,7 +387,11 @@ class SwarmDataCatcher:
         inst = callback(self.swarm, *args, **kwargs)
         self.rawbacks.append(inst)
 
+    def _sort_data(self, data_array, packet_list, data_order):
+        return fast_sort_data(data_array, reorder_packets(packet_list), data_order)
+
     def _reorder_data(self, data_list, data_pkg, packet_order):
+        # Note this is the old method, kept here for testing purposes.
         data_arr = frombuffer(
             b''.join(
                 [
@@ -425,6 +451,23 @@ class SwarmDataCatcher:
         current_acc = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
+
+        # Create a view into the data array that we can poke at.
+        data_array = data_pkg.array.reshape(-1, SWARM_CHANNELS * 2)
+
+        # Figure out what baseline order the packetized data contain, where -1
+        # means that the position does not match a position in data_array
+        data_order = full((len(packet_order), SWARM_VISIBS_N_PKTS), -1)
+
+        for idx, packet_list in enumerate(packet_order):
+            for jdx, word in enumerate(packet_list):
+                if word.is_valid():
+                     data_order[idx, jdx] = (
+                         (SWARM_XENG_SIDEBANDS.index(word.sideband) << 1)
+                         + (data_pkg.baselines_i[word.baseline] << 2)
+                         + word.imag
+                     )
+
 
         while not stop.is_set():
             # Receive a set of data
@@ -542,7 +585,9 @@ class SwarmDataCatcher:
                     )
 
                 # Reorder the xengine data, plug it into the data_pkg
-                data_pkg = self._reorder_data(data[qid], data_pkg, packet_order[qid])
+                # data_pkg = self._reorder_data(data[qid], data_pkg, packet_order[qid])
+                data_array = self._sort_data(data_array, data[qid], data_order[qid])
+
                 del check_dict[qid]
                 self.logger.debug(
                     "Reorderded full accumulation #{:<4} from qid #{}".format(acc_n, qid)
