@@ -177,7 +177,6 @@ class SwarmListener(object):
         s.close()
 
 
-@njit()
 def unpack_ip(addr):
     # Parse the IP address
     return unpack('BBBB', inet_aton(addr))
@@ -331,7 +330,6 @@ class SwarmDataCatcher:
             # Receive a packet and get host info
             try:
                 datar, addr = udp_sock.recvfrom(SWARM_VISIBS_PKT_SIZE)
-                pkt_time = time()  # packet arrival time
             except timeout:
                 continue
 
@@ -366,10 +364,10 @@ class SwarmDataCatcher:
 
             # First packet of new accumulation, initalize data buffers
             if acc_n not in data[qid][fid]:
-                data[qid][fid][acc_n] = list(None for y in range(SWARM_VISIBS_N_PKTS))
-                mask[qid][fid][acc_n] = int(0)
+                data[qid][fid][acc_n] = [None] * SWARM_VISIBS_N_PKTS
+                mask[qid][fid][acc_n] = 0
                 meta[qid][fid][acc_n] = {
-                    'time': pkt_time,  # these values correspond to those
+                    'time': time(),  # these values correspond to those
                     'xnum': xnum,  # of the first packet of this acc
                 }
 
@@ -574,15 +572,16 @@ class SwarmDataCatcher:
 
             # Get the member/fid this set is from
             member = self.swarm[qid][fid]
+            time_stamp = time()
 
             # Log the fact
-            suffix = "({:.4f} secs since last)".format(time() - last_acc[qid][fid]) if last_acc[qid][fid] else ""
+            suffix = "({:.4f} secs since last)".format(time_stamp - last_acc[qid][fid]) if last_acc[qid][fid] else ""
             self.logger.debug(
                 "Received full accumulation #{:<4} from qid #{}: {} {}".format(acc_n, qid, member, suffix)
             )
 
             # Set the last acc time
-            last_acc[qid][fid] = time()
+            last_acc[qid][fid] = time_stamp
 
             # If a list inside of check_dict is empty, that means that we have a full
             # accumulation of a quadrant, and can proceed with reordering.
