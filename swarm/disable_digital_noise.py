@@ -2,7 +2,7 @@
 import logging
 import sys
 
-#import pyopmess
+import pyopmess
 from swarm import Swarm
 from swarm.defines import query_yes_no
 
@@ -19,4 +19,4 @@ logger.addHandler(stdout)
 if query_yes_no("Proceed to disable internal digital noise on active swarm quadrants?"):
     swarm = Swarm()
     swarm.members_do(lambda fid, member: member.set_source(2, 2))
-    #pyopmess.send(1, 1, 100, "SWARM internal digital noise disabled")
+    pyopmess.send(1, 1, 100, "SWARM internal digital noise disabled")

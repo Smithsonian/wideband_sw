@@ -16,7 +16,7 @@ from signal import (
     SIGURG,
     SIGCONT,
     )
-#import pyopmess
+import pyopmess
 
 from swarm.core import ExceptingThread
 from swarm.defines import *
