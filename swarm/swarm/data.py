@@ -334,46 +334,44 @@ class SwarmDataCatcher:
                 continue
 
             # Parse the IP address
-            ip = unpack_ip(addr[0])
+            ip_host_addr = unpack('BBBB', inet_aton(addr[0]))[3]
 
             # Determine the QID
-            qid = determine_qid(ip[3])
+            qid = (ip_host_addr >> 4) & 0x7
 
-            # Determine the FID
-            fid = determine_fid(ip[3])
+            # Determine the FID / ROACH2
+            fid = ip_host_addr & 0x7
 
             # Unpack it to get packet #, accum #, and scan length
-            pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(SWARM_VISIBS_HEADER_FMT,
-                                                                 datar[:SWARM_VISIBS_HEADER_SIZE])
-            xnum = determine_xnum(xnum_mb, xnum_lh)
-            acc_n = determine_acc_n(acc_n_mb, acc_n_lh)
+            pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(
+                SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE]
+            )
+            xnum = ((xnum_mb << 16) | xnum_lh) << 5
+            acc_n = (acc_n_mb << 16) | acc_n_lh
 
-            # self.logger.debug("Caught packet %d from qid: %d fid: %d acc_n: %d" % (pkt_n, qid, fid, acc_n))
+            try:
+                # Then store data in it
+                data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
+                mask[qid][fid][acc_n] |= (1 << pkt_n)
+            except KeyError:
+                # Initialize qid data buffer, if necessary
+                if qid not in data:
+                    data[qid] = {fid: {}}
+                    mask[qid] = {fid: {}}
+                    meta[qid] = {fid: {}}
+                elif fid not in data[qid]:
+                    data[qid][fid] = {}
+                    mask[qid][fid] = {}
+                    meta[qid][fid] = {}
 
-            # Initialize qid data buffer, if necessary
-            if qid not in data:
-                data[qid] = {}
-                mask[qid] = {}
-                meta[qid] = {}
-
-            # Initialize fid data buffer, if necessary
-            if fid not in data[qid]:
-                data[qid][fid] = {}
-                mask[qid][fid] = {}
-                meta[qid][fid] = {}
-
-            # First packet of new accumulation, initalize data buffers
-            if acc_n not in data[qid][fid]:
+                # First packet of new accumulation, initalize data buffers
                 data[qid][fid][acc_n] = [None] * SWARM_VISIBS_N_PKTS
-                mask[qid][fid][acc_n] = 0
+                data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
+                mask[qid][fid][acc_n] = (1 << pkt_n)
                 meta[qid][fid][acc_n] = {
                     'time': time(),  # these values correspond to those
                     'xnum': xnum,  # of the first packet of this acc
                 }
-
-            # Then store data in it
-            data[qid][fid][acc_n][pkt_n] = datar[SWARM_VISIBS_HEADER_SIZE:]
-            mask[qid][fid][acc_n] |= (1 << pkt_n)
 
             # If we've gotten all pkts for this acc_n from this FID
             if mask[qid][fid][acc_n] == SWARM_VISIBS_TOTAL:
