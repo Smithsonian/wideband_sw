@@ -232,7 +232,7 @@ def fast_sort_data(data_arr, ordered_packets, order_array):
                 continue
             sub_data = data_arr[pos_idx >> 1]
             chan_idx = (idx << 3) + (pos_idx & 0x1)
-            sub_data[chan_idx:chan_idx + 8:2] = packet_data[(jdx & 0x1ff):2048:512]
+            sub_data[chan_idx:chan_idx + 8:2] = packet_data[jdx:SWARM_VISIBS_CHANNELS:SWARM_VISIBS_N_PKTS]
     return data_arr
 
 
@@ -346,6 +346,7 @@ class SwarmDataCatcher:
             pkt_n, acc_n_mb, acc_n_lh, xnum_mb, xnum_lh = unpack(
                 SWARM_VISIBS_HEADER_FMT, datar[:SWARM_VISIBS_HEADER_SIZE]
             )
+
             xnum = ((xnum_mb << 16) | xnum_lh) << 5
             acc_n = (acc_n_mb << 16) | acc_n_lh
 
