@@ -42,7 +42,7 @@ from swarm import (
 )
 from swarm.data import SwarmDataPackage
 from .json_file import JSONListFile
-from redis import StrictRedis
+from redis import Redis
 
 TODAY = datetime.utcnow()
 CALFILE = TODAY.strftime('/global/logs/vlbi_cal/vlbi_cal.%j-%Y.json')
@@ -110,7 +110,7 @@ class CalibrateVLBI(SwarmDataCallback):
                         self.reference[sb] = beam_per_quad[sb][0]
         else:
             self.reference = dict(list(zip(SWARM_BENGINE_SIDEBANDS,[reference]*len(SWARM_BENGINE_SIDEBANDS))))
-        self.redis = StrictRedis(host='localhost', port=6379)
+        self.redis = Redis(host='localhost', port=6379)
         super(CalibrateVLBI, self).__init__(swarm)
         self.skip_next = len(SWARM_BENGINE_SIDEBANDS)*[zeros(2, dtype=bool)]
         self.history_size = history_size

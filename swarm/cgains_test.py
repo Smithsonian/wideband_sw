@@ -9,7 +9,7 @@ from multiprocessing.pool import ThreadPool
 from signal import signal, SIGQUIT, SIGTERM, SIGINT
 
 from numpy import uint16
-from redis import StrictRedis
+from redis import Redis
 from time import sleep
 from swarm import Swarm
 from swarm.defines import SWARM_CHANNELS, SWARM_CGAIN_GAIN, SMAINIT_QUIT_RTN, ACTIVE_QUADRANTS_FILE_PATH, \
@@ -129,7 +129,7 @@ def update_cgain_smax(cgain_updates):
 
     :param cgain_updates: NamedTuple "CgainUpdate" to hold the attributes received from the redis message.
     """
-    redis_client = StrictRedis(host=smax_host, port=smax_port, db=0)
+    redis_client = Redis(host=smax_host, port=smax_port, db=0)
     setSHA = redis_client.hget('scripts', 'HSetWithMeta')
 
     for cgain in cgain_updates:
@@ -188,7 +188,7 @@ def parse_cgains_line(line):
 
 
 # Create the redis client and subscribe to the cgains-update channel on a separate thread.
-redis_server = StrictRedis(host='localhost', port=6379, db=0)
+redis_server = Redis(host='localhost', port=6379, db=0)
 redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
 redis_pubsub.subscribe("cgains-update")
 logging.info("Subscribed to cgains-update channel")

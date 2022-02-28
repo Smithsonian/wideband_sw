@@ -1,5 +1,5 @@
 from signal import SIGQUIT
-from redis import StrictRedis
+from redis import Redis
 import sys
 
 SWARM_IDLE_BITCODE = 'idle.bof'
@@ -22,7 +22,7 @@ def get_swarm_mappings():
     mappings = []
     base_path = "/global/configFiles/swarmMapping.quad"
     vlbi_path = ""
-    redis_client = StrictRedis(host='localhost', port=6379)
+    redis_client = Redis(host='localhost', port=6379)
     vlbi_status = redis_client.get("vlbi")
     if vlbi_status == "4to8":
         vlbi_path = ".vlbi4-8"

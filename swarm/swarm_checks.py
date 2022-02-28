@@ -1,6 +1,6 @@
 import time, sys, logging, logging.handlers, argparse
 from signal import signal, SIGQUIT, SIGTERM, SIGINT
-from redis import StrictRedis, ConnectionError
+from redis import Redis, ConnectionError
 from threading import Event
 from swarm import *
 import pyopmess
@@ -64,7 +64,7 @@ swarm = Swarm(map_filenames=args.swarm_mappings)
 reg_fmt = 'network_eth_{0}_{1}_pkt_cnt'
 
 # Create our Redis client instance
-redis = StrictRedis(args.redis_host, args.redis_port)
+redis = Redis(args.redis_host, args.redis_port)
 key_fmt = 'swarm.monitor.corner-turn.{3}.qid{0}.fid{1}.core{2}'
 
 # Loop continously
