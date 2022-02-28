@@ -203,14 +203,21 @@ def determine_acc_n(acc_n_mb, acc_n_lh):
 
 
 def reorder_packets(data_list):
-    return vstack(
-        [
-            frombuffer(packet_data, dtype='>i4')
-            for idx in range(0, SWARM_VISIBS_N_PKTS, 4)
-            for sub_list in data_list
-            for packet_data in sub_list[idx: idx + 4]
-        ]
+    data_arr = empty(
+        (SWARM_VISIBS_N_PKTS * SWARM_N_FIDS, SWARM_VISIBS_CHANNELS), dtype='i4'
     )
+    for idx in range(SWARM_VISIBS_N_PKTS >> 2):
+        for jdx in range(8):
+            sub_list = data_list[jdx]
+            pos_idx = (idx << 5) + (jdx << 2)
+            pkt_idx = (idx << 2)
+
+            data_arr[pos_idx] = frombuffer(sub_list[pkt_idx], dtype='>i4')
+            data_arr[pos_idx + 1] = frombuffer(sub_list[pkt_idx + 1], dtype='>i4')
+            data_arr[pos_idx + 2] = frombuffer(sub_list[pkt_idx + 2], dtype='>i4')
+            data_arr[pos_idx + 3] = frombuffer(sub_list[pkt_idx + 3], dtype='>i4')
+
+    return data_arr
 
 
 @njit(parallel=True)
@@ -440,7 +447,7 @@ class SwarmDataCatcher:
     def order(self, stop, in_queue, out_queue):
         # Initialize the data object to plug things into.
         data_pkg = SwarmDataPackage.from_swarm(self.swarm)
-
+        header_size = len(data_pkg.header)
         # Also grab packet ordering, since it should remain static while
         # collection thread is running.
         packet_order = list(
@@ -451,9 +458,6 @@ class SwarmDataCatcher:
         current_acc = None
         for quad in self.swarm.quads:
             last_acc.append(list(None for fid in range(quad.fids_expected)))
-
-        # Create a view into the data array that we can poke at.
-        data_array = data_pkg.array.reshape(-1, SWARM_CHANNELS * 2)
 
         # Figure out what baseline order the packetized data contain, where -1
         # means that the position does not match a position in data_array
@@ -492,22 +496,30 @@ class SwarmDataCatcher:
                 self.logger.info("First data of accumulation #{0} received".format(acc_n))
                 current_acc = acc_n
 
-                # Initiate the data buffer
-                data = list(
-                    [None] * quad.fids_expected for quad in self.swarm.quads
-                )
+                # Establish meta data for new scan
+                int_length = this_length
+                int_time = this_time
 
+                # Create a dict for checking what needs to be caught
                 check_dict = {
                     qid: list(range(quad.fids_expected))
                     for qid, quad in enumerate(self.swarm.quads)
                 }
 
-                # Establish meta data for new scan
-                int_length = this_length
-                int_time = this_time
-
                 # Update the existing package w/ header information
                 data_pkg.update_header(int_time=int_time, int_length=int_length)
+
+                # Initiate the data buffers
+                data = list(
+                    [None] * quad.fids_expected for quad in self.swarm.quads
+                )
+
+                # And create a continuous array to pass back to other data handlers
+                data_bytes = zeros(header_size + data_pkg.array.nbytes, dtype='B')
+                data_bytes[:header_size] = frombuffer(data_pkg.header, dtype='B')
+                data_array = data_bytes[header_size:].view('<f4').reshape(
+                    -1, SWARM_CHANNELS*2
+                )
 
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
@@ -613,7 +625,7 @@ class SwarmDataCatcher:
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Put data onto queue
-                out_queue.put((acc_n, int_time, bytes(data_pkg)))
+                out_queue.put((acc_n, int_time, data_bytes.data.cast("B")))
 
                 self.logger.debug(
                     "Full accumulation #{:<4} queued for callbacks".format(acc_n)
