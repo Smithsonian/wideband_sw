@@ -4,7 +4,7 @@ import logging
 from collections import OrderedDict
 import sys, time
 
-#import pyopmess
+import pyopmess
 from swarm import Swarm
 from swarm.defines import query_yes_no, SWARM_MAPPING_CHUNKS, SWARM_MAPPINGS
 
@@ -40,13 +40,13 @@ if idle_quad_mappings and query_yes_no("Proceed to load bitcode and reload plugi
 
     # Instantiate a Swarm object using the disabled quadrant mappings.
     swarm = Swarm(mappings_dict=idle_quad_mappings)
-    #pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " loading bitcode")
+    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " loading bitcode")
     swarm.members_do(lambda fid, mbr: mbr.load_bitcode())
     swarm.members_do(lambda fid, mbr: mbr.set_source(2, 2))
     swarm.members_do(lambda fid, mbr: mbr.reload_plugins())
     time.sleep(120)
 
-    #pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being reloading plugins")
+    pyopmess.send(1, 1, 100, "SWARM quadrant(s) " + idle_quad_string + " now being reloading plugins")
     swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
     for  fid, member in swarm.get_valid_members():
          print(fid)

@@ -1,6 +1,6 @@
 #!/usr/local/anaconda/envs/swarm/bin/python
 from collections import OrderedDict
-#import pyopmess
+import pyopmess
 import logging
 import sys
 from swarm import Swarm
