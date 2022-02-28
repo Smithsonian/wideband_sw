@@ -43,7 +43,7 @@ RUNNING = Event()
 class RedisHandler(logging.Handler):
 
     def __init__(self, channel, host='localhost', port=6379):
-        self.redis = StrictRedis(host=host, port=port)
+        self.redis = Redis(host=host, port=port)
         self.channel = channel
         super(RedisHandler, self).__init__()
 

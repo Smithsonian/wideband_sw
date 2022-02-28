@@ -6,7 +6,7 @@ from threading import Event
 from queue import Queue, Empty
 from collections import OrderedDict
 from traceback import format_exception
-from redis import StrictRedis, ConnectionError
+from redis import Redis, ConnectionError
 from signal import (
     signal,
     SIGQUIT,

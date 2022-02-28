@@ -79,8 +79,8 @@ class SwarmDataPackage(object):
         # Create an instance, populate header & data, and return it
         data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS * 2)
         inst = cls(baselines, int_time, int_length)
-        inst.header = bytearr[:header_size]
-        inst.array = frombuffer(bytearr[header_size:], dtype='<f4').reshape(data_shape)
+        inst.header = bytes(bytearr[:header_size])
+        inst.array = frombuffer(bytearr[header_size:], dtype='<f4').reshape(data_shape).copy()
         return inst
 
     def __getitem__(self, item):

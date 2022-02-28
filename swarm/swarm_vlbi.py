@@ -5,7 +5,7 @@ import sys
 import subprocess
 import pyopmess
 from swarm.defines import query_yes_no
-from redis import StrictRedis
+from redis import Redis
 
 # Setup root logger
 logger = logging.getLogger()
@@ -32,7 +32,7 @@ parser.add_argument('-c', '--calibrate-vlbi', dest='calibrate_vlbi', choices=['l
 
 args = parser.parse_args()
 
-redis_client = StrictRedis(host='localhost', port=6379)
+redis_client = Redis(host='localhost', port=6379)
 
 # Print out choices and ask to proceed.
 print(("The following will be set:\n mode={}, reference={}, calibrate-vlbi={}".format(
@@ -40,7 +40,7 @@ print(("The following will be set:\n mode={}, reference={}, calibrate-vlbi={}".f
 
 if query_yes_no("Continue to set values in redis and restart swarm_ctrl?"):
 
-    redis_client = StrictRedis(host='localhost', port=6379)
+    redis_client = Redis(host='localhost', port=6379)
     redis_client.set("vlbi", args.mode)
     redis_client.set("reference", args.reference)
     redis_client.set("calibrate", args.calibrate_vlbi)

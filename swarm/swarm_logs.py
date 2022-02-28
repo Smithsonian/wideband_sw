@@ -1,6 +1,6 @@
 import time, sys, pickle, logging, logging.handlers, argparse
 from signal import signal, SIGQUIT, SIGTERM, SIGINT
-from redis import StrictRedis, ConnectionError
+from redis import Redis, ConnectionError
 from threading import Event
 from swarm.defines import *
 
@@ -52,7 +52,7 @@ else:
     stdout.setLevel(logging.INFO)
 
 # Create our Redis client instance
-redis = StrictRedis(args.redis_host, args.redis_port)
+redis = Redis(args.redis_host, args.redis_port)
 
 # Exit signal handler
 def quit_handler(signum, frame):
