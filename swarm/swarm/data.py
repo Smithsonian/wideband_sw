@@ -13,6 +13,7 @@ from socket import (
 
 from numpy import array, frombuffer, full, empty, nan, reshape, vstack, zeros
 from numba import njit, prange
+from numba import config as nbconfig
 
 from . import core
 from .defines import *
@@ -22,6 +23,8 @@ from .xeng import (
     )
 
 import pydsm
+
+nbconfig.THREADING_LAYER = 'safe'
 
 SIOCGIFADDR = 0x8915
 SIOCSIFHWADDR = 0x8927
@@ -174,30 +177,30 @@ class SwarmListener(object):
         s.close()
 
 
-#@jit
+@njit()
 def unpack_ip(addr):
     # Parse the IP address
     return unpack('BBBB', inet_aton(addr))
 
 
-#@jit
+@njit()
 def determine_qid(ip):
     # Determine the QID
     return (ip >> 4) & 0x7
 
 
-#@jit
+@njit()
 def determine_fid(ip):
     # Determine the FID
     return ip & 0x7
 
 
-#@jit
+@njit()
 def determine_xnum(xnum_mb, xnum_lh):
     return ((xnum_mb << 16) | xnum_lh) << 5
 
 
-#@jit
+@njit()
 def determine_acc_n(acc_n_mb, acc_n_lh):
     return (acc_n_mb << 16) | acc_n_lh
 
@@ -514,13 +517,6 @@ class SwarmDataCatcher:
                     [None] * quad.fids_expected for quad in self.swarm.quads
                 )
 
-                # And create a continuous array to pass back to other data handlers
-                data_bytes = zeros(header_size + data_pkg.array.nbytes, dtype='B')
-                data_bytes[:header_size] = frombuffer(data_pkg.header, dtype='B')
-                data_array = data_bytes[header_size:].view('<f4').reshape(
-                    -1, SWARM_CHANNELS*2
-                )
-
             elif current_acc != acc_n:  # not done with scan but scan #'s don't match
                 err_msg = "Haven't finished acc. #{0} but received data for acc #{1} from qid={2}, fid={3}".format(
                     current_acc, acc_n, qid, fid)
@@ -591,25 +587,36 @@ class SwarmDataCatcher:
             # If a list inside of check_dict is empty, that means that we have a full
             # accumulation of a quadrant, and can proceed with reordering.
             if not check_dict[qid]:
-                if len(check_dict) == len(data):
-                    self.logger.info(
-                        "Beginning reordering of data for accumulation #{0}".format(acc_n)
-                    )
-
-                # Reorder the xengine data, plug it into the data_pkg
-                # data_pkg = self._reorder_data(data[qid], data_pkg, packet_order[qid])
-                data_array = self._sort_data(data_array, data[qid], data_order[qid])
-
                 del check_dict[qid]
-                self.logger.debug(
-                    "Reorderded full accumulation #{:<4} from qid #{}".format(acc_n, qid)
-                )
 
             # If we've gotten all pkts for this acc_n from all QIDs & FIDs
             if not check_dict:
+                self.logger.info(
+                    "Beginning reordering of data for accumulation #{:<4}".format(acc_n)
+                )
+
+                # Create a continuous array to pass back to other data handlers
+                data_bytes = zeros(header_size + data_pkg.array.nbytes, dtype='B')
+                data_bytes[:header_size] = frombuffer(data_pkg.header, dtype='B')
+                data_array = data_bytes[header_size:].view('<f4').reshape(
+                    -1, SWARM_CHANNELS*2
+                )
+
+                for idx in range(len(self.swarm.quads)):
+                    self.logger.debug(
+                        "Beginning reordering of data for accumulation #{:<4} from qid #{}".format(acc_n, idx)
+                    )
+
+                    # Reorder the xengine data, plug it into the data_pkg
+                    # data_pkg = self._reorder_data(data[idx], data_pkg, packet_order[idx])
+                    data_array = self._sort_data(data_array, data[idx], data_order[idx])
+
+                    self.logger.debug(
+                        "Reorderded full accumulation #{:<4} from qid #{}".format(acc_n, idx)
+                    )
                 # We have all data for this accumulation, log it
                 self.logger.info(
-                    "Received and reordered full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length)
+                    "Reordered full accumulation #{:<4} with scan length {:.2f} s".format(acc_n, int_length)
                 )
 
                 # Do user rawbacks first
