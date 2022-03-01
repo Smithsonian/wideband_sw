@@ -30,7 +30,6 @@ class SMAData(SwarmDataCallback):
         self.logger.info("Data sent to %d subscribers", subs)
 
     def apply_beamformer_second_sideband_phase(self, data_bytes, sideband="LSB"):
-
         # Apply transformation to each baseline
         data = SwarmDataPackage.from_bytes(data_bytes)
 
@@ -43,14 +42,10 @@ class SMAData(SwarmDataCallback):
 
         for ibl, bl in enumerate(data.baselines):
             # Extract complex correlator data
-            baseline_data = data[bl, sideband]
-            complex_data = baseline_data[0::2] + 1j * baseline_data[1::2]
+            baseline_data = data[bl, sideband].view('<c8')
 
-            # Apply phases
-            complex_data = complex_data * bl_phases[ibl]
+            # Multiplying on the view from above will update the values in the
+            # original data array.
+            baseline_data *= bl_phases[ibl]
 
-            # Reformat to original format and store
-            baseline_data = vstack((complex_data.real,complex_data.imag)).flatten(order='F')
-            data[bl, sideband] = baseline_data
-
-        return bytes(data)
+        return data
