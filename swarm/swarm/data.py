@@ -11,7 +11,7 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
 )
 
-from numpy import array, frombuffer, full, empty, nan, reshape, vstack, zeros
+from numpy import array, frombuffer, full, empty, nan, reciprocal, reshape, sqrt, zeros
 from numba import njit, prange
 from numba import config as nbconfig
 
@@ -37,6 +37,23 @@ DATA_FID_IND = array(list(j + i for i in OUTER_RANGE for j in INNER_RANGE))
 ARRIVAL_THRESHOLD = 3
 XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCLE / SWARM_WALSH_SKIP))
 
+
+@njit(parallel=True)
+def _normalize_data_array(data_arr, cross_idx, auto1_idx, auto2_idx, auto_sb_idx):
+    for idx in prange(cross_idx.shape[0]):
+        auto_norm = sqrt(
+            data_arr[auto1_idx[idx], auto_sb_idx].real
+            * data_arr[auto2_idx[idx], auto_sb_idx].real
+        )
+        for jdx in range(auto_norm.shape[0]):
+            if auto_norm[jdx] != 0.0:
+                auto_norm[jdx] = reciprocal(auto_norm[jdx])
+
+        for jdx in range(2):
+            cross_data = data_arr[cross_idx[idx], jdx]
+            cross_data *= auto_norm
+
+    return data_arr
 
 class SwarmDataPackage(object):
     header_prefix_fmt = '<IIIdd'
@@ -145,6 +162,25 @@ class SwarmDataPackage(object):
         # Fill this baseline
         self.get(baseline, sideband)[imag_off::2] = data
 
+    def normalize_data(self):
+        cross_idx = []
+        auto1_idx = []
+        auto2_idx = []
+
+        for idx, bl in enumerate(self.baselines):
+            if bl.left != bl.right:
+                cross_idx.append(idx)
+                auto1_idx.append(self.baselines_i[SwarmBaseline(bl.left, bl.left)])
+                auto2_idx.append(self.baselines_i[SwarmBaseline(bl.right, bl.right)])
+
+        cross_idx = array(cross_idx)
+        auto1_idx = array(auto1_idx)
+        auto2_idx = array(auto2_idx)
+        auto_sb_idx = SWARM_XENG_SIDEBANDS.index("USB")
+
+        self.array = _normalize_data_array(
+            self.array.view('<c8'), cross_idx, auto1_idx, auto2_idx, auto_sb_idx
+        ).view(self.array.dtype)
 
 class SwarmDataCallback(object):
 
