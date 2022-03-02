@@ -188,9 +188,7 @@ class SwarmROACH(object):
             self.logger.info('Idled %s with %s' % (self.roach2_host, bitcode))
         except Exception as err:
             self.logger.warning(
-                'Unable to Idle %s with %s (%s)' % (
-                    self.roach2_host, bitcode, str(err.value),
-                )
+                'Unable to Idle %s with %s' % (self.roach2_host, bitcode)
             )
 
     def load_bitcode(self, bitcode="sma_corr_full_rev2_-2.bof.gz"):
