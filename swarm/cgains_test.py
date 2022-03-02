@@ -139,7 +139,7 @@ def update_cgain_smax(cgain_updates):
         smax_key = "correlator:swarm:segment:{}:antenna:{}:input:{}".format(segment + 1, antenna, rx + 1)
 
         # Convert list of integers into a space separated string of values.
-        string_data = str(cgain.gains).translate(None, '[],\'')
+        string_data = str(cgain.gains).translate(str.maketrans('', '', '[],\''))
 
         redis_client.evalsha(setSHA, '1', smax_key, host_name, smax_table_name, string_data, "int16",
                                  len(string_data))
@@ -155,7 +155,7 @@ def cgains_handler(message):
 
     # Parse the Redis message.
     data = message['data']
-    roach2_raw_lines = data.split(" | ")
+    roach2_raw_lines = data.decode().split(" | ")
 
     cgain_updates = [parse_cgains_line(line) for line in roach2_raw_lines]
 
@@ -195,6 +195,7 @@ logging.info("Subscribed to cgains-update channel")
 
 while not interrupted:
     message = redis_pubsub.get_message()
+
     if message:
         cgains_handler(message)
 
