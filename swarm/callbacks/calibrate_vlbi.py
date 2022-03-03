@@ -284,12 +284,12 @@ class CalibrateVLBI(SwarmDataCallback):
             )
             phases = (180.0/pi) * angle(gains_soln)
             delays = zeros(len(inputs))
-            amplitudes = abs(gains_soln)
+            gains_soln = gains_soln.reshape(1, -1)
         else:
             referenced_solver = partial(solve_cgains, ref=ref_input)
             gains_soln = array(self.map(referenced_solver, corr_matrix.transpose((2, 0, 1))))
             delays, phases = solve_delay_phase(gains_soln)
-            amplitudes = abs(gains_soln).mean(axis=0)
+        amplitudes = abs(gains_soln).mean(axis=0)
 
         # Remove reference solution if it is not in beam
         if not ref_in_beam:
