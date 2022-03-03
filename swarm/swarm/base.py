@@ -2,8 +2,7 @@ import logging
 from configparser import ConfigParser
 import struct
 
-from casperfpga import CasperFpga
-from casperfpga import KatcpTransport
+from casperfpga import CasperFpga, KatcpTransport
 from katcp import Message
 import time
 
@@ -92,9 +91,10 @@ class SwarmROACH(object):
         return self.roach2_host is not None
 
     def _connect(self, roach2_host):
-
         # Connect and wait until ready
-        self.fpga = CasperFpga(roach2_host, logger=self.logger, transport=KatcpTransport)
+        self.fpga = CasperFpga(
+            roach2_host, logger=self.logger, transport=KatcpTransport
+        )
         if roach2_host:
             if not self.fpga.transport.wait_connected(timeout=5):
                 raise RuntimeError(
@@ -108,12 +108,12 @@ class SwarmROACH(object):
         self._bitcode = bitcode
         self.fpga.transport.program(self._bitcode)
 
-    def config_10gbe_core(self,device_name,mac,ip,port,arp_table,gateway=1):
+    def config_10gbe_core(self, device_name, mac, ip, port, arp_table, gateway=1):
         """Hard-codes a 10GbE core with the provided params. It does a blindwrite,
         so there is no verifcation that configuration was successful (this is necessary
         since some of these registers are set by the fabric depending on traffic
         received).
-        
+
         Note that this is pulled from the corr library originally.
 
            @param self  This object.
@@ -150,7 +150,7 @@ class SwarmROACH(object):
         ctrl_pack = struct.pack(
             '>QLLLLLLBBH', mac, 0, gateway, ip, 0, 0, 0, 0, 1, port
         )
-        arp_pack = struct.pack('>256Q',*arp_table)
+        arp_pack = struct.pack('>256Q', *arp_table)
         self.fpga.blindwrite(device_name, ctrl_pack, offset=0)
         self.fpga.write(device_name, arp_pack, offset=0x3000)
 
@@ -186,7 +186,7 @@ class SwarmROACH(object):
             self.unload_plugins()
             self._program(bitcode)
             self.logger.info('Idled %s with %s' % (self.roach2_host, bitcode))
-        except Exception as err:
+        except Exception:
             self.logger.warning(
                 'Unable to Idle %s with %s' % (self.roach2_host, bitcode)
             )
@@ -239,7 +239,7 @@ class SwarmROACH(object):
                 triggering and trying to read-back the data.
                 Make it negative to wait forever.
 
-        RETURNS: dictionary with keywords: 
+        RETURNS: dictionary with keywords:
             lengths: number of bytes captured.
             offset: number of bytes since last trigger.
             data: list of data from each fpga for corresponding bram.
