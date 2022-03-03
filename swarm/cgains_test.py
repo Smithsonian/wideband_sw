@@ -67,7 +67,7 @@ def poolcontext(*args, **kwargs):
     pool.terminate()
 
 
-def update_roach2s(cgain_updates):
+def update_roach2s(cgain_updates, swarm):
     """
     Uses the quadrant and antenna number to create a list of roach2s to update, and then
     does a threaded "write" to the SWARM_CGAIN_GAIN register of each of the roach2s in the list.
@@ -75,8 +75,6 @@ def update_roach2s(cgain_updates):
     :return: List of tuples, where the tuples are of format (SwarmMember, Rx, Gains_Bin)
     """
 
-    # Instantiate a swarm object
-    swarm = Swarm()
     roach2_update_list = []
 
     # Prepare the gains, and collect the roach2 objects.
@@ -100,7 +98,7 @@ def update_roach2s(cgain_updates):
                       cgain_update.antenna,
                       swarm_member.roach2_host)
 
-    with poolcontext(4) as pool:
+    with poolcontext(2) as pool:
         pool.map(write_cgain_register, roach2_update_list)
 
     logging.info("All cgain update threads completed.")
@@ -146,7 +144,7 @@ def update_cgain_smax(cgain_updates):
     logging.info("SMAX updated")
 
 
-def cgains_handler(message):
+def cgains_handler(message, swarm):
     """
     Callback function for the redis client to use when subscribing to the cgains-update channel.
     :param message: Redis message received from cgains-update channel.
@@ -160,7 +158,7 @@ def cgains_handler(message):
     cgain_updates = [parse_cgains_line(line) for line in roach2_raw_lines]
 
     # Write new cgain values to roach2s.
-    update_roach2s(cgain_updates)
+    update_roach2s(cgain_updates, swarm)
 
     # Post updated table to SMAX.
     if not args.test:
@@ -193,11 +191,14 @@ redis_pubsub = redis_server.pubsub(ignore_subscribe_messages=True)
 redis_pubsub.subscribe("cgains-update")
 logging.info("Subscribed to cgains-update channel")
 
+# Instantiate a swarm object
+swarm = Swarm()
+
 while not interrupted:
     message = redis_pubsub.get_message()
 
     if message:
-        cgains_handler(message)
+        cgains_handler(message, swarm)
 
     sleep(1)
 
