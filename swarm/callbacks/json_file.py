@@ -15,7 +15,7 @@ class JSONListFile(object):
             self.file = open(filename, 'r+b')
         except IOError:
             self.logger.debug("{0} does not existing; creating it".format(filename))
-            self.file =  open(filename, 'w')
+            self.file =  open(filename, 'wb')
             self.write_header()
             self.write_footer()
 
