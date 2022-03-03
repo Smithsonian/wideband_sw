@@ -71,7 +71,7 @@ def solve_cgains(mat, ref=0):
         gain_soln *= sqrt(2 * mat.size / ((2 * mat.size) - gain_soln.size))
 
         # Avoid numerical precision issues, explicitly zero out phaes for refant
-        gain_soln[ref].imag = 0
+        gain_soln.imag[ref] = 0
 
     return gain_soln
 
