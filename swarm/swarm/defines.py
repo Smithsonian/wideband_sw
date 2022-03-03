@@ -23,7 +23,7 @@ def get_swarm_mappings():
     base_path = "/global/configFiles/swarmMapping.quad"
     vlbi_path = ""
     redis_client = Redis(host='localhost', port=6379)
-    vlbi_status = redis_client.get("vlbi")
+    vlbi_status = redis_client.get("vlbi").decode()
     if vlbi_status == "4to8":
         vlbi_path = ".vlbi4-8"
     elif vlbi_status == "5to9":
