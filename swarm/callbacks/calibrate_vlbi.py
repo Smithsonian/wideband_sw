@@ -387,8 +387,8 @@ class CalibrateVLBI(SwarmDataCallback):
                 self.pid_servo(inputs,sb_idx)
 
             if sb_str == "USB":
-                new_delays_usb = list(map(self.swarm.get_delay, inputs))
-                new_phases_usb = list(map(self.swarm.get_phase, inputs))
+                new_delays_usb = [self.swarm.get_delay(inp) for inp in inputs]
+                new_phases_usb = [self.swarm.get_phase(inp) for inp in inputs]
                 efficiencies_usb = efficiencies
                 inputs_usb = inputs
                 cal_solution_usb = cal_solution
