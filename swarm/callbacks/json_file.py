@@ -5,11 +5,11 @@ class JSONListFile(object):
 
     def __init__(self, filename, indent=4):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.separator = JSONEncoder.item_separator + os.linesep
+        self.separator = (JSONEncoder.item_separator + os.linesep).encode()
         self.indent_line = lambda line: ' ' * indent + line
         list_open, list_close = dumps([])
-        self.header = list_open + os.linesep
-        self.footer = os.linesep + list_close
+        self.header = (list_open + os.linesep).encode()
+        self.footer = (os.linesep + list_close).encode()
         self.indent = indent
         try:
             self.file = open(filename, 'r+b')
@@ -34,7 +34,7 @@ class JSONListFile(object):
         indent_obj = ''.join(map(self.indent_line, serial_obj.splitlines(True)))
         if self.file.tell() != len(self.header):
             self.file.write(self.separator)
-        self.file.write(indent_obj)
+        self.file.write(indent_obj.encode())
 
     def __exit__(self, type_, value, traceback):
         self.write_footer()
