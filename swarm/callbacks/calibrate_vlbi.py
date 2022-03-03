@@ -235,15 +235,17 @@ class CalibrateVLBI(SwarmDataCallback):
         d_amplitudes, d_delays, d_phases = self.history[sb_idx][0] - self.history[sb_idx][1]
         pid_delays = p * p_delays + i * i_delays + d * d_delays
         pid_phases = p * p_phases + i * i_phases + d * d_phases
-        for idx, (inp, delay_val, phase_val) in enumerate(zip(inputs, pid_delays, pid_phases)):
-            if SWARM_BENGINE_SIDEBANDS[sb_idx] == 'USB':
+        if SWARM_BENGINE_SIDEBANDS[sb_idx] == 'USB':
+            for idx, (inp, delay_val, phase_val) in enumerate(
+                zip(inputs, pid_delays, pid_phases)
+            ):
                 if isfinite(delay_val) and bool(delay_val):
                     self.feedback_delay_usb(inp, delay_val)
                 if isfinite(phase_val) and bool(phase_val):
                     self.feedback_phase_usb(inp, phase_val)
-            elif SWARM_BENGINE_SIDEBANDS[sb_idx] == 'LSB':
-                if isfinite(phase_val) and bool(phase_val):
-                    self.feedback_phase_lsb(inp, phase_val)
+        elif SWARM_BENGINE_SIDEBANDS[sb_idx] == 'LSB':
+            if all(isfinite(pid_phases)) and any(pid_phases):
+                self.feedback_phase_lsb(inputs, pid_phases)
 
     def solve_for(self, data, inputs, chunk, pol, sideband='USB', edge_chan=1024):
         # Check if reference is in beam
