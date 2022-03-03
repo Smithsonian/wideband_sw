@@ -84,16 +84,17 @@ logredis.setLevel(logging.INFO)
 logger.addHandler(logredis)
 
 # Use the logger redis instance to check vlbi status, and use defaults if they aren't set.
-VLBI_MODE = logredis.redis.get("vlbi")
+VLBI_MODE = logredis.redis.get("vlbi").decode()
 if not VLBI_MODE:
     VLBI_MODE = "off"
 REFERENCE_ANT_POL_CHUNK = logredis.redis.get("reference").decode()
 if not REFERENCE_ANT_POL_CHUNK:
     REFERENCE_ANT_POL_CHUNK = "2,0,0"
-VLBI_CALIBRATE = logredis.redis.get("calibrate")
+VLBI_CALIBRATE = logredis.redis.get("calibrate").decode()
 if not VLBI_CALIBRATE:
     VLBI_CALIBRATE = None
 
+logger.info("VLBI Calibrate mode: %s" % VLBI_CALIBRATE)
 # Create and set formatting
 formatter = logging.Formatter('%(name)-30s: %(asctime)s : %(levelname)-8s %(message).140s')
 stdout.setFormatter(formatter)
@@ -305,7 +306,7 @@ if args.log_stats:
     swarm_handler.add_callback(LogStats, reference=reference)
 
 if VLBI_CALIBRATE == "low" or VLBI_CALIBRATE == "high":
-
+    logger.info('VLBI callback added')
     # Use a callback to calibrate fringes for VLBI
     if VLBI_CALIBRATE == 'low':
 
