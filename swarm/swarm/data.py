@@ -231,6 +231,9 @@ class SwarmDataPackage(object):
 
         self._phase_applied = True
 
+        # Return the total number of baselines that were updated.
+        return bl_idx_arr.shape[0]
+
 
 class SwarmDataCallback(object):
 
