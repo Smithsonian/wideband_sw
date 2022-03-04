@@ -2121,3 +2121,17 @@ class Swarm:
                     phases[idx_global] = phases_per_quad[idx_per_quad]
 
         return phases
+
+    def calc_baseline_second_sideband_phase(self, baselines):
+        """
+        Convenience function for calculating the per-baseline-spw phase correction
+        that is applied to the second sideband beamformer (typically LSB).
+        """
+        # Get the phases that need to be applied to each baseline
+        left_inputs = [bl.left for bl in baselines]
+        left_phases = array(self.get_beamformer_second_sideband_phase(left_inputs))
+        right_inputs = [bl.right for bl in baselines]
+        right_phases = array(self.get_beamformer_second_sideband_phase(right_inputs))
+        bl_phases = pi/180.0 * (left_phases - right_phases)
+
+        return bl_phases
