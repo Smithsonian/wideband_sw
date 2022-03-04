@@ -45,7 +45,8 @@ XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCL
 @njit(parallel=True)
 def _apply_phases(data_arr, bl_idx_arr, bl_pha_arr):
     for idx in prange(bl_idx_arr.shape[0]):
-        sub_data = data_arr[bl_idx_arr[idx]]
+        bl_idx = bl_idx_arr[idx]
+        sub_data = data_arr[bl_idx]
         sub_data *= bl_pha_arr[idx]
 
 
@@ -224,7 +225,7 @@ class SwarmDataPackage(object):
 
         # Convert the lists into arrays for numba to operate correctly
         bl_pha_arr = exp(-1j * pi/180.0 * array(bl_pha_arr))
-        bl_idx_arr = array(bl_idx_arr)
+        bl_idx_arr = array(bl_idx_arr, dtype='int64')
 
         data_array = self.array.view('<c8')
 
