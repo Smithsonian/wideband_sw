@@ -225,7 +225,7 @@ class CalibrateVLBI(SwarmDataCallback):
             for ii, this_input in enumerate(these_inputs):
                 self.logger.debug(
                     '{0}:LSB : Old phase={1:>8.2f} deg, New phase={2:>8.2f} deg, Diff. phase={3:>8.2f} deg'.format(
-                        this_input, current_phases[ii], updated_phases[ii], feedback_phases[ii])
+                        this_input, current_phases[ii], updated_phases[ii], feedback_phases[inputs.index(this_input)])
                     )
 
     def pid_servo(self, inputs, sb_idx):
