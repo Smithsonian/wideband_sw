@@ -2132,6 +2132,6 @@ class Swarm:
         left_phases = array(self.get_beamformer_second_sideband_phase(left_inputs))
         right_inputs = [bl.right for bl in baselines]
         right_phases = array(self.get_beamformer_second_sideband_phase(right_inputs))
-        bl_phases = pi/180.0 * (left_phases - right_phases)
+        bl_phases = (left_phases - right_phases)
 
         return bl_phases
