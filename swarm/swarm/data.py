@@ -226,8 +226,10 @@ class SwarmDataPackage(object):
         bl_pha_arr = exp(-1j * pi/180.0 * array(bl_pha_arr))
         bl_idx_arr = array(bl_idx_arr)
 
+        data_array = self.array.view('<c8')
+
         # Extract complex correlator data
-        _apply_phases(self.array[:, sb_idx].view('<c8'), bl_idx_arr, bl_pha_arr)
+        _apply_phases(data_array[:, sb_idx], bl_idx_arr, bl_pha_arr)
 
         self._phase_applied = True
 
