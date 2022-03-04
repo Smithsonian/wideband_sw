@@ -1,6 +1,7 @@
-import gc, math, logging, fcntl
+import gc, logging, fcntl
 from time import time, sleep
 from struct import calcsize, pack, unpack
+from copy import deepcopy
 from queue import Queue, Empty
 from threading import Thread, Event, active_count
 from itertools import combinations
@@ -11,9 +12,12 @@ from socket import (
     SOL_SOCKET, SO_RCVBUF, SO_SNDBUF,
 )
 
-from numpy import array, frombuffer, full, empty, nan, reciprocal, reshape, sqrt, zeros
+from numpy import (
+    array, frombuffer, full, empty, exp, prod, nan, pi, reciprocal, reshape, sqrt, zeros
+)
 from numba import njit, prange
 from numba import config as nbconfig
+
 
 from . import core
 from .defines import *
@@ -39,6 +43,13 @@ XNUM_TO_LENGTH = SWARM_WALSH_PERIOD / (SWARM_ELEVENTHS * (SWARM_EXT_HB_PER_WCYCL
 
 
 @njit(parallel=True)
+def _apply_phases(data_arr, bl_idx_arr, bl_pha_arr):
+    for idx in prange(bl_idx_arr.shape[0]):
+        sub_data = data_arr[bl_idx_arr[idx]]
+        sub_data *= bl_pha_arr[idx]
+
+
+@njit(parallel=True)
 def _normalize_data_array(data_arr, cross_idx, auto1_idx, auto2_idx, auto_sb_idx):
     for idx in prange(cross_idx.shape[0]):
         auto_norm = sqrt(
@@ -53,18 +64,55 @@ def _normalize_data_array(data_arr, cross_idx, auto1_idx, auto2_idx, auto_sb_idx
             cross_data = data_arr[cross_idx[idx], jdx]
             cross_data *= auto_norm
 
-    return data_arr
 
 class SwarmDataPackage(object):
     header_prefix_fmt = '<IIIdd'
 
-    def __init__(self, baselines, int_time, int_length):
+    def init_header(self):
+        hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
+        self.header = pack(
+            hdr_fmt,
+            len(self.baselines),
+            len(SWARM_XENG_SIDEBANDS),
+            SWARM_CHANNELS,
+            self.int_time, self.int_length,
+            *list(
+                x for z in self.baselines
+                for y in (z.left, z.right)
+                for x in (y.ant, y.chk, y.pol)
+            )
+        )
+
+    def init_data(self):
+        # Initialize our data array
+        data_shape = (
+            len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS * 2
+        )
+        data_size = prod(data_shape) * 4  # 4 bytes per value
+        header_size = len(self.header)
+
+        # Create a continuous array to pass back to other data handlers
+        data_bytes = zeros(header_size + data_size, dtype='B')
+        data_bytes[:header_size] = frombuffer(self.header, dtype='B')
+
+        data_array = data_bytes[header_size:].view('<f4').reshape(data_shape)
+        flat_array = data_array.reshape((data_shape[0] * data_shape[1], data_shape[2]))
+
+        self.array = data_array
+        self._flat_array = flat_array
+        self._byte_view = data_bytes.data.cast("B")
+        self._phase_applied = False
+
+    def __init__(self, baselines, int_time=0.0, int_length=0.0):
 
         # Set all initial members
-        self.int_time = int_time
-        self.int_length = int_length
-        self.baselines = baselines
+        self.int_time = deepcopy(int_time)
+        self.int_length = deepcopy(int_length)
+        self.baselines = deepcopy(baselines)
         self.baselines_i = dict((b, i) for i, b in enumerate(self.baselines))
+
+        self.init_header()
+        self.init_data()
 
     @classmethod
     def from_swarm(cls, swarm, int_time=0.0, int_length=0.0):
@@ -76,9 +124,7 @@ class SwarmDataPackage(object):
         baselines = autos + cross
 
         # Create an instance, populate header & data, and return it
-        inst = cls(baselines, int_time, int_length)
-        inst.init_header()
-        inst.init_data()
+        inst = cls(baselines, int_time=int_time, int_length=int_length)
         return inst
 
     @classmethod
@@ -95,9 +141,8 @@ class SwarmDataPackage(object):
 
         # Create an instance, populate header & data, and return it
         data_shape = (n_baselines, n_sidebands, SWARM_CHANNELS * 2)
-        inst = cls(baselines, int_time, int_length)
-        inst.header = bytes(bytearr[:header_size])
-        inst.array = frombuffer(bytearr[header_size:], dtype='<f4').reshape(data_shape).copy()
+        inst = cls(baselines, int_time=int_time, int_length=int_length)
+        inst.array[:] = frombuffer(bytearr[header_size:], dtype='<f4').reshape(data_shape)
         return inst
 
     def __getitem__(self, item):
@@ -125,31 +170,7 @@ class SwarmDataPackage(object):
             raise KeyError("Please only index data package using [baseline, sideband]!")
 
     def __bytes__(self):
-        return b''.join([self.header, self.array.data])
-
-    def init_header(self):
-        hdr_fmt = self.header_prefix_fmt + 'BBBBBB' * len(self.baselines)
-        self.header = pack(
-            hdr_fmt,
-            len(self.baselines),
-            len(SWARM_XENG_SIDEBANDS),
-            SWARM_CHANNELS,
-            self.int_time, self.int_length,
-            *list(x for z in self.baselines for y in (z.left, z.right) for x in (y.ant, y.chk, y.pol))
-        )
-
-    def update_header(self, int_time=None, int_length=None):
-        self.int_time = int_time
-        self.int_length = int_length
-        self.init_header()
-
-    def init_data(self):
-
-        # Initialize our data array
-        data_shape = (len(self.baselines), len(SWARM_XENG_SIDEBANDS), SWARM_CHANNELS * 2)
-        self.array = empty(shape=data_shape, dtype='<f4')
-        self.array[:, :, 0::2] = nan
-        self.array[:, :, 1::2] = 0.0
+        return bytes(self._byte_view)
 
     def set_data(self, xeng_word, data):
 
@@ -178,9 +199,38 @@ class SwarmDataPackage(object):
         auto2_idx = array(auto2_idx)
         auto_sb_idx = SWARM_XENG_SIDEBANDS.index("USB")
 
-        self.array = _normalize_data_array(
+        _normalize_data_array(
             self.array.view('<c8'), cross_idx, auto1_idx, auto2_idx, auto_sb_idx
-        ).view(self.array.dtype)
+        )
+
+    def is_phase_applied(self):
+        return self._phase_applied
+
+    def apply_phase(self, baselines, phase_val_arr, sb="LSB"):
+        sb_idx = SWARM_XENG_SIDEBANDS.index(sb)
+
+        bl_idx_arr = []
+        bl_pha_arr = []
+        for bl, phase_val in zip(baselines, phase_val_arr):
+            # We only need to update the data where the phase valuse have actually
+            # changed, so we can skip over all of the other baselines.
+            if phase_val != 0.0:
+                try:
+                    bl_idx_arr.append(self.baselines_i[bl])
+                    bl_pha_arr.append(phase_val)
+                except KeyError:
+                    # For now, if we don't recognize a baseline, just pass
+                    pass
+
+        # Convert the lists into arrays for numba to operate correctly
+        bl_pha_arr = exp(-1j * pi/180.0 * array(bl_pha_arr))
+        bl_idx_arr = array(bl_idx_arr)
+
+        # Extract complex correlator data
+        _apply_phases(self.array[:, sb_idx].view('<c8'), bl_idx_arr, bl_pha_arr)
+
+        self._phase_applied = True
+
 
 class SwarmDataCallback(object):
 
@@ -269,7 +319,6 @@ def fast_sort_data(data_arr, ordered_packets, order_array):
             sub_data = data_arr[pos_idx >> 1]
             chan_idx = (idx << 3) + (pos_idx & 0x1)
             sub_data[chan_idx:chan_idx + 8:2] = packet_data[jdx:SWARM_VISIBS_CHANNELS:SWARM_VISIBS_N_PKTS]
-    return data_arr
 
 
 class SwarmDataCatcher:
@@ -431,7 +480,7 @@ class SwarmDataCatcher:
         self.rawbacks.append(inst)
 
     def _sort_data(self, data_array, packet_list, data_order):
-        return fast_sort_data(data_array, reorder_packets(packet_list), data_order)
+        fast_sort_data(data_array, reorder_packets(packet_list), data_order)
 
     def _reorder_data(self, data_list, data_pkg, packet_order):
         # Note this is the old method, kept here for testing purposes.
@@ -483,7 +532,8 @@ class SwarmDataCatcher:
     def order(self, stop, in_queue, out_queue):
         # Initialize the data object to plug things into.
         data_pkg = SwarmDataPackage.from_swarm(self.swarm)
-        header_size = len(data_pkg.header)
+        baselines = deepcopy(data_pkg.baselines)
+
         # Also grab packet ordering, since it should remain static while
         # collection thread is running.
         packet_order = list(
@@ -541,9 +591,6 @@ class SwarmDataCatcher:
                     qid: list(range(quad.fids_expected))
                     for qid, quad in enumerate(self.swarm.quads)
                 }
-
-                # Update the existing package w/ header information
-                data_pkg.update_header(int_time=int_time, int_length=int_length)
 
                 # Initiate the data buffers
                 data = list(
@@ -628,12 +675,9 @@ class SwarmDataCatcher:
                 self.logger.info(
                     "Beginning reordering of data for accumulation #{:<4}".format(acc_n)
                 )
-
-                # Create a continuous array to pass back to other data handlers
-                data_bytes = zeros(header_size + data_pkg.array.nbytes, dtype='B')
-                data_bytes[:header_size] = frombuffer(data_pkg.header, dtype='B')
-                data_array = data_bytes[header_size:].view('<f4').reshape(
-                    -1, SWARM_CHANNELS*2
+                # Create a date package w/ header information
+                data_pkg = SwarmDataPackage(
+                    baselines, int_time=int_time, int_length=int_length
                 )
 
                 for idx in range(len(self.swarm.quads)):
@@ -643,7 +687,7 @@ class SwarmDataCatcher:
 
                     # Reorder the xengine data, plug it into the data_pkg
                     # data_pkg = self._reorder_data(data[idx], data_pkg, packet_order[idx])
-                    data_array = self._sort_data(data_array, data[idx], data_order[idx])
+                    self._sort_data(data_pkg._flat_array, data[idx], data_order[idx])
 
                     self.logger.debug(
                         "Reorderded full accumulation #{:<4} from qid #{}".format(acc_n, idx)
@@ -666,7 +710,7 @@ class SwarmDataCatcher:
                 self.logger.info("Processed all rawbacks for accumulation #{:<4}".format(acc_n))
 
                 # Put data onto queue
-                out_queue.put((acc_n, int_time, data_bytes.data.cast("B")))
+                out_queue.put((acc_n, int_time, data_pkg))
 
                 self.logger.debug(
                     "Full accumulation #{:<4} queued for callbacks".format(acc_n)
@@ -756,12 +800,12 @@ class SwarmDataHandler:
                 raise message
 
             # Otherwise, continue and parse message
-            acc_n, int_time, data_bytes = message
+            acc_n, int_time, data = message
 
             # Finally, do user callbacks
             for callback in self.callbacks:
                 try:  # catch callback error
-                    callback(data_bytes)
+                    callback(data)
                 except:  # and log if needed
                     self.logger.error("Exception from callback: {}".format(callback))
                     raise
