@@ -11,7 +11,7 @@ from traceback import format_exception
 from collections import OrderedDict
 
 from numpy import (
-    angle, array, cos, clip, isnan, nan, pi, roll, sin, uint32, zeros
+    all, angle, any, array, cos, clip, isnan, nan, pi, roll, sin, uint32, zeros
 )
 
 from casperfpga import CasperFpga
@@ -911,6 +911,9 @@ class SwarmMember(base.SwarmROACH):
         return phases
 
     def set_beng_sb1demodphase_phase(self, phase_per_fid_input):
+        # If everything is nan, we don't have anything to do for this roach
+        if all(isnan(phase_per_fid_input)):
+            return
 
         # Read existing pattern
         pattern = array(
@@ -1367,7 +1370,6 @@ class SwarmQuadrant:
         return phases
 
     def set_beamformer_second_sideband_phase(self, inputs, phases):
-
         # Phase for second sideband beam are set at the quadrant level
         # since each FID should have the phase coefficients for all other
         # FIDs in the same quadrant
@@ -1382,6 +1384,10 @@ class SwarmQuadrant:
                     continue
                 inp_n = member._inputs.index(inp)
                 phase_per_fid_input[fid, inp_n] = phases[ii]
+
+        # If all the values are nan, it means we have nothing to update
+        if all(isnan(phase_per_fid_input)):
+            return
 
         # Apply to each member
         self.set_beng_sb1demodphase_phase(phase_per_fid_input)
