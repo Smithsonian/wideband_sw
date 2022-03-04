@@ -304,31 +304,20 @@ class CalibrateVLBI(SwarmDataCallback):
             efficiency = (abs(gains_soln.sum(axis=1)) / abs(gains_soln).sum(axis=1)).real
         return efficiency, vstack([amplitudes, delays, phases])
 
-    def apply_beamformer_second_sideband_phase(self, data_bytes, sideband="LSB"):
-        # Apply transformation to each baseline
-        data = SwarmDataPackage.from_bytes(data_bytes)
-
-        # Get the phases that need to be applied to each baseline
-        left_inputs = [bl.left for bl in data.baselines]
-        left_phases = array(self.swarm.get_beamformer_second_sideband_phase(left_inputs))
-        right_inputs = [bl.right for bl in data.baselines]
-        right_phases = array(self.swarm.get_beamformer_second_sideband_phase(right_inputs))
-        bl_phases = exp(-1j * pi/180.0 * (left_phases - right_phases))
-
-        for ibl, bl in enumerate(data.baselines):
-            # Extract complex correlator data
-            baseline_data = data[bl, sideband].view('<c8')
-
-            # Multiplying on the view from above will update the values in the
-            # original data array.
-            baseline_data *= bl_phases[ibl]
-
-        return data
-
-    def __call__(self, data_bytes):
-
+    def __call__(self, data):
         # First apply 2nd sideband phase data
-        data = self.apply_beamformer_second_sideband_phase(data_bytes)
+        if data.is_phase_applied():
+            self.logger.debug("Beamformer phases already applied to data, skipping.")
+        else:
+            phases = self.swarm.calc_baseline_second_sideband_phase(data.baselines)
+            count = data.apply_phase(data.baselines, phases, sb="LSB")
+
+            # Debug log that second sideband phases applied
+            self.logger.debug(
+                "Applied 2nd sideband beamformer phases on %d of %d baselines." % (
+                    count, len(phases)
+                )
+            )
 
         """ Callback for VLBI calibration """
         for sb_idx, sb_str in enumerate(SWARM_BENGINE_SIDEBANDS):
