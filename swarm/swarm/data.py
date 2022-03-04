@@ -268,33 +268,6 @@ class SwarmListener(object):
         s.close()
 
 
-def unpack_ip(addr):
-    # Parse the IP address
-    return unpack('BBBB', inet_aton(addr))
-
-
-@njit()
-def determine_qid(ip):
-    # Determine the QID
-    return (ip >> 4) & 0x7
-
-
-@njit()
-def determine_fid(ip):
-    # Determine the FID
-    return ip & 0x7
-
-
-@njit()
-def determine_xnum(xnum_mb, xnum_lh):
-    return ((xnum_mb << 16) | xnum_lh) << 5
-
-
-@njit()
-def determine_acc_n(acc_n_mb, acc_n_lh):
-    return (acc_n_mb << 16) | acc_n_lh
-
-
 def reorder_packets(data_list):
     data_arr = empty(
         (SWARM_VISIBS_N_PKTS * SWARM_N_FIDS, SWARM_VISIBS_CHANNELS), dtype='i4'
@@ -569,7 +542,7 @@ class SwarmDataCatcher:
             try:
                 message = in_queue.get_nowait()
             except Empty:
-                sleep(0.001)
+                sleep(0.01)
                 continue
 
             # Check if we received an exception
