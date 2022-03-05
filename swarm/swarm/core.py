@@ -1783,7 +1783,7 @@ class Swarm:
 
         # Wait for initial accumulations to finish
         self.logger.info('Waiting for initial accumulations to finish...')
-        while any(m.fpga.read_uint('xeng_xn_num') for f, m in self.get_valid_members()):
+        while any([m.fpga.read_uint('xeng_xn_num') for f, m in self.get_valid_members()]):
             sleep(0.1)
 
         # Set the itime and wait for it to register
