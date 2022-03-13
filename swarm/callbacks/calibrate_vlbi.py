@@ -44,9 +44,9 @@ from swarm import (
     SWARM_MAPPING_CHUNKS,
     SWARM_BENGINE_SIDEBANDS,
 )
-from swarm.data import SwarmDataPackage
 from .json_file import JSONListFile
 from redis import Redis
+from smax import SmaxRedisClient
 
 TODAY = datetime.utcnow()
 CALFILE = TODAY.strftime('/global/logs/vlbi_cal/vlbi_cal.%j-%Y.json')
@@ -153,6 +153,8 @@ class CalibrateVLBI(SwarmDataCallback):
         self.init_pool()
         self.inputs = len(SWARM_BENGINE_SIDEBANDS)*[[]]
         self.history = len(SWARM_BENGINE_SIDEBANDS)*[[]]
+        self.smax = SmaxRedisClient()
+        self.armed = False
 
     def init_history(self, first, sb_idx):
         hist_shape = [self.history_size,] + list(first.shape)
@@ -305,6 +307,23 @@ class CalibrateVLBI(SwarmDataCallback):
         return efficiency, vstack([amplitudes, delays, phases])
 
     def __call__(self, data):
+        try:
+            if not self.smax.smax_pull("correlator:swarm", "phasing").data:
+                self.logger.info(
+                    "calibrate_vlbi callback skipped because phasing is disabled."
+                )
+                self.armed = False
+                return
+            elif not self.armed:
+                self.logger.info("Phasing just enabled, skipping first integration.")
+                self.armed = True
+                return
+        except Exception as err:
+            try:
+                self.logger.error("Error determining phase status: %s" % str(err))
+            except Exception:
+                self.logger.error("Error determining phase status, reason unknown.")
+
         # First apply 2nd sideband phase data
         if data.is_phase_applied():
             self.logger.debug("Beamformer phases already applied to data, skipping.")
