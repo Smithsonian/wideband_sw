@@ -187,6 +187,11 @@ def cold_start_handler(signum, frame):
     # Wait some time for switch state to clear
     sleep(5)
 
+    swarm.members_do(lambda fid, mbr: mbr._program('sma_corr.bof.gz'))
+
+    # Wait some more time, cuz that's how we roll
+    sleep(5)
+
     # Do the intial setup
     logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
     pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
