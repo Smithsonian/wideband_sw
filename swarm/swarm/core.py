@@ -1868,44 +1868,36 @@ class Swarm:
     def _sync(self):
 
         # Do a threaded sync of SOWF
-        thread_list = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
-        for thread in thread_list:
+        sowf_threads = list(Thread(target=m.sync_sowf) for f, m in self.get_valid_members())
+        for thread in sowf_threads:
             thread.start()
-        # Join all the threads
-        for thread in thread_list:
-            thread.join()
         self.logger.info('SOWF sync attempted')
-        sleep(0.1)
+        sleep(1)
 
         # Do a threaded sync of 1PPS
-        thread_list = list(Thread(target=m.sync_1pps) for f, m in self.get_valid_members())
-        for thread in thread_list:
+        pps_threads = list(Thread(target=m.sync_1pps) for f, m in self.get_valid_members())
+        for thread in pps_threads:
             thread.start()
-        # Join all the threads
-        for thread in thread_list:
-            thread.join()
         self.logger.info('1PPS sync attempted')
-        sleep(0.1)
+        sleep(1)
 
         # Do a threaded sync of MCNT
-        thread_list = list(Thread(target=m.sync_mcnt) for f, m in self.get_valid_members())
-        for thread in thread_list:
+        mcnt_threads = list(Thread(target=m.sync_mcnt) for f, m in self.get_valid_members())
+        for thread in mcnt_threads:
             thread.start()
-        # Join all the threads
-        for thread in thread_list:
-            thread.join()
         self.logger.info('MCNT sync attempted')
-        sleep(0.1)
+        sleep(1)
 
         # Do a threaded sync of BENG
-        thread_list = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
-        for thread in thread_list:
+        beng_threads = list(Thread(target=m.sync_beng) for f, m in self.get_valid_members())
+        for thread in beng_threads:
             thread.start()
-        # Join all the threads
-        for thread in thread_list:
-            thread.join()
         self.logger.info('BENG sync attempted')
-        sleep(0.1)
+        sleep(1)
+
+        # Finally join all threads
+        for thread in sowf_threads + pps_threads + mcnt_threads + beng_threads:
+            thread.join()
 
     def set_chunk_delay(self):
         for qid, quad in enumerate(self.quads):
