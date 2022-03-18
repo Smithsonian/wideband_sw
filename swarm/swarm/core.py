@@ -250,8 +250,8 @@ class SwarmMember(base.SwarmROACH):
         self.logger.info('Configuring ROACH2={host} for transmission as FID #{fid}'.format(host=self.fpga.host, fid=fid))
 
         # Program the board
-        self.logger.info('Programming bitcode {bc}'.format(bc=self.bitcode))
-        self._program(self.bitcode)
+        # self.logger.info('Programming bitcode {bc}'.format(bc=self.bitcode))
+        # self._program(self.bitcode)
 
         # Set noise to perfect correlation
         self.set_noise(0xffffffff, 0xffffffff)
