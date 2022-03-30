@@ -181,11 +181,14 @@ signal(SIGHUP, idle_handler)
 # Signal handler for "cold-starting" SWARM
 def cold_start_handler(signum, frame):
 
-    # Idle SWARM first, this also stops catcher
-    idle_handler(signum, frame)
+    # We try this a few times to get around an issue where loading the idle bitcode
+    # causes tcpbophserver to crash (and not always come up cleanly).
+    for idx in range(3):
+        # Idle SWARM first, this also stops catcher
+        idle_handler(signum, frame)
 
-    # Wait some time for switch state to clear
-    sleep(5)
+        # Wait some time for switch state to clear
+        sleep(5)
 
     swarm.members_do(lambda fid, mbr: mbr._program('sma_corr.bof.gz'))
 
