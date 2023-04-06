@@ -15,6 +15,7 @@ from signal import (
     SIGHUP,
     SIGURG,
     SIGCONT,
+    SIGSTOP,
     )
 import pyopmess
 
@@ -31,7 +32,7 @@ from rawbacks.save_rawdata import SaveRawData
 from callbacks.calibrate_vlbi import CalibrateVLBI
 from callbacks.log_stats import LogStats
 from callbacks.sma_data import SMAData
-
+from smax import SmaxRedisClient
 
 # Global variables
 RETURN_VALUE = SMAINIT_QUIT_RTN
@@ -82,6 +83,9 @@ logger.addHandler(stdout)
 logredis = RedisHandler(LOG_CHANNEL)
 logredis.setLevel(logging.INFO)
 logger.addHandler(logredis)
+
+# Connect to smax
+smax = SmaxRedisClient()
 
 # Use the logger redis instance to check vlbi status, and use defaults if they aren't set.
 VLBI_MODE = logredis.redis.get("vlbi").decode()
@@ -171,7 +175,7 @@ def idle_handler(signum, frame):
     logger.info('Received signal #{0}; idling SWARM...'.format(signum))
     pyopmess.send(1, 1, 100, 'SWARM is now being idled')
     swarm_catcher.stop()  # stop waiting on data
-    swarm.members_do(lambda fid, mbr: mbr.idle())
+    swarm.members_do(lambda fid, mbr: mbr.idle(max_tries=5))
 
 
 # Register it to SIGHUP
@@ -179,31 +183,31 @@ signal(SIGHUP, idle_handler)
 
 
 # Signal handler for "cold-starting" SWARM
-def cold_start_handler(signum, frame):
+def cold_start_handler(signum, frame, adc_cal=None):
 
-    # We try this a few times to get around an issue where loading the idle bitcode
-    # causes tcpbophserver to crash (and not always come up cleanly).
-    for idx in range(3):
-        # Idle SWARM first, this also stops catcher
-        idle_handler(signum, frame)
+    idle_handler(signum, frame)
 
-        # Wait some time for switch state to clear
-        sleep(5)
-
+    sleep(5)
     swarm.members_do(lambda fid, mbr: mbr._program('sma_corr.bof.gz'))
 
     # Wait some more time, cuz that's how we roll
     sleep(5)
 
     # Do the intial setup
-    logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
-    pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
+    if adc_cal is None:
+        logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
+        pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
+    else:
+        logger.info('Received signal #{0}; warm-starting SWARM...'.format(signum))
+        pyopmess.send(1, 2, 100, 'SWARM warm-start beginning')
+
     swarm.setup(
         args.itime,
         args.interfaces,
         delay_test=args.visibs_test,
         raise_qdr_err=args.raise_qdr_err,
         threaded=args.thread_setup,
+        adc_cal=adc_cal,
         )
 
     # Switch to IF input
@@ -217,62 +221,84 @@ def cold_start_handler(signum, frame):
     swarm.quadrants_do(lambda qid, quad: quad.set_sideband_states())
     swarm.quadrants_do(lambda qid, quad: quad.fringe_stopping(True))
 
-    # Wait some time for things to warm up
-    logger.info('Waiting 2 minutes for FPGAs to warm up; please be patient')
-    sleep(120)
+    if adc_cal is None:
+        # Wait some time for things to warm up
+        logger.info('Waiting 2 minutes for FPGAs to warm up; please be patient')
+        sleep(120)
 
-    # Disable the ADC monitor
-    swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
+        # Disable the ADC monitor
+        swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('stop-adc-monitor'))
 
-    # Do a threaded calibration
-    pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
-    exceptions_queue = Queue()
-    adccal_threads = OrderedDict()
-    for fid, member in swarm.get_valid_members():
-        thread = ExceptingThread(
-            exceptions_queue,
-            logger=logger,
-            target=member.warm_calibrate_adc,
-            )
-        adccal_threads[thread] = member
+        # Do a threaded calibration
+        pyopmess.send(1, 3, 100, 'SWARM warm-calibrating the ADCs')
+        exceptions_queue = Queue()
+        adccal_threads = OrderedDict()
+        for fid, member in swarm.get_valid_members():
+            thread = ExceptingThread(
+                exceptions_queue,
+                logger=logger,
+                target=member.calibrate_adc,
+                )
+            adccal_threads[thread] = member
 
-    # Now start them all
-    for thread in adccal_threads.keys():
-        thread.start()
+        # Now start them all
+        for thread in adccal_threads.keys():
+            thread.start()
 
-    # ...and immediately join them
-    for thread in adccal_threads.keys():
-        thread.join()
+        # ...and immediately join them
+        for thread in adccal_threads.keys():
+            thread.join()
 
-    # If there were exceptions log them
-    exceptions = 0
-    while not exceptions_queue.empty():
-        exceptions += 1
-        thread, exc = exceptions_queue.get()
-        fmt_exc = format_exception(*exc)
-        tb_str = ''.join(fmt_exc[0:-1])
-        exc_str = ''.join(fmt_exc[-1])
-        for line in tb_str.splitlines():
-            adccal_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
-        for line in exc_str.splitlines():
-            adccal_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
+        # If there were exceptions log them
+        exceptions = 0
+        while not exceptions_queue.empty():
+            exceptions += 1
+            thread, exc = exceptions_queue.get()
+            fmt_exc = format_exception(*exc)
+            tb_str = ''.join(fmt_exc[0:-1])
+            exc_str = ''.join(fmt_exc[-1])
+            for line in tb_str.splitlines():
+                adccal_threads[thread].logger.debug('<{0}> {1}'.format(exceptions, line))
+            for line in exc_str.splitlines():
+                adccal_threads[thread].logger.error('<{0}> {1}'.format(exceptions, line))
 
-    # If any exception occurred raise error
-    if exceptions > 0:
-        pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
-        raise RuntimeError('{0} member(s) had an error during ADC warm-calibration!'.format(exceptions))
+        # If any exception occurred raise error
+        if exceptions > 0:
+            pyopmess(1, 1, 100, 'Error occurred during ADC warm cal')
+            raise RuntimeError('{0} member(s) had an error during ADC warm-calibration!'.format(exceptions))
 
-    # Re-enable the ADC monitor
-    swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('start-adc-monitor'))
+        # Re-enable the ADC monitor
+        swarm.members_do(lambda fid, mbr: mbr.send_katcp_cmd('start-adc-monitor'))
+
+        # Finally, update the SMA-X database with the new values
+        update_dict = swarm.members_do(lambda fid, mbr: {mbr.roach2_host: mbr.adc_cal})
+        update_dict = {key: value for item in update_dict for key, value in item.items()}
+
+        for roach2_host, value in update_dict.items():
+            smax.smax_share("correlator:swarm:%s:mmcm_cal" % roach2_host, value)
 
     # Start up catcher again
     swarm.reset_xengines_and_sync()
     swarm_catcher.start()
-    pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
+    if adc_cal is None:
+        pyopmess.send(1, 4, 100, 'SWARM cold-start is finished')
+    else:
+        pyopmess.send(1, 4, 100, 'SWARM warm-start is finished')
 
 
 # Register it to SIGURG
 signal(SIGURG, cold_start_handler)
+
+
+def warm_start_handler(signum, frame):
+    # Grab the most recent metadata from SMA-X
+    adc_cal = smax.smax_pull("correlator:swarm")
+
+    # Start a cold-start w/ adc-cal supplied, which will skip the ADC cal step
+    cold_start_handler(signum, frame, adc_cal=adc_cal)
+
+
+signal(SIGSTOP, warm_start_handler)
 
 
 # Signal handler to do a re-sync

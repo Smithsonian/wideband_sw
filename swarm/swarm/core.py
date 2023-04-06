@@ -22,6 +22,7 @@ from adc5g import (
     unset_test_mode,
     set_test_mode,
     sync_adc,
+    inc_mmcm_phase,
     )
 
 import pydsm
@@ -208,6 +209,7 @@ class SwarmMember(base.SwarmROACH):
                 fid=self.fid,
                 )
             )
+        self.adc_cal = [-1, -1]
 
     def __repr__(self):
         repr_str = (
@@ -244,6 +246,7 @@ class SwarmMember(base.SwarmROACH):
         itime_sec,
         noise=randint(0, 15),
         raise_qdr_err=True,
+        adc_cal=None,
     ):
 
         # Write to log to show we're starting the setup of this member
@@ -264,7 +267,22 @@ class SwarmMember(base.SwarmROACH):
         self.set_scope(3, 0, 6)
 
         # Calibrate the ADC MMCM phases
-        self.calibrate_adc()
+        # Removing this temporarily
+        # self.calibrate_adc()
+        if adc_cal is not None:
+            try:
+                mmcm_cal = adc_cal[self.roach2_host]["mmcm_cal"]
+                for inp in SWARM_MAPPING_INPUTS:
+                    for _ in range(mmcm_cal[inp]):
+                        inc_mmcm_phase(self, inp, 1)
+                    self.logger.info(
+                        'Programmed {host} inp#{inp} with MMCM phase value {cal}'.format(
+                            host=self.fpga.host, inp=inp, cal=mmcm_cal[inp],
+                        )
+                    )
+            except KeyError:
+                # Report an error
+                self.logger.info('Error programming {host} MMCM phase'.format(host=self.fpga.host))
 
         # If software QDR cal., calibrate and verify QDRs
         if self.soft_qdr_cal:
@@ -322,7 +340,7 @@ class SwarmMember(base.SwarmROACH):
         ctrl_bin = pack(SWARM_REG_FMT, (sync_out<<16) + (scope_1<<8) + scope_0)
         self.fpga.write(SWARM_SCOPE_CTRL, ctrl_bin)
 
-    def calibrate_adc(self):
+    def calibrate_adc(self, cal_soln=None):
 
         # Set ADCs to test mode
         for inp in SWARM_MAPPING_INPUTS:
@@ -337,8 +355,10 @@ class SwarmMember(base.SwarmROACH):
             gprof = pretty_glitch_profile(opt, glitches)
             if opt is None:
                 self.logger.error('ADC%d calibration failed! Glitch profile: [%s]' % (inp, gprof))
+                self.adc_cal[inp] = -1
             else:
-                self.logger.info( 'ADC%d calibration found optimal phase: %2d [%s]' % (inp, opt, gprof))
+                self.logger.info('ADC%d calibration found optimal phase: %2d [%s]' % (inp, opt, gprof))
+                self.adc_cal[inp] = opt
 
         # Unset test modes
         for inp in SWARM_MAPPING_INPUTS:
@@ -1567,7 +1587,7 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.reset_digital_noise()
 
-    def setup(self, raise_qdr_err=True, threaded=False):
+    def setup(self, raise_qdr_err=True, threaded=False, adc_cal=None):
 
         # Setup each member
         if not threaded:
@@ -1584,7 +1604,7 @@ class SwarmQuadrant:
                     exceptions_queue,
                     target=member.setup,
                     logger=member.logger,
-                    kwargs={'raise_qdr_err': raise_qdr_err},
+                    kwargs={'raise_qdr_err': raise_qdr_err, 'adc_cal': adc_cal},
                     args=(self.qid, fid, self.fids_expected, 0.0),
                     )
                 setup_threads[thread] = member
@@ -1725,7 +1745,15 @@ class Swarm:
         else: # Remember to raise an error if nothing is found
             raise AttributeError("{0} not an attribute of Swarm or SwarmQuadrant".format(attr))
 
-    def setup(self, itime, interfaces, delay_test=False, raise_qdr_err=True, threaded=False):
+    def setup(
+        self,
+        itime,
+        interfaces,
+        delay_test=False,
+        raise_qdr_err=True,
+        threaded=False,
+        adc_cal_dict=None,
+    ):
 
         # Copy interfaces over, and make sure it's a list
         interfaces = list(interfaces[:])
@@ -1733,7 +1761,11 @@ class Swarm:
         # Setup each quadrant
         if not threaded:
             for quad in self.quads:
-                quad.setup(raise_qdr_err=raise_qdr_err, threaded=False)
+                quad.setup(
+                    raise_qdr_err=raise_qdr_err,
+                    threaded=False,
+                    adc_cal_dict=adc_cal_dict,
+                )
 
         else: # if requested, do threaded setup
 
