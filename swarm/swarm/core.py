@@ -271,7 +271,7 @@ class SwarmMember(base.SwarmROACH):
         # self.calibrate_adc()
         if adc_cal is not None:
             try:
-                mmcm_cal = adc_cal[self.roach2_host]["mmcm_cal"]
+                mmcm_cal = adc_cal[self.roach2_host]["mmcm_cal"].data
                 for inp in SWARM_MAPPING_INPUTS:
                     for _ in range(mmcm_cal[inp]):
                         inc_mmcm_phase(self, inp, 1)
