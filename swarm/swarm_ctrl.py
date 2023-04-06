@@ -275,7 +275,7 @@ def cold_start_handler(signum, frame, adc_cal=None):
         update_dict = {key: value for item in update_dict for key, value in item.items()}
 
         for roach2_host, value in update_dict.items():
-            smax.smax_share("correlator:swarm:%s:mmcm_cal" % roach2_host, value)
+            smax.smax_share("correlator:swarm:roach2:%s" % roach2_host, "mmcm_cal", value)
 
     # Start up catcher again
     swarm.reset_xengines_and_sync()
@@ -292,7 +292,7 @@ signal(SIGURG, cold_start_handler)
 
 def warm_start_handler(signum, frame):
     # Grab the most recent metadata from SMA-X
-    adc_cal = smax.smax_pull("correlator:swarm")
+    adc_cal = smax.smax_pull("correlator", "swarm")["correlator"]["swarm"]["roach2"]
 
     # Start a cold-start w/ adc-cal supplied, which will skip the ADC cal step
     cold_start_handler(signum, frame, adc_cal=adc_cal)
