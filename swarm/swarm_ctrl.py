@@ -275,7 +275,9 @@ def cold_start_handler(signum, frame, adc_cal=None):
 
         # Finally, update the SMA-X database with the new values
         update_dict = swarm.members_do(lambda fid, mbr: {mbr.roach2_host: mbr.adc_cal})
-        update_dict = {key: value for item in update_dict for key, value in item.items()}
+        update_dict = {
+            key: value for item in update_dict for jtem in item for key, value in jtem.items()
+        }
 
         for roach2_host, value in update_dict.items():
             smax.smax_share("correlator:swarm:roach2:%s" % roach2_host, "mmcm_cal", value)
