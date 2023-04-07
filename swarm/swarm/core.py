@@ -1752,7 +1752,7 @@ class Swarm:
         delay_test=False,
         raise_qdr_err=True,
         threaded=False,
-        adc_cal_dict=None,
+        adc_cal=None,
     ):
 
         # Copy interfaces over, and make sure it's a list
@@ -1764,7 +1764,7 @@ class Swarm:
                 quad.setup(
                     raise_qdr_err=raise_qdr_err,
                     threaded=False,
-                    adc_cal_dict=adc_cal_dict,
+                    adc_cal=adc_cal,
                 )
 
         else: # if requested, do threaded setup
