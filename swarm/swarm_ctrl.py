@@ -190,13 +190,6 @@ def cold_start_handler(signum, frame, adc_cal=None):
 
     idle_handler(signum, frame)
 
-    sleep(5)
-    swarm.members_do(lambda fid, mbr: mbr._program('sma_corr.bof.gz'))
-
-    # Wait some more time, cuz that's how we roll
-    sleep(5)
-
-    # Do the intial setup
     if adc_cal is None:
         logger.info('Received signal #{0}; cold-starting SWARM...'.format(signum))
         pyopmess.send(1, 2, 100, 'SWARM cold-start beginning')
@@ -204,6 +197,18 @@ def cold_start_handler(signum, frame, adc_cal=None):
         logger.info('Received signal #{0}; warm-starting SWARM...'.format(signum))
         pyopmess.send(1, 2, 100, 'SWARM warm-start beginning')
 
+    sleep(5)
+    swarm.members_do(lambda fid, mbr: mbr._program('sma_corr.bof.gz'))
+
+    # Wait some more time, cuz that's how we roll
+    sleep(5)
+
+    logger.info(
+        "Beginning ROACH2 setup on all quadrants ({0} threading)...".format(
+            "with" if args.thread_setup else "without"
+        )
+    )
+    # Do the intial setup
     swarm.setup(
         args.itime,
         args.interfaces,

@@ -193,7 +193,7 @@ class SwarmROACH(object):
             )
             return False
 
-    def load_bitcode(self, bitcode="sma_corr_full_rev2_-2.bof.gz"):
+    def load_bitcode(self, bitcode="sma_corr.bof.gz"):
         # Unload plugins and program
         self.unload_plugins()
         self._program(bitcode)
