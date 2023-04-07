@@ -279,6 +279,7 @@ def cold_start_handler(signum, frame, adc_cal=None):
             key: value for item in update_dict for jtem in item for key, value in jtem.items()
         }
 
+        logger.info('Recording ADC calibration solutions')
         for roach2_host, value in update_dict.items():
             smax.smax_share("correlator:swarm:roach2:%s" % roach2_host, "mmcm_cal", value)
 

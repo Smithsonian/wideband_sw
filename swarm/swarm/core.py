@@ -1592,7 +1592,9 @@ class SwarmQuadrant:
         # Setup each member
         if not threaded:
             for fid, member in self.get_valid_members():
-                member.setup(self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err)
+                member.setup(
+                    self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err, adc_cal=adc_cal,
+                )
 
         else: # if requested, do threaded setup
 
@@ -1776,7 +1778,7 @@ class Swarm:
                 thread = ExceptingThread(
                     exceptions_queue,
                     target=quad.setup,
-                    kwargs={'raise_qdr_err': raise_qdr_err, 'threaded': True},
+                    kwargs={'raise_qdr_err': raise_qdr_err, 'threaded': True, 'adc_cal': adc_cal},
                     )
                 setup_threads[thread] = quad
 
