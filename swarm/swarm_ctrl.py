@@ -15,7 +15,7 @@ from signal import (
     SIGHUP,
     SIGURG,
     SIGCONT,
-    SIGSTOP,
+    SIGALRM,
     )
 import pyopmess
 
@@ -33,6 +33,7 @@ from callbacks.calibrate_vlbi import CalibrateVLBI
 from callbacks.log_stats import LogStats
 from callbacks.sma_data import SMAData
 from smax import SmaxRedisClient
+from numpy import all
 
 # Global variables
 RETURN_VALUE = SMAINIT_QUIT_RTN
@@ -175,7 +176,9 @@ def idle_handler(signum, frame):
     logger.info('Received signal #{0}; idling SWARM...'.format(signum))
     pyopmess.send(1, 1, 100, 'SWARM is now being idled')
     swarm_catcher.stop()  # stop waiting on data
-    swarm.members_do(lambda fid, mbr: mbr.idle(max_tries=5))
+    while not all(swarm.members_do(lambda fid, mbr: mbr.idle())):
+        logger.info('SWARM idle unsuccessful, retrying...')
+        sleep(5)
 
 
 # Register it to SIGHUP
@@ -298,7 +301,7 @@ def warm_start_handler(signum, frame):
     cold_start_handler(signum, frame, adc_cal=adc_cal)
 
 
-signal(SIGSTOP, warm_start_handler)
+signal(SIGALRM, warm_start_handler)
 
 
 # Signal handler to do a re-sync

@@ -180,19 +180,18 @@ class SwarmROACH(object):
 
         return rv
 
-    def idle(self, bitcode=SWARM_IDLE_BITCODE, max_tries=5):
-        for _ in range(max_tries):
-            try:
-                # Unload plugins and program with idle code
-                self.unload_plugins()
-                self._program(bitcode)
-                self.logger.info('Idled %s with %s' % (self.roach2_host, bitcode))
-                break
-            except Exception:
-                self.logger.warning(
-                    'Unable to Idle %s with %s, retrying' % (self.roach2_host, bitcode)
-                )
-                time.sleep(0.1)
+    def idle(self, bitcode=SWARM_IDLE_BITCODE):
+        try:
+            # Unload plugins and program with idle code
+            self.unload_plugins()
+            self._program(bitcode)
+            self.logger.info('Idled %s with %s' % (self.roach2_host, bitcode))
+            return True
+        except Exception as err:
+            self.logger.warning(
+                'Unable to Idle %s with %s' % (self.roach2_host, bitcode)
+            )
+            return False
 
     def load_bitcode(self, bitcode="sma_corr_full_rev2_-2.bof.gz"):
         # Unload plugins and program
