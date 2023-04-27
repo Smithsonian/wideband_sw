@@ -271,6 +271,10 @@ class SwarmMember(base.SwarmROACH):
         # self.calibrate_adc()
         if adc_cal is not None:
             try:
+                for inp in SWARM_MAPPING_INPUTS:
+                    set_test_mode(self, inp)
+                sync_adc(self)
+
                 mmcm_cal = adc_cal[self.roach2_host]["mmcm_cal"].data
                 for inp in SWARM_MAPPING_INPUTS:
                     for _ in range(mmcm_cal[inp]):
@@ -280,6 +284,10 @@ class SwarmMember(base.SwarmROACH):
                             host=self.fpga.host, inp=inp, cal=mmcm_cal[inp],
                         )
                     )
+
+                for inp in SWARM_MAPPING_INPUTS:
+                    unset_test_mode(self, inp)
+
             except KeyError:
                 # Report an error
                 self.logger.info('Error programming {host} MMCM phase'.format(host=self.fpga.host))
@@ -1595,9 +1603,8 @@ class SwarmQuadrant:
                 member.setup(
                     self.qid, fid, self.fids_expected, 0.0, raise_qdr_err=raise_qdr_err, adc_cal=adc_cal,
                 )
-
-        else: # if requested, do threaded setup
-
+        else:
+            # if requested, do threaded setup
             # Create our setup threads
             exceptions_queue = Queue()
             setup_threads = OrderedDict()
@@ -1768,9 +1775,8 @@ class Swarm:
                     threaded=False,
                     adc_cal=adc_cal,
                 )
-
-        else: # if requested, do threaded setup
-
+        else:
+            # if requested, do threaded setup
             # Create our setup threads
             exceptions_queue = Queue()
             setup_threads = OrderedDict()
