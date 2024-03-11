@@ -9,7 +9,7 @@ import pyopmess
 LOGFILE_NAME = '/global/logs/swarm/checks.log'
 ERROR_THRESHOLD = 500
 RUNNING = Event()
-PERIOD = 60
+PERIOD = 600
 
 # Setup root logger
 logger = logging.getLogger()
