@@ -72,8 +72,8 @@ if query_yes_no("Update SWARMQuadrantsInArray file with " + active_quad_string +
         quadrants_file.write(active_quad_string)
 
 if query_yes_no("Restart corrSaver and swarm processes?"):
-    # Restart corrSaver on obscon.
-    out = subprocess.check_output(["/global/bin/killdaemon", "obscon", "corrSaver", "restart"])
+    # Restart corrSaver on obscon1.
+    out = subprocess.check_output(["/global/bin/killdaemon", "obscon1", "corrSaver", "restart"])
     logger.debug(out)
 
     # Restart SWARM processes on Tenzing.

@@ -121,7 +121,7 @@ while RUNNING.is_set():
         # If error threshold is exceeded, generate operator message
         if errors > ERROR_THRESHOLD:
             logger.warning('Total corner-turn errors, {0}, exceed threshold'.format(errors))
-            pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check auto-correlations')
+            pyopmess.send(1, 1, PERIOD, 'Corner-turn errors exceed threshold; check autos')
 
         # Log that the iteration is done
         logger.debug("Checks done")
