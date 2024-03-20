@@ -6,14 +6,11 @@ from multiprocessing import Pool, cpu_count
 from numpy.linalg import eig as eig
 from numpy.fft import fft, ifft, fftshift
 from numpy import (
-    nan_to_num,
     any,
     all,
     complex128,
     errstate,
     linspace,
-    float64,
-    newaxis,
     hstack,
     vstack,
     array,
@@ -21,7 +18,6 @@ from numpy import (
     ones,
     empty,
     arange,
-    around,
     nanmean,
     nanstd,
     angle,
@@ -29,19 +25,15 @@ from numpy import (
     isfinite,
     sqrt,
     roll,
-    sum,
     nan,
     pi,
     exp,
     )
 from swarm import (
     SwarmDataCallback,
-    SwarmBaseline,
     SwarmInput,
     SWARM_CHANNELS,
     SWARM_CLOCK_RATE,
-    SWARM_MAPPING_POLS,
-    SWARM_MAPPING_CHUNKS,
     SWARM_BENGINE_SIDEBANDS,
 )
 from .json_file import JSONListFile
@@ -131,7 +123,7 @@ class CalibrateVLBI(SwarmDataCallback):
         normed=False,
         single_chan=True,
         history_size=8,
-        PID_coeffs=(0.75, 0.05, 0.01),
+        PID_coeffs=(0.85, 0.01, 0.1),
         outfilename=CALFILE,
     ):
         if reference is None:
