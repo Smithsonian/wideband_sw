@@ -29,7 +29,7 @@ stdout.setLevel(logging.INFO)
 logger.addHandler(stdout)
 
 # Also, log to rotating file handler
-logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=10)
+logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=90)
 logfile.setLevel(logging.INFO)
 logger.addHandler(logfile)
 
