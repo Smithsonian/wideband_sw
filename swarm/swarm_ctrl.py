@@ -39,7 +39,7 @@ from numpy import all
 RETURN_VALUE = SMAINIT_QUIT_RTN
 LOG_CHANNEL = "swarm.logs.ctrl"
 RUNNING = Event()
-
+MAX_IDLE_ATTEMPT = 5
 
 # Custom Redis logging handler
 class RedisHandler(logging.Handler):
@@ -176,9 +176,15 @@ def idle_handler(signum, frame):
     logger.info('Received signal #{0}; idling SWARM...'.format(signum))
     pyopmess.send(1, 1, 100, 'SWARM is now being idled')
     swarm_catcher.stop()  # stop waiting on data
+    count = 0
     while not all(swarm.members_do(lambda fid, mbr: mbr.idle())):
         logger.info('SWARM idle unsuccessful, retrying...')
         sleep(5)
+        count += 1
+        if count > MAX_IDLE_ATTEMPT:
+            logger.info('SWARM idle unsuccessful, reached max tries.')
+            pyopmess.send(1, 1, 100, 'Failed to idle SWARM, check error logs.')
+            break
 
 
 # Register it to SIGHUP
