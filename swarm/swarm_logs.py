@@ -20,7 +20,7 @@ stdout.setLevel(logging.INFO)
 logger.addHandler(stdout)
 
 # Also, log to rotating file handler
-logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=10)
+logfile = logging.handlers.TimedRotatingFileHandler(LOGFILE_NAME, when='midnight', interval=1, backupCount=90)
 logfile.setLevel(logging.DEBUG)
 logger.addHandler(logfile)
 
@@ -41,8 +41,8 @@ shortlog.setFormatter(shortform)
 # Parse the user's command line arguments
 parser = argparse.ArgumentParser(description='Read various SWARM registers and memory and write to Redis server')
 parser.add_argument('-v', dest='verbose', action='store_true', help='Display debugging logs')
-parser.add_argument('--redis-host', dest='redis_host', help='Redis host name (defailt="localhost")', default='localhost')
-parser.add_argument('--redis-port', dest='redis_port', help='Redis port number (defailt=6379)', type=int, default=6379)
+parser.add_argument('--redis-host', dest='redis_host', help='Redis host name (default="localhost")', default='localhost')
+parser.add_argument('--redis-port', dest='redis_port', help='Redis port number (default=6379)', type=int, default=6379)
 args = parser.parse_args()
 
 # Set logging level given verbosity
