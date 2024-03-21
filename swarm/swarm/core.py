@@ -134,6 +134,7 @@ class SwarmInput:
         self, antenna=None,
         chunk=None,
         polarization=None,
+        second_sb_phase=0.0,
         parent_logger=module_logger
     ):
 
@@ -141,16 +142,18 @@ class SwarmInput:
         self.ant = antenna
         self.chk = chunk
         self.pol = polarization
+        self.second_sb_phase = second_sb_phase
 
     def __repr__(self):
         repr_str = (
-            '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r})'
+            '{name}(antenna={ant!r}, chunk={chk!r}, polarization={pol!r}, second_sb_phase={phs!r})'
         )
         return repr_str.format(
             name=self.__class__.__name__,
             ant=self.ant,
             chk=self.chk,
             pol=self.pol,
+            phs=self.second_sb_phase,
         )
 
     def __str__(self):
@@ -1365,20 +1368,48 @@ class SwarmQuadrant:
         for fid, member in self.get_valid_members():
             member.set_bengine_mask(mask)
 
-    def get_beamformer_second_sideband_phase(self, inputs):
+    def get_input_second_sideband_phase(self, inputs):
+        phases = []
+        # Loop through requested inputs, and append the phase for each
+        for inp in inputs:
+            # Find the FID to which the input belongs
+            for fid, member in self.get_valid_members():
+                if inp not in member._inputs:
+                    continue
+                # Get the input index
+                inp_n = member._inputs.index(inp)
+
+                # Append the phase
+                phases.append(member._inputs[inp_n]).second_sb_phase
+
+    def set_input_second_sideband_phase(self, inputs, phases):
+        # Find FIDs that match each input
+        for phase_val, inp in zip(phases, inputs):
+            for fid, member in self.get_valid_members():
+                if inp not in member._inputs:
+                    continue
+                inp_n = member._inputs.index(inp)
+                member._inputs[inp_n] = phase_val
+
+    def get_beamformer_second_sideband_phase(self, inputs, use_reg=True):
 
         # Initialize phases
         phases = []
 
         # Read phases for all inputs in this quadrant
-        all_phases = None
-        for fid, member in self.get_valid_members():
+        all_phases = None if use_reg else zeros((SWARM_N_FIDS,SWARM_N_INPUTS),dtype=float)
+        if use_reg:
+            for fid, member in self.get_valid_members():
+                if use_reg:
+                    # Only need to read from one FID, if successful we're done
+                    all_phases = member.get_beng_sb1demodphase_phase()
 
-            # Only need to read from one FID, if successful we're done
-            all_phases = member.get_beng_sb1demodphase_phase()
+                    if all_phases is not None:
+                        break
+                else:
+                    for input_n in range(SWARM_N_INPUTS):
+                        all_phases[fid, input_n] = member._inputs[input_n].second_sb_phase
 
-            if all_phases is not None:
-                break
 
         # Loop through requested inputs, and append the phase for each
         for inp in inputs:
@@ -1397,7 +1428,7 @@ class SwarmQuadrant:
 
         return phases
 
-    def set_beamformer_second_sideband_phase(self, inputs, phases):
+    def set_beamformer_second_sideband_phase(self, inputs, phases, skip_prog=True):
         # Phase for second sideband beam are set at the quadrant level
         # since each FID should have the phase coefficients for all other
         # FIDs in the same quadrant
@@ -1411,10 +1442,11 @@ class SwarmQuadrant:
                 if inp not in member._inputs:
                     continue
                 inp_n = member._inputs.index(inp)
+                member._inputs[inp_n].second_sb_phase = phases[ii]
                 phase_per_fid_input[fid, inp_n] = phases[ii]
 
-        # If all the values are nan, it means we have nothing to update
-        if all(isnan(phase_per_fid_input)):
+        # If all the values are nan or we're skpping programming, it means we have nothing to update
+        if all(isnan(phase_per_fid_input)) or skip_prog:
             return
 
         # Apply to each member
@@ -2134,7 +2166,7 @@ class Swarm:
         if members_found == 0:
             self.logger.error('{} not in SWARM!'.format(this_input))
 
-    def get_beamformer_second_sideband_phase(self, inputs):
+    def get_beamformer_second_sideband_phase(self, inputs, use_bf=False):
 
         # Initialize return phases, default to zero for unfound inputs
         phases = [0.0]*len(inputs)
@@ -2162,16 +2194,16 @@ class Swarm:
 
         return phases
 
-    def calc_baseline_second_sideband_phase(self, baselines):
+    def calc_baseline_second_sideband_phase(self, baselines, use_bf=False):
         """
         Convenience function for calculating the per-baseline-spw phase correction
         that is applied to the second sideband beamformer (typically LSB).
         """
         # Get the phases that need to be applied to each baseline
         left_inputs = [bl.left for bl in baselines]
-        left_phases = array(self.get_beamformer_second_sideband_phase(left_inputs))
+        left_phases = array(self.get_beamformer_second_sideband_phase(left_inputs), use_bf=use_bf)
         right_inputs = [bl.right for bl in baselines]
-        right_phases = array(self.get_beamformer_second_sideband_phase(right_inputs))
+        right_phases = array(self.get_beamformer_second_sideband_phase(right_inputs), use_bf=use_bf)
         bl_phases = (left_phases - right_phases)
 
         return bl_phases
